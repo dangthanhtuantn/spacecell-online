@@ -13,7 +13,16 @@ const GW = 6000, GH = 6000;
 const FOOD_COUNT = 1200; // same density as before (1500/10000² * 6000² ≈ 540, boost to 1200)
 const BOT_COUNT = 20;
 const TICK_MS = 33;           // ~30fps tick; client interpolates to 60fps
-let lastTick = Date.now();  // for variable DT measurement
+const LERP_P=0.2;   // player lerp per tick (33ms)
+const LERP_B=0.15;  // bot lerp per tick
+const FRIC=0.82;    // friction per tick
+
+// Frame-rate independent physics helpers
+// These scale lerp/friction correctly for any DT
+function lerpFactor(base,dt){return 1-Math.pow(1-base,dt);}
+function fricFactor(dt){return Math.pow(FRIC,dt);}
+
+let accumulator=0; // fixed timestep accumulator
 const ITEM_MAX = 10;
 const WORLD_UPDATE_MS = 600;
 const AOI_RANGE = 3500;       // Area of Interest radius
@@ -195,19 +204,37 @@ function qEmitTo(id,ev,data){pendingEmits.push({ev,data,to:id});}
 // Self-correcting game loop using setTimeout (avoids setInterval drift)
 function tick(){
   const now=Date.now();
-  const elapsed=Math.min(Math.max(now-lastTick,8),66);
+  const elapsed=Math.min(now-lastTick,66); // cap at 66ms to prevent spiral
   lastTick=now;
-  const DT=elapsed/16.67;
+  accumulator+=elapsed;
 
+  // Run fixed-step physics (TICK_MS per step) - stable regardless of real elapsed
+  let steps=0;
+  while(accumulator>=TICK_MS&&steps<3){ // max 3 steps per real tick
+    accumulator-=TICK_MS;
+    steps++;
+    const DT=1; // 1.0 = exactly one tick - physics are normalized per tick now
+    physicsStep(DT,now);
+  }
+
+  // Broadcast once per real tick (not per physics step)
+  broadcastState(now);
+
+  const spent=Date.now()-now;
+  setTimeout(tick,Math.max(0,TICK_MS-spent));
+}
+
+function physicsStep(DT,now){
   const pArr=Object.values(players),pLen=pArr.length,bLen=bots.length;
+  const lP=lerpFactor(LERP_P,DT), lB=lerpFactor(LERP_B,DT), fr=fricFactor(DT);
 
   for(let pi=0;pi<pLen;pi++){
     const p=pArr[pi];
     if(p.cdQ>0)p.cdQ-=elapsed;if(p.cdW>0)p.cdW-=elapsed;
     if(p.cdR>0)p.cdR-=elapsed;if(p.cdB>0)p.cdB-=elapsed;if(p.cdF>0)p.cdF-=elapsed;
     const spd=baseSpd(p.mass);
-    if(p._dashFrames>0){p._dashFrames--;p.vx*=0.82;p.vy*=0.82;}
-    else if(p.inputVx!==undefined){p.vx+=(p.inputVx*spd-p.vx)*0.2;p.vy+=(p.inputVy*spd-p.vy)*0.2;p.vx*=0.82;p.vy*=0.82;}
+    if(p._dashFrames>0){p._dashFrames--;p.vx*=fr;p.vy*=fr;}
+    else if(p.inputVx!==undefined){p.vx+=(p.inputVx*spd-p.vx)*lP;p.vy+=(p.inputVy*spd-p.vy)*lP;p.vx*=0.82;p.vy*=0.82;}
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx*DT,pr,GW-pr);p.y=clamp(p.y+p.vy*DT,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
@@ -280,7 +307,7 @@ function tick(){
       }
     }
     const bdx=bot.atx-bot.x,bdy=bot.aty-bot.y,bl=Math.hypot(bdx,bdy)||1,bspd=baseSpd(bot.mass);
-    bot.vx+=(bdx/bl*bspd-bot.vx)*0.15;bot.vy+=(bdy/bl*bspd-bot.vy)*0.15;bot.vx*=0.82;bot.vy*=0.82;
+    bot.vx+=(bdx/bl*bspd-bot.vx)*lB;bot.vy+=(bdy/bl*bspd-bot.vy)*lB;bot.vx*=fr;bot.vy*=fr;
     const br=mtr(bot.mass);
     bot.x=clamp(bot.x+bot.vx*DT,br,GW-br);bot.y=clamp(bot.y+bot.vy*DT,br,GH-br);
     const bnear=nearbyFood(bot.x,bot.y,br+15);
@@ -300,22 +327,33 @@ function tick(){
   // Flush batched events AFTER all physics
   for(let i=0;i<pendingEmits.length;i++){const e=pendingEmits[i];e.to?io.to(e.to).emit(e.ev,e.data):io.emit(e.ev,e.data);}
   pendingEmits.length=0;
+} // end physicsStep
 
-  // AoI broadcast per player
+function broadcastState(now){
+  const pArr=Object.values(players),pLen=pArr.length,bLen=bots.length;
   const aoiR2=AOI_RANGE*AOI_RANGE;
   for(let pi=0;pi<pLen;pi++){
     const p=pArr[pi],sock=io.sockets.sockets.get(p.id);if(!sock)continue;
     const visP=[],visB=[],visBu=[];
-    visP.push({id:p.id,name:p.name,color:p.color,flag:p.flag,x:p.x,y:p.y,mass:p.mass,shielded:now<p.shieldEnd,stealthed:now<p.stealthEnd,inv:p.inv,cdQ:p.cdQ,cdW:p.cdW,cdR:p.cdR,cdB:p.cdB,cdF:p.cdF});
-    for(let j=0;j<pLen;j++){if(j===pi)continue;const q=pArr[j];if(dst2(p.x,p.y,q.x,q.y)<aoiR2)visP.push({id:q.id,name:q.name,color:q.color,flag:q.flag,x:q.x,y:q.y,mass:q.mass,shielded:now<q.shieldEnd,stealthed:now<q.stealthEnd,inv:q.inv,cdQ:q.cdQ,cdW:q.cdW,cdR:q.cdR,cdB:q.cdB,cdF:q.cdF});}
-    for(let bi=0;bi<bLen;bi++){const bot=bots[bi];if(dst2(p.x,p.y,bot.x,bot.y)<aoiR2)visB.push({id:bot.id,x:bot.x,y:bot.y,mass:bot.mass,col:bot.col,name:bot.name});}
-    for(let bi=0;bi<bullets.length;bi++){const b=bullets[bi];if(dst2(p.x,p.y,b.x,b.y)<aoiR2)visBu.push({id:b.id,x:b.x,y:b.y,r:b.r,col:b.col,type:b.type});}
-    sock.emit('state',{t:now,players:visP,bots:visB,bullets:visBu});
+    // Self: use compact keys to reduce bandwidth
+    visP.push({i:p.id,n:p.name,c:p.color,f:p.flag,x:Math.round(p.x),y:Math.round(p.y),m:Math.round(p.mass),sh:now<p.shieldEnd?1:0,st:now<p.stealthEnd?1:0,inv:p.inv,cQ:p.cdQ,cW:p.cdW,cR:p.cdR,cB:p.cdB,cF:p.cdF});
+    for(let j=0;j<pLen;j++){
+      if(j===pi)continue;const q=pArr[j];
+      if(dst2(p.x,p.y,q.x,q.y)<aoiR2)
+        visP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,cF:q.cdF});
+    }
+    for(let bi=0;bi<bLen;bi++){
+      const b=bots[bi];
+      if(dst2(p.x,p.y,b.x,b.y)<aoiR2)
+        visB.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name});
+    }
+    for(let bi=0;bi<bullets.length;bi++){
+      const b=bullets[bi];
+      if(dst2(p.x,p.y,b.x,b.y)<aoiR2)
+        visBu.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),r:b.r,c:b.col,t:b.type==='bomb'?1:0});
+    }
+    sock.emit('state',{t:now,p:visP,b:visB,u:visBu});
   }
-
-  // Self-correcting: next tick fires after compensating for time spent
-  const spent=Date.now()-now;
-  setTimeout(tick,Math.max(0,TICK_MS-spent));
 }
 setTimeout(tick,TICK_MS);
 

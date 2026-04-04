@@ -249,16 +249,15 @@ function joinGame(name,flag,color){
   });
 
   socket.on('state',s=>{
+    // Expand compact keys from server
+    const players=(s.p||[]).map(p=>({id:p.i,name:p.n,color:p.c,flag:p.f,x:p.x,y:p.y,mass:p.m,shielded:!!p.sh,stealthed:!!p.st,inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,cdF:p.cF}));
+    const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
+    const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
     // Push into ring buffer with receive timestamp
     snapHead=(snapHead+1)%SNAP_BUF;
-    snapBuf[snapHead]={
-      players:s.players||[],
-      bots:s.bots||[],
-      bullets:s.bullets||[],
-      t:Date.now() // use receive time — simple and consistent
-    };
+    snapBuf[snapHead]={players,bots,bullets,t:Date.now()};
     if(snapCount<SNAP_BUF)snapCount++;
-    gameState=s;
+    gameState={players,bots,bullets};
     // Reconcile prediction with server
     const me=s.players&&s.players.find(p=>p.id===myId);
     if(me){
@@ -469,21 +468,22 @@ function loop(ts){
   requestAnimationFrame(loop);
   const dt=Math.min((ts-prev)/16.67,3);prev=ts;
 
-  // CLIENT-SIDE PREDICTION: move own player locally every frame
+  // CLIENT-SIDE PREDICTION: frame-rate independent physics matching server
   if(gameActive&&myId){
     const me=gameState.players&&gameState.players.find(p=>p.id===myId);
     const spd=me?5*speedMult(me.mass||predMass):5;
-    if(predDashFrames>0){predDashFrames--;predVx*=0.82;predVy*=0.82;}
+    const tickFrac=dt*16.67/33; // normalize frame dt to server tick units
+    const lP=1-Math.pow(0.8,tickFrac);   // FI lerp matching server LERP_P=0.2
+    const fr=Math.pow(0.82,tickFrac);    // FI friction matching server FRIC=0.82
+    if(predDashFrames>0){predDashFrames--;predVx*=fr;predVy*=fr;}
     else{
       const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-      // Match server physics exactly: lerp 0.2, friction 0.82
-      predVx+=(mdx/ml*spd-predVx)*0.2;predVy+=(mdy/ml*spd-predVy)*0.2;
-      predVx*=0.82;predVy*=0.82;
+      predVx+=(mdx/ml*spd-predVx)*lP;predVy+=(mdy/ml*spd-predVy)*lP;
+      predVx*=fr;predVy*=fr;
     }
     const pr=me?mtr(me.mass||predMass):mtr(predMass);
     predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dt));
     predY=Math.max(pr,Math.min(GH-pr,predY+predVy*dt));
-    // Camera follows predicted position — instant, no lag
     camTargX=predX-SW/2;camTargY=predY-SH/2;
   }
 
