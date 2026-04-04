@@ -199,11 +199,12 @@ let socket=null,myId=null,myName='Player',myColor='#00cfff',myFlag=null;
 let GW=10000,GH=10000,CELL=1000,GRID=10;
 // Ring buffer of snapshots (receive timestamps, no clock sync needed)
 const SNAP_BUF=8;
-const snapBuf=Array.from({length:SNAP_BUF},()=>({players:[],bots:[],bullets:[],t:0}));
-let snapHead=0; // index of newest snapshot
+const snapBuf=Array.from({length:SNAP_BUF},()=>({players:[],bots:[],bullets:[],t:Date.now()}));
+let snapHead=0;
 let snapCount=0;
 let gameState={players:[],bots:[],bullets:[]};
 let food=[],items=[],parts=[];
+let localBullets=[]; // client-predicted bullets (immediate visual)
 let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
 let gameActive=false;
 const STARS=[];
@@ -238,6 +239,7 @@ function joinGame(name,flag,color){
     gameState={players:[],bots:d.bots||[],bullets:[]};
     // Reset ring buffer
     snapHead=0;snapCount=0;
+    localBullets=[];
     for(let i=0;i<SNAP_BUF;i++) snapBuf[i]={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
     initStars();
     predX=d.spawnX||GW/2;predY=d.spawnY||GH/2;
@@ -354,12 +356,22 @@ setInterval(()=>{
 },33);
 
 // Send shoot every server tick (33ms) for immediate response
+let _lastLocalShot=0;
 setInterval(()=>{
   if(!socket||!myId||!gameActive||!Keys['KeyE'])return;
   const me=gameState.players.find(p=>p.id===myId);if(!me||me.mass<=20)return;
   const wx=Mouse.x+camX,wy=Mouse.y+camY;
   const dx=wx-predX,dy=wy-predY,l=Math.hypot(dx,dy)||1;
-  socket.emit('shoot',{nx:dx/l,ny:dy/l,px:Math.round(predX),py:Math.round(predY)});
+  const nx=dx/l,ny=dy/l;
+  socket.emit('shoot',{nx,ny,px:Math.round(predX),py:Math.round(predY)});
+  // Spawn local bullet immediately for zero-latency visual
+  const now=Date.now();
+  if(now-_lastLocalShot>=33){
+    _lastLocalShot=now;
+    const r=mtr(predMass);
+    localBullets.push({x:predX+nx*r,y:predY+ny*r,vx:nx*20,vy:ny*20,
+      r:3,col:myColor,life:20,t:now});
+  }
 },33);
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -390,26 +402,26 @@ function getInterpolated(){
     return {players:s.players,bots:s.bots,bullets:s.bullets};
   }
 
-  const renderT=Date.now()-INTERP_DELAY;
+  // Bullets: always use LATEST snapshot (no interpolation delay - they move fast)
+  const latestBullets=snapBuf[snapHead].bullets;
 
-  // Find newest snapshot OLDER than renderT (this is snapPrev)
-  // and the snapshot just after it (snapCurr)
+  // Players/bots: interpolate with 100ms delay (reduced from 200ms)
+  const BOT_DELAY=100;
+  const renderT=Date.now()-BOT_DELAY;
+
   let prevIdx=-1,currIdx=-1;
   for(let i=0;i<snapCount;i++){
-    const idx=(snapHead-i+SNAP_BUF)%SNAP_BUF; // newest first
+    const idx=(snapHead-i+SNAP_BUF)%SNAP_BUF;
     if(snapBuf[idx].t<=renderT){
-      currIdx=(snapHead-(i-1)+SNAP_BUF)%SNAP_BUF; // one newer
+      currIdx=(snapHead-(i-1)+SNAP_BUF)%SNAP_BUF;
       prevIdx=idx;
       break;
     }
   }
-
-  // If renderT is older than all snapshots: use oldest pair
   if(prevIdx===-1){
     prevIdx=(snapHead-snapCount+1+SNAP_BUF)%SNAP_BUF;
     currIdx=(snapHead-snapCount+2+SNAP_BUF)%SNAP_BUF;
   }
-  // If renderT is newer than all snapshots: use newest pair
   if(currIdx===-1||currIdx===prevIdx){
     currIdx=snapHead;
     prevIdx=(snapHead-1+SNAP_BUF)%SNAP_BUF;
@@ -418,10 +430,8 @@ function getInterpolated(){
   const prev=snapBuf[prevIdx];
   const curr=snapBuf[currIdx];
   const dt=curr.t-prev.t;
-  // t strictly in [0,1] - NEVER extrapolate
   const t=dt<=0?1:Math.max(0,Math.min(1,(renderT-prev.t)/dt));
 
-  // Build O(1) lookup maps
   const prevPlayerMap=new Map(prev.players.map(p=>[p.id,p]));
   const prevBotMap=new Map(prev.bots.map(b=>[b.id,b]));
 
@@ -437,7 +447,7 @@ function getInterpolated(){
     return {...c,x:lerp(p.x,c.x,t),y:lerp(p.y,c.y,t)};
   });
 
-  return {players,bots,bullets:curr.bullets};
+  return {players,bots,bullets:latestBullets};
 }
 
 // ── HUD ────────────────────────────────────────────────────────
@@ -519,6 +529,12 @@ function loop(ts){
     const p=parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.92;p.vy*=0.92;p.life-=dt;p.r*=0.95;
     if(p.life<=0||p.r<0.3)parts.splice(i,1);
   }
+  // Update local predicted bullets
+  for(let i=localBullets.length-1;i>=0;i--){
+    const b=localBullets[i];
+    b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+    if(b.life<=0)localBullets.splice(i,1);
+  }
   render();
 }
 requestAnimationFrame(loop);
@@ -579,8 +595,15 @@ function render(){
   parts.forEach(p=>{CTX.globalAlpha=Math.min(1,p.life/20);CTX.fillStyle=p.col;CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.fill();});
   CTX.globalAlpha=1;
 
-  // Bullets (latest from server, move fast enough)
+  // Local predicted bullets (zero latency - rendered immediately when shot)
+  localBullets.forEach(b=>{
+    CTX.fillStyle=b.col;CTX.shadowBlur=5;CTX.shadowColor=b.col;
+    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
+  });
+
+  // Server bullets (others' bullets only - skip own since localBullets covers them)
   (interp.bullets||[]).forEach(b=>{
+    if(b.col===myColor)return; // own bullet already shown via localBullets
     CTX.fillStyle=b.col;CTX.shadowBlur=b.type==='bomb'?16:5;CTX.shadowColor=b.col;
     CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
   });
