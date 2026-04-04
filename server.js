@@ -190,7 +190,7 @@ io.on('connection', socket => {
   });
   socket.on('shoot',({nx,ny,px,py})=>{
     const p=players[socket.id];if(!p||p.mass<=20)return;
-    const now=Date.now();if(now-p._lastShot<33)return;
+    const now=Date.now();if(now-p._lastShot<250)return; // 0.25s between shots
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
     const spawnX=(px!==undefined&&Math.abs(px-p.x)<200)?px:p.x;
     const spawnY=(py!==undefined&&Math.abs(py-p.y)<200)?py:p.y;
@@ -332,7 +332,7 @@ function physicsStep(DT,now){
       const prd=mtr(p.mass);
       if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<prd*prd){p.mass=Math.min(10000,p.mass+bot.mass*0.7);qEmit('explode',{x:bot.x,y:bot.y,col:bot.col});bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
     }
-    if(bot.st<=0&&bot.mass>20){bot.st=rnd(2,7);for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const dd2=dst2(bot.x,bot.y,p.x,p.y);if(dd2>1&&dd2<250000){const dd=Math.sqrt(dd2),nx=(p.x-bot.x)/dd,ny=(p.y-bot.y)/dd;bullets.push(acquireBullet({id:uid(),x:bot.x+nx*(br+8),y:bot.y+ny*(br+8),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,ownerId:bot.id}));bot.mass=Math.max(5,bot.mass-1);}}}
+    if(bot.st<=0&&bot.mass>20){bot.st=7;for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const dd2=dst2(bot.x,bot.y,p.x,p.y);if(dd2>1&&dd2<250000){const dd=Math.sqrt(dd2),nx=(p.x-bot.x)/dd,ny=(p.y-bot.y)/dd;bullets.push(acquireBullet({id:uid(),x:bot.x+nx*(br+8),y:bot.y+ny*(br+8),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,ownerId:bot.id}));bot.mass=Math.max(5,bot.mass-1);}}}
     for(let ii=0;ii<items.length;ii++){if(items[ii].type==='TOXIC'&&dst2(bot.x,bot.y,items[ii].x,items[ii].y)<10000)bot.mass=Math.max(5,bot.mass*(1-0.05*DT/60));}
     if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
   }

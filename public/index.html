@@ -295,10 +295,15 @@ function joinGame(name,flag,color){
   });
 
   socket.on('explode',({x,y,col})=>{
-    // Delay matches interpolation offset so explosion aligns with displayed bot
-    // ping ~150ms, interp 130ms, explosion arrives at ping after server event
-    // net offset ≈ interp_delay - ping/2 = 130 - 75 = ~55ms
-    setTimeout(()=>spark(x,y,col,30), 55);
+    // Fire immediately at nearest INTERPOLATED entity position
+    // This matches where the bot is visually displayed
+    const interp=getInterpolated();
+    let ex=x,ey=y,bestD2=120*120;
+    [...(interp.bots||[]),...(interp.players||[])].forEach(e=>{
+      const d2=(e.x-x)*(e.x-x)+(e.y-y)*(e.y-y);
+      if(d2<bestD2){bestD2=d2;ex=e.x;ey=e.y;}
+    });
+    spark(ex,ey,col,30);
   });
   socket.on('msg',({text,col})=>addMsg(text,col));
 
@@ -360,24 +365,23 @@ setInterval(()=>{
   });
 },33);
 
-// Send shoot every server tick (33ms) for immediate response
+// Shoot every 250ms (one bullet per 0.25s) while holding E
 let _lastLocalShot=0;
 setInterval(()=>{
   if(!socket||!myId||!gameActive||!Keys['KeyE'])return;
   const me=gameState.players.find(p=>p.id===myId);if(!me||me.mass<=20)return;
+  const now=Date.now();
+  if(now-_lastLocalShot<250)return; // 0.25s between shots
+  _lastLocalShot=now;
   const wx=Mouse.x+camX,wy=Mouse.y+camY;
   const dx=wx-predX,dy=wy-predY,l=Math.hypot(dx,dy)||1;
   const nx=dx/l,ny=dy/l;
   socket.emit('shoot',{nx,ny,px:Math.round(predX),py:Math.round(predY)});
   // Spawn local bullet immediately for zero-latency visual
-  const now=Date.now();
-  if(now-_lastLocalShot>=33){
-    _lastLocalShot=now;
-    const r=mtr(predMass);
-    localBullets.push({x:predX+nx*r,y:predY+ny*r,vx:nx*20,vy:ny*20,
-      r:3,col:myColor,life:20,t:now});
-  }
-},33);
+  const r=mtr(predMass);
+  localBullets.push({x:predX+nx*r,y:predY+ny*r,vx:nx*20,vy:ny*20,
+    r:3,col:myColor,life:20,t:now});
+},33); // poll at 33ms for responsive key detection
 
 // ── Helpers ────────────────────────────────────────────────────
 function addMsg(t,col){
