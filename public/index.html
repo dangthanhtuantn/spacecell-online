@@ -197,19 +197,22 @@ function speedMult(mass){
 // Game state with interpolation + client-side prediction
 let socket=null,myId=null,myName='Player',myColor='#00cfff',myFlag=null;
 let GW=10000,GH=10000,CELL=1000,GRID=10;
-// Server snapshots for interpolation (other players/bots)
-let snapPrev={players:[],bots:[],bullets:[],t:0};
-let snapCurr={players:[],bots:[],bullets:[],t:0};
+// Ring buffer of snapshots (receive timestamps, no clock sync needed)
+const SNAP_BUF=8;
+const snapBuf=Array.from({length:SNAP_BUF},()=>({players:[],bots:[],bullets:[],t:0}));
+let snapHead=0; // index of newest snapshot
+let snapCount=0;
 let gameState={players:[],bots:[],bullets:[]};
 let food=[],items=[],parts=[];
 let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
-let clockOffset=0; // client_time + clockOffset ≈ server_time
 let gameActive=false;
 const STARS=[];
-const INTERP_DELAY=100; // must be >= TICK_MS*2 to handle server jitter
+// 200ms delay: enough buffer for ping~150ms + jitter + 2 ticks
+// t will almost always be in [0,1] -> no extrapolation -> no giật
+const INTERP_DELAY=200;
 
 // Client-side prediction for OWN player
-let predX=0,predY=0,predMass=10,predVx=0,predVy=0;
+let predX=0,predY=0,predMass=20,predVx=0,predVy=0;
 let predDashFrames=0;
 
 function initStars(){
@@ -233,35 +236,35 @@ function joinGame(name,flag,color){
     GW=d.worldW;GH=d.worldH;
     food=d.food||[];items=d.items||[];
     gameState={players:[],bots:d.bots||[],bullets:[]};
-    snapPrev={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
-    snapCurr={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
+    // Reset ring buffer
+    snapHead=0;snapCount=0;
+    for(let i=0;i<SNAP_BUF;i++) snapBuf[i]={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
     initStars();
-    // Use EXACT server spawn position — no mismatch, no snap on first state
-    predX=d.spawnX||GW/2; predY=d.spawnY||GH/2;
-    predMass=20; predVx=0; predVy=0; predDashFrames=0;
-    camX=predX-SW/2; camY=predY-SH/2;
-    camTargX=camX; camTargY=camY;
+    predX=d.spawnX||GW/2;predY=d.spawnY||GH/2;
+    predMass=20;predVx=0;predVy=0;predDashFrames=0;
+    camX=predX-SW/2;camY=predY-SH/2;
+    camTargX=camX;camTargY=camY;
     gameActive=true;
     addMsg('Welcome '+name+'! Q Dash  W Shield  E Shoot  R Stealth  B Bomb  F Magnet','#0ff');
   });
 
   socket.on('state',s=>{
-    snapPrev={...snapCurr};
-    // Use SERVER timestamp for accurate interpolation (eliminates network jitter)
-    snapCurr={players:s.players||[],bots:s.bots||[],bullets:s.bullets||[],t:s.t||Date.now()};
+    // Push into ring buffer with receive timestamp
+    snapHead=(snapHead+1)%SNAP_BUF;
+    snapBuf[snapHead]={
+      players:s.players||[],
+      bots:s.bots||[],
+      bullets:s.bullets||[],
+      t:Date.now() // use receive time — simple and consistent
+    };
+    if(snapCount<SNAP_BUF)snapCount++;
     gameState=s;
-    // Server reconciliation: only correct if drift is significant
+    // Reconcile prediction with server
     const me=s.players&&s.players.find(p=>p.id===myId);
     if(me){
-      const err=Math.hypot(predX-me.x, predY-me.y);
-      if(err>150){
-        // Large error: snap (wall collision, teleport from death)
-        predX=me.x;predY=me.y;predVx=0;predVy=0;
-      } else if(err>40){
-        // Small drift: very gentle correction
-        predX+=(me.x-predX)*0.04;predY+=(me.y-predY)*0.04;
-      }
-      // <40px: ignore — prediction is accurate
+      const err=Math.hypot(predX-me.x,predY-me.y);
+      if(err>150){predX=me.x;predY=me.y;predVx=0;predVy=0;}
+      else if(err>40){predX+=(me.x-predX)*0.04;predY+=(me.y-predY)*0.04;}
       predMass=me.mass;
     }
     updateHUD();
@@ -306,8 +309,6 @@ function joinGame(name,flag,color){
 
   socket.on('pong_reply',({t:serverT})=>{
     const rtt=Date.now()-pingTime;
-    // Estimate server time at this moment = serverT + rtt/2
-    clockOffset=(serverT+rtt/2)-Date.now();
     document.getElementById('pingval').textContent=rtt;
     setTimeout(doPing,2000);
   });
@@ -373,47 +374,64 @@ function spark(px,py,col,n=8){
 
 // Linear interpolation
 function lerp(a,b,t){return a+(b-a)*t;}
-// Smoothstep - eases in/out, less jitter than linear for bots
-function smoothstep(a,b,t){const s=t*t*(3-2*t);return a+(b-a)*s;}
 
-// Get interpolated game state for smooth rendering
+// Get interpolated game state using ring buffer
+// Finds the snapshot pair that brackets (now - INTERP_DELAY)
+// t is always clamped to [0,1] - no extrapolation ever
 function getInterpolated(){
-  // clockOffset syncs client clock to server clock, eliminating network jitter
-  const now=(Date.now()+clockOffset)-INTERP_DELAY;
-  const dt=snapCurr.t-snapPrev.t;
-  if(dt<=0)return {players:snapCurr.players,bots:snapCurr.bots,bullets:snapCurr.bullets};
-  const t=(now-snapPrev.t)/dt;
-  // For bots: clamp to [0,1.3] — allow slight extrapolation to bridge tick gaps
-  // but cap it to prevent runaway drift when ticks are very late
-  const tBot=Math.max(0,Math.min(1.3,t));
-  const tP=Math.max(0,Math.min(1.1,t));
+  if(snapCount<2){
+    const s=snapBuf[snapHead];
+    return {players:s.players,bots:s.bots,bullets:s.bullets};
+  }
 
-  const prevPlayerMap=new Map(snapPrev.players.map(p=>[p.id,p]));
-  const prevBotMap=new Map(snapPrev.bots.map(b=>[b.id,b]));
+  const renderT=Date.now()-INTERP_DELAY;
 
-  const players=snapCurr.players.map(curr=>{
-    const prev=prevPlayerMap.get(curr.id);
-    if(!prev)return curr;
-    return {...curr,x:lerp(prev.x,curr.x,tP),y:lerp(prev.y,curr.y,tP)};
-  });
-
-  // Bots: smoothstep up to t=1, then linear extrapolate slightly beyond
-  const bots=snapCurr.bots.map(curr=>{
-    const prev=prevBotMap.get(curr.id);
-    if(!prev)return curr;
-    if(tBot<=1){
-      // Smoothstep for t in [0,1]
-      const s=tBot*tBot*(3-2*tBot);
-      return {...curr,x:lerp(prev.x,curr.x,s),y:lerp(prev.y,curr.y,s)};
-    } else {
-      // Gentle linear extrapolation beyond snapshot (bridge tick gaps)
-      const extra=tBot-1;
-      const vx=curr.x-prev.x, vy=curr.y-prev.y;
-      return {...curr,x:curr.x+vx*extra*0.5,y:curr.y+vy*extra*0.5};
+  // Find newest snapshot OLDER than renderT (this is snapPrev)
+  // and the snapshot just after it (snapCurr)
+  let prevIdx=-1,currIdx=-1;
+  for(let i=0;i<snapCount;i++){
+    const idx=(snapHead-i+SNAP_BUF)%SNAP_BUF; // newest first
+    if(snapBuf[idx].t<=renderT){
+      currIdx=(snapHead-(i-1)+SNAP_BUF)%SNAP_BUF; // one newer
+      prevIdx=idx;
+      break;
     }
+  }
+
+  // If renderT is older than all snapshots: use oldest pair
+  if(prevIdx===-1){
+    prevIdx=(snapHead-snapCount+1+SNAP_BUF)%SNAP_BUF;
+    currIdx=(snapHead-snapCount+2+SNAP_BUF)%SNAP_BUF;
+  }
+  // If renderT is newer than all snapshots: use newest pair
+  if(currIdx===-1||currIdx===prevIdx){
+    currIdx=snapHead;
+    prevIdx=(snapHead-1+SNAP_BUF)%SNAP_BUF;
+  }
+
+  const prev=snapBuf[prevIdx];
+  const curr=snapBuf[currIdx];
+  const dt=curr.t-prev.t;
+  // t strictly in [0,1] - NEVER extrapolate
+  const t=dt<=0?1:Math.max(0,Math.min(1,(renderT-prev.t)/dt));
+
+  // Build O(1) lookup maps
+  const prevPlayerMap=new Map(prev.players.map(p=>[p.id,p]));
+  const prevBotMap=new Map(prev.bots.map(b=>[b.id,b]));
+
+  const players=curr.players.map(c=>{
+    const p=prevPlayerMap.get(c.id);
+    if(!p)return c;
+    return {...c,x:lerp(p.x,c.x,t),y:lerp(p.y,c.y,t)};
   });
 
-  return {players,bots,bullets:snapCurr.bullets};
+  const bots=curr.bots.map(c=>{
+    const p=prevBotMap.get(c.id);
+    if(!p)return c;
+    return {...c,x:lerp(p.x,c.x,t),y:lerp(p.y,c.y,t)};
+  });
+
+  return {players,bots,bullets:curr.bullets};
 }
 
 // ── HUD ────────────────────────────────────────────────────────
