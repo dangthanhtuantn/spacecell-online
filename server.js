@@ -118,7 +118,7 @@ io.on('connection', socket => {
   socket.on('stealth', () => {
     const p = players[socket.id];
     if (!p || p.inv.stealth <= 0 || p.cdR > 0) return;
-    p.inv.stealth--; p.cdR = 3000; p.stealthEnd = Date.now() + 3000;
+    p.inv.stealth--; p.cdR = 5000; p.stealthEnd = Date.now() + 5000;
   });
 
   socket.on('bomb', ({ nx, ny }) => {
@@ -233,11 +233,11 @@ setInterval(() => {
 
   // Player vs player
   pArr.forEach(p => {
-    const shielded = now < p.shieldEnd;
     pArr.forEach(q => {
       if (p.id === q.id) return;
       if (p.mass > q.mass * 1.1 && dst(p, q) < mtr(p.mass)) {
-        if (now < q.shieldEnd) return;
+        // Cannot eat if target is shielded OR stealthed
+        if (now < q.shieldEnd || now < q.stealthEnd) return;
         p.mass = Math.min(10000, p.mass + q.mass * 0.7);
         io.emit('explode', { x: q.x, y: q.y, col: q.color });
         io.emit('msg', { text: `${p.name} absorbed ${q.name}!`, col: '#0ff' });
