@@ -415,7 +415,7 @@ function getInterpolated(){
   const latestBullets=snapBuf[snapHead].bullets;
 
   // 130ms buffer: stable t even with 10-20ms packet timing variance
-  const renderT=Date.now()-130;
+  const renderT=Date.now()-160; // 160ms = ~5 ticks buffer, handles ±20ms packet jitter
 
   let prevIdx=-1,currIdx=-1;
   for(let i=0;i<snapCount;i++){
@@ -512,19 +512,15 @@ function loop(ts){
     camTargX=predX-SW/2;camTargY=predY-SH/2;
 
     // Client-side food hiding: immediately hide food predX overlaps
-    // Server confirms via foodEaten; this removes visual lag
     if(food.length){
-      const eatR=pr+15;const eatR2=eatR*eatR;
-      for(let i=food.length-1;i>=0;i--){
+      const eatR=pr+15, eatR2=eatR*eatR;
+      for(let i=0;i<food.length;i++){
         const f=food[i];
-        if(!f||!f._visible)continue; // already hidden
+        if(!f||f._hidden)continue; // skip already hidden
         const dx=predX-f.x,dy=predY-f.y;
-        if(predMass>f.mass&&dx*dx+dy*dy<eatR2){
-          f._hidden=true; // hide locally, server will confirm
-        }
+        if(predMass>f.mass&&dx*dx+dy*dy<eatR2) f._hidden=true;
       }
     }
-    // Update predMass from server
     if(me)predMass=me.mass;
   }
 
