@@ -171,7 +171,7 @@ io.on('connection', socket => {
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
     bullets.push(acquireBullet({id:uid(),x:p.x+nx*(r+8),y:p.y+ny*(r+8),vx:nx*20,vy:ny*20,type:'shot',r:3,life:25,col:p.color,ownerId:socket.id}));
   });
-  socket.on('ping',()=>socket.emit('pong_reply'));
+  socket.on('ping',()=>socket.emit('pong_reply',{t:Date.now()}));
   socket.on('disconnect',()=>{
     delete players[socket.id];
     io.emit('playerLeft',socket.id);
@@ -310,7 +310,7 @@ function tick(){
     for(let j=0;j<pLen;j++){if(j===pi)continue;const q=pArr[j];if(dst2(p.x,p.y,q.x,q.y)<aoiR2)visP.push({id:q.id,name:q.name,color:q.color,flag:q.flag,x:q.x,y:q.y,mass:q.mass,shielded:now<q.shieldEnd,stealthed:now<q.stealthEnd,inv:q.inv,cdQ:q.cdQ,cdW:q.cdW,cdR:q.cdR,cdB:q.cdB,cdF:q.cdF});}
     for(let bi=0;bi<bLen;bi++){const bot=bots[bi];if(dst2(p.x,p.y,bot.x,bot.y)<aoiR2)visB.push({id:bot.id,x:bot.x,y:bot.y,mass:bot.mass,col:bot.col,name:bot.name});}
     for(let bi=0;bi<bullets.length;bi++){const b=bullets[bi];if(dst2(p.x,p.y,b.x,b.y)<aoiR2)visBu.push({id:b.id,x:b.x,y:b.y,r:b.r,col:b.col,type:b.type});}
-    sock.emit('state',{players:visP,bots:visB,bullets:visBu});
+    sock.emit('state',{t:now,players:visP,bots:visB,bullets:visBu});
   }
 
   // Self-correcting: next tick fires after compensating for time spent

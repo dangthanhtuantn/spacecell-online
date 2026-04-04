@@ -203,6 +203,7 @@ let snapCurr={players:[],bots:[],bullets:[],t:0};
 let gameState={players:[],bots:[],bullets:[]};
 let food=[],items=[],parts=[];
 let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
+let clockOffset=0; // client_time + clockOffset ≈ server_time
 let gameActive=false;
 const STARS=[];
 const INTERP_DELAY=100; // must be >= TICK_MS*2 to handle server jitter
@@ -246,7 +247,8 @@ function joinGame(name,flag,color){
 
   socket.on('state',s=>{
     snapPrev={...snapCurr};
-    snapCurr={players:s.players||[],bots:s.bots||[],bullets:s.bullets||[],t:Date.now()};
+    // Use SERVER timestamp for accurate interpolation (eliminates network jitter)
+    snapCurr={players:s.players||[],bots:s.bots||[],bullets:s.bullets||[],t:s.t||Date.now()};
     gameState=s;
     // Server reconciliation: only correct if drift is significant
     const me=s.players&&s.players.find(p=>p.id===myId);
@@ -302,8 +304,11 @@ function joinGame(name,flag,color){
     addMsg('Respawned!','#0ff');
   });
 
-  socket.on('pong_reply',()=>{
-    document.getElementById('pingval').textContent=Date.now()-pingTime;
+  socket.on('pong_reply',({t:serverT})=>{
+    const rtt=Date.now()-pingTime;
+    // Estimate server time at this moment = serverT + rtt/2
+    clockOffset=(serverT+rtt/2)-Date.now();
+    document.getElementById('pingval').textContent=rtt;
     setTimeout(doPing,2000);
   });
 
@@ -373,7 +378,8 @@ function smoothstep(a,b,t){const s=t*t*(3-2*t);return a+(b-a)*s;}
 
 // Get interpolated game state for smooth rendering
 function getInterpolated(){
-  const now=Date.now()-INTERP_DELAY;
+  // clockOffset syncs client clock to server clock, eliminating network jitter
+  const now=(Date.now()+clockOffset)-INTERP_DELAY;
   const dt=snapCurr.t-snapPrev.t;
   if(dt<=0)return {players:snapCurr.players,bots:snapCurr.bots,bullets:snapCurr.bullets};
   const t=(now-snapPrev.t)/dt;
