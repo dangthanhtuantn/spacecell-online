@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>SpaceCell Online - Optimized</title>
+<title>SpaceCell Online</title>
 <!-- Google AdSense — thay ca-pub-XXXXXXXXXXXXXXXX bằng ID của bạn -->
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 <style>
@@ -90,6 +90,7 @@ canvas{display:block;}
 <div id="dead">
   <h2>ELIMINATED</h2>
   <p id="dm">You were absorbed!</p>
+  <!-- Quảng cáo 300x250 Death Screen — thay data-ad-client và data-ad-slot -->
   <div style="width:300px;height:250px;background:rgba(0,10,28,0.9);border:1px solid rgba(0,180,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
     <ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px"
          data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
@@ -114,6 +115,7 @@ canvas{display:block;}
       <div id="panel1" style="display:none"><div class="fgrid" id="flagGrid"></div></div>
     </div>
     <button class="playbtn" onclick="startFromLobby()">▶ &nbsp;PLAY NOW</button>
+    <!-- Quảng cáo 300x250 Lobby — thay data-ad-client và data-ad-slot -->
     <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.7);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
       <ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px"
            data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX" data-ad-slot="YYYYYYYYYY"></ins>
@@ -166,7 +168,7 @@ document.getElementById('respawnBtn').onclick=()=>{
   openLobby();
 };
 
-// ── Engine - OPTIMIZED ─────────────────────────────────────────
+// ── Engine ─────────────────────────────────────────────────────
 const GC=document.getElementById('gc'),CTX=GC.getContext('2d');
 const MMC=document.getElementById('mm'),MCTX=MMC.getContext('2d');
 let SW,SH;
@@ -192,44 +194,38 @@ function speedMult(mass){
   if(mass>=500)return Math.pow(0.9,1);return 1;
 }
 
-// Game state
+// Game state with interpolation + client-side prediction
 let socket=null,myId=null,myName='Player',myColor='#00cfff',myFlag=null;
 let GW=10000,GH=10000,CELL=1000,GRID=10;
+// Server snapshots for interpolation (other players/bots)
+let snapPrev={players:[],bots:[],bullets:[],t:0};
+let snapCurr={players:[],bots:[],bullets:[],t:0};
 let gameState={players:[],bots:[],bullets:[]};
 let food=[],items=[],parts=[];
 let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
 let gameActive=false;
 const STARS=[];
+const INTERP_DELAY=80; // ms behind for other entities
 
-// OPTIMIZATION 1: Reduce interpolation delay
-let snapPrev={players:[],bots:[],bullets:[],t:0};
-let snapCurr={players:[],bots:[],bullets:[],t:0};
-const INTERP_DELAY=40; // Reduced from 80ms for less lag
-
-// Client-side prediction
+// Client-side prediction for OWN player
 let predX=0,predY=0,predMass=10,predVx=0,predVy=0;
 let predDashFrames=0;
 
-// OPTIMIZATION 2: Frame rate throttling for background tabs
-let lastRender=0,frameSkip=0;
-const TARGET_FPS=60;
-const FRAME_TIME=1000/TARGET_FPS;
-
 function initStars(){
   STARS.length=0;
-  for(let i=0;i<400;i++)STARS.push({x:rnd(0,GW),y:rnd(0,GH),s:rnd(0.4,2.2),b:rnd(0.2,0.9)});
+  for(let i=0;i<800;i++)STARS.push({x:rnd(0,GW),y:rnd(0,GH),s:rnd(0.4,2.2),b:rnd(0.2,0.9)});
 }
 
 // ── Socket + game start ────────────────────────────────────────
 function joinGame(name,flag,color){
   myName=name;myFlag=flag;myColor=color;
   if(socket){socket.disconnect();}
-  socket=io({transports:['websocket'],upgrade:false}); // Force WebSocket only
-  
+  socket=io();
+
   socket.on('connect',()=>{
     myId=socket.id;
     socket.emit('join',{name,color,flag});
-    doPing();
+    doPing(); // start ping loop
   });
 
   socket.on('init',d=>{
@@ -250,25 +246,30 @@ function joinGame(name,flag,color){
     snapPrev={...snapCurr};
     snapCurr={players:s.players||[],bots:s.bots||[],bullets:s.bullets||[],t:Date.now()};
     gameState=s;
+    // Server reconciliation: only correct if drift is significant
     const me=s.players&&s.players.find(p=>p.id===myId);
     if(me){
       const err=Math.hypot(predX-me.x, predY-me.y);
-      if(err>200){
+      if(err>300){
+        // Large error (teleport, wall bounce): snap immediately
         predX=me.x;predY=me.y;predVx=0;predVy=0;
-      } else if(err>50){
-        predX+=(me.x-predX)*0.1;
-        predY+=(me.y-predY)*0.1;
+      } else if(err>80){
+        // Medium error: blend very gently, barely noticeable
+        predX+=(me.x-predX)*0.05;predY+=(me.y-predY)*0.05;
       }
+      // Small error (<80px): ignore completely — prediction is accurate enough
       predMass=me.mass;
     }
     updateHUD();
   });
 
+  // Food and items update every 500ms
   socket.on('worldUpdate',d=>{
     if(d.food&&d.food.length)food=d.food;
     if(d.items&&d.items.length)items=d.items;
   });
 
+  // Item removed instantly — don't wait for next worldUpdate
   socket.on('itemRemoved',id=>{
     const idx=items.findIndex(it=>it.id===id);
     if(idx!==-1)items.splice(idx,1);
@@ -280,19 +281,17 @@ function joinGame(name,flag,color){
     ).join('');
   });
 
-  socket.on('explode',({x,y,col})=>spark(x,y,col,15));
+  socket.on('explode',({x,y,col})=>spark(x,y,col,30));
   socket.on('msg',({text,col})=>addMsg(text,col));
 
   socket.on('died',({by})=>{
     document.getElementById('dm').textContent='Absorbed by '+by+'!';
     document.getElementById('dead').style.display='flex';
-    gameActive=false;
     try{(adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
   });
 
   socket.on('respawn',()=>{
     document.getElementById('dead').style.display='none';
-    gameActive=true;
     addMsg('Respawned!','#0ff');
   });
 
@@ -317,6 +316,7 @@ function handleKey(code){
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
   if(code==='KeyQ'){
     socket.emit('dash',{nx:mdx/ml,ny:mdy/ml});
+    // Predict dash instantly on client
     predVx=mdx/ml*40;predVy=mdy/ml*40;predDashFrames=12;
   }
   if(code==='KeyW')socket.emit('shield');
@@ -328,23 +328,22 @@ function handleKey(code){
   if(code==='KeyF')socket.emit('magnet');
 }
 
-// OPTIMIZATION 3: Throttle input sending to 30fps
-let lastInputTime=0;
+// Send movement input to server ~30fps
 setInterval(()=>{
   if(!socket||!myId||!gameActive)return;
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
   socket.emit('input',{vx:ml>5?mdx/ml:0,vy:ml>5?mdy/ml:0});
 },33);
 
-// OPTIMIZATION 4: Throttle shooting to 15fps (smoother)
-let lastShootTime=0;
+// Send shoot ~10fps
 setInterval(()=>{
   if(!socket||!myId||!gameActive||!Keys['KeyE'])return;
   const me=gameState.players.find(p=>p.id===myId);if(!me||me.mass<=20)return;
   const wx=Mouse.x+camX,wy=Mouse.y+camY,dx=wx-me.x,dy=wy-me.y,l=Math.hypot(dx,dy)||1;
   socket.emit('shoot',{nx:dx/l,ny:dy/l});
-},66); // Reduced from 100ms to 66ms for smoother shooting
+},100);
 
+// ── Helpers ────────────────────────────────────────────────────
 function addMsg(t,col){
   const d=document.getElementById('msgs');
   const el=document.createElement('div');el.className='msg';
@@ -353,40 +352,48 @@ function addMsg(t,col){
   if(d.children.length>5)d.removeChild(d.children[0]);
   setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),500);},2500);
 }
-
 function spark(px,py,col,n=8){
   for(let i=0;i<n;i++){
-    const a=rnd(0,Math.PI*2),s=rnd(2,8);
-    parts.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rnd(2,5),col,life:rnd(15,35)});
+    const a=rnd(0,Math.PI*2),s=rnd(2,10);
+    parts.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rnd(2,6),col,life:rnd(15,40)});
   }
 }
 
-// OPTIMIZATION 5: Faster interpolation with caching
+// Linear interpolation
 function lerp(a,b,t){return a+(b-a)*t;}
+// Smoothstep - eases in/out, less jitter than linear for bots
+function smoothstep(a,b,t){const s=t*t*(3-2*t);return a+(b-a)*s;}
 
+// Get interpolated game state for smooth rendering
 function getInterpolated(){
   const now=Date.now()-INTERP_DELAY;
   const dt=snapCurr.t-snapPrev.t;
   if(dt<=0)return {players:snapCurr.players,bots:snapCurr.bots,bullets:snapCurr.bullets};
-  const t=Math.min(1,(now-snapPrev.t)/dt);
-  
+  const t=Math.min(1.1,(now-snapPrev.t)/dt);
+  const tBot=Math.max(0,Math.min(1,t)); // bots: strictly [0,1], no extrapolation ever
+
+  // Build lookup Maps for O(1) access (not O(n) find())
   const prevPlayerMap=new Map(snapPrev.players.map(p=>[p.id,p]));
+  const prevBotMap=new Map(snapPrev.bots.map(b=>[b.id,b]));
+
+  // Interpolate players (linear, slight extrapolation ok)
   const players=snapCurr.players.map(curr=>{
     const prev=prevPlayerMap.get(curr.id);
     if(!prev)return curr;
     return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
   });
-  
-  const prevBotMap=new Map(snapPrev.bots.map(b=>[b.id,b]));
+
+  // Interpolate bots with smoothstep — eases motion, hides network steps
   const bots=snapCurr.bots.map(curr=>{
     const prev=prevBotMap.get(curr.id);
     if(!prev)return curr;
-    return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
+    return {...curr, x:smoothstep(prev.x,curr.x,tBot), y:smoothstep(prev.y,curr.y,tBot)};
   });
-  
+
   return {players,bots,bullets:snapCurr.bullets};
 }
 
+// ── HUD ────────────────────────────────────────────────────────
 function updateHUD(){
   const me=(gameState.players||[]).find(p=>p.id===myId);if(!me)return;
   document.getElementById('hm').textContent=Math.floor(me.mass)+' M';
@@ -401,9 +408,9 @@ function updateHUD(){
     updSk('B',me.inv.bomb,me.cdB,false,false);
     updSk('F',me.inv.magnet,me.cdF,false,false);
   }
+  // Smooth camera: follow my interpolated position
   camTargX=me.x-SW/2; camTargY=me.y-SH/2;
 }
-
 function updSk(key,count,cd,active,isFire){
   const box=document.getElementById('sk'+key);
   const cnt=document.getElementById('cnt'+key);
@@ -415,148 +422,133 @@ function updSk(key,count,cd,active,isFire){
   box.className='sk'+(active?' act':count===0?' emp':'');
 }
 
-// OPTIMIZATION 6: Frame-skipping render for performance
-let prevTime=0;
-function loop(now){
+// ── Render loop ────────────────────────────────────────────────
+let prev=0;
+function loop(ts){
   requestAnimationFrame(loop);
-  const delta=now-prevTime;
-  if(delta<FRAME_TIME){
-    frameSkip++;
-    if(frameSkip<2)return;
-    frameSkip=0;
-  }
-  prevTime=now;
-  
-  const dt=Math.min((now-prevTime)/16.67,2);
-  
+  const dt=Math.min((ts-prev)/16.67,3);prev=ts;
+
+  // CLIENT-SIDE PREDICTION: move own player locally every frame
   if(gameActive&&myId){
     const me=gameState.players&&gameState.players.find(p=>p.id===myId);
     const spd=me?5*speedMult(me.mass||predMass):5;
     if(predDashFrames>0){predDashFrames--;predVx*=0.82;predVy*=0.82;}
     else{
       const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
+      // Match server physics exactly: lerp 0.2, friction 0.82
       predVx+=(mdx/ml*spd-predVx)*0.2;predVy+=(mdy/ml*spd-predVy)*0.2;
       predVx*=0.82;predVy*=0.82;
     }
     const pr=me?mtr(me.mass||predMass):mtr(predMass);
     predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dt));
     predY=Math.max(pr,Math.min(GH-pr,predY+predVy*dt));
+    // Camera follows predicted position — instant, no lag
     camTargX=predX-SW/2;camTargY=predY-SH/2;
   }
-  
-  camX+=(camTargX-camX)*0.2;
-  camY+=(camTargY-camY)*0.2;
-  
-  // OPTIMIZATION 7: Limit particle count
+
+  // Smooth camera
+  camX+=(camTargX-camX)*0.18;
+  camY+=(camTargY-camY)*0.18;
+
+  // Particles
   for(let i=parts.length-1;i>=0;i--){
     const p=parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.92;p.vy*=0.92;p.life-=dt;p.r*=0.95;
     if(p.life<=0||p.r<0.3)parts.splice(i,1);
   }
-  if(parts.length>200)parts.length=200;
-  
   render();
 }
 requestAnimationFrame(loop);
 
-// OPTIMIZATION 8: Optimized rendering with viewport culling
+// ── Render ─────────────────────────────────────────────────────
 function render(){
+  // Always draw background
   CTX.fillStyle='#000510';CTX.fillRect(0,0,SW,SH);
+
   if(!gameActive||!myId){
     renderMinimap();return;
   }
-  
+
+  // Get interpolated state for smooth rendering (others)
   const interp=getInterpolated();
+  // For self: use predicted position (instant, no lag)
   const me=gameState.players&&gameState.players.find(p=>p.id===myId);
-  
+
   CTX.save();CTX.translate(-camX,-camY);
-  
-  // Stars (culled)
+
+  // Stars
   CTX.fillStyle='#fff';
-  for(const s of STARS){
-    if(s.x>=camX-50&&s.x<=camX+SW+50&&s.y>=camY-50&&s.y<=camY+SH+50){
-      CTX.globalAlpha=s.b;CTX.beginPath();CTX.arc(s.x,s.y,s.s,0,Math.PI*2);CTX.fill();
-    }
-  }
+  STARS.forEach(s=>{
+    if(s.x<camX-5||s.x>camX+SW+5||s.y<camY-5||s.y>camY+SH+5)return;
+    CTX.globalAlpha=s.b;CTX.beginPath();CTX.arc(s.x,s.y,s.s,0,Math.PI*2);CTX.fill();
+  });
   CTX.globalAlpha=1;
-  
-  // Grid (simplified)
-  CTX.strokeStyle='rgba(0,55,120,0.15)';CTX.lineWidth=1;
+
+  // Grid
+  CTX.strokeStyle='rgba(0,55,120,0.2)';CTX.lineWidth=1;
   const gx0=Math.floor(camX/CELL)*CELL,gy0=Math.floor(camY/CELL)*CELL;
-  for(let gx=gx0;gx<camX+SW+CELL;gx+=CELL){
-    CTX.beginPath();CTX.moveTo(gx,0);CTX.lineTo(gx,GH);CTX.stroke();
-  }
-  for(let gy=gy0;gy<camY+SH+CELL;gy+=CELL){
-    CTX.beginPath();CTX.moveTo(0,gy);CTX.lineTo(GW,gy);CTX.stroke();
-  }
-  
-  // Food (culled)
-  for(const f of food){
-    if(f.x>=camX-50&&f.x<=camX+SW+50&&f.y>=camY-50&&f.y<=camY+SH+50){
-      CTX.fillStyle=f.col;CTX.beginPath();CTX.arc(f.x,f.y,f.r,0,Math.PI*2);CTX.fill();
-    }
-  }
-  
-  // Items (culled)
-  for(const it of items){
-    if(it.x>=camX-80&&it.x<=camX+SW+80&&it.y>=camY-80&&it.y<=camY+SH+80){
-      CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r,0,Math.PI*2);CTX.fill();
-      CTX.font='bold 8px monospace';CTX.textAlign='center';CTX.textBaseline='middle';
-      CTX.fillStyle='#fff';CTX.fillText(it.label||it.type,it.x,it.y+1);
-    }
-  }
-  
+  for(let gx=gx0;gx<camX+SW+CELL;gx+=CELL){CTX.beginPath();CTX.moveTo(gx,0);CTX.lineTo(gx,GH);CTX.stroke();}
+  for(let gy=gy0;gy<camY+SH+CELL;gy+=CELL){CTX.beginPath();CTX.moveTo(0,gy);CTX.lineTo(GW,gy);CTX.stroke();}
+  CTX.strokeStyle='rgba(0,160,255,0.7)';CTX.lineWidth=6;CTX.strokeRect(0,0,GW,GH);
+
+  // Food
+  food.forEach(f=>{
+    if(f.x<camX-20||f.x>camX+SW+20||f.y<camY-20||f.y>camY+SH+20)return;
+    CTX.fillStyle=f.col;CTX.beginPath();CTX.arc(f.x,f.y,f.r,0,Math.PI*2);CTX.fill();
+  });
+
+  // Items
+  items.forEach(it=>{
+    if(it.x<camX-50||it.x>camX+SW+50||it.y<camY-50||it.y>camY+SH+50)return;
+    if(!it._age)it._age=0;it._age++;
+    const pulse=Math.sin(it._age*0.06)*0.28+0.72;
+    CTX.globalAlpha=pulse*0.35;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r+8,0,Math.PI*2);CTX.fill();
+    CTX.globalAlpha=1;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r,0,Math.PI*2);CTX.fill();
+    const lbl=it.label||it.type;
+    CTX.font='bold 9px monospace';CTX.textAlign='center';CTX.textBaseline='middle';
+    const tw=CTX.measureText(lbl).width;
+    CTX.fillStyle='rgba(0,0,0,0.72)';CTX.fillRect(it.x-tw/2-2,it.y-5,tw+4,10);
+    CTX.fillStyle='#fff';CTX.fillText(lbl,it.x,it.y+1);
+  });
+
   // Particles
-  for(const p of parts){
-    if(p.x>=camX-50&&p.x<=camX+SW+50&&p.y>=camY-50&&p.y<=camY+SH+50){
-      CTX.globalAlpha=Math.min(1,p.life/20);CTX.fillStyle=p.col;
-      CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.fill();
-    }
-  }
+  parts.forEach(p=>{CTX.globalAlpha=Math.min(1,p.life/20);CTX.fillStyle=p.col;CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.fill();});
   CTX.globalAlpha=1;
-  
-  // Bullets (culled)
-  for(const b of interp.bullets||[]){
-    if(b.x>=camX-100&&b.x<=camX+SW+100&&b.y>=camY-100&&b.y<=camY+SH+100){
-      CTX.fillStyle=b.col;CTX.shadowBlur=b.type==='bomb'?12:3;CTX.shadowColor=b.col;
-      CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
-    }
-  }
-  
-  // Bots
-  for(const b of interp.bots||[]){
-    if(b.x>=camX-150&&b.x<=camX+SW+150&&b.y>=camY-150&&b.y<=camY+SH+150){
-      drawBot(b);
-    }
-  }
-  
-  // Other players
-  for(const p of interp.players||[]){
-    if(p.id!==myId&&p.x>=camX-200&&p.x<=camX+SW+200&&p.y>=camY-200&&p.y<=camY+SH+200){
-      drawOther(p);
-    }
-  }
-  
-  // Self
+
+  // Bullets (latest from server, move fast enough)
+  (interp.bullets||[]).forEach(b=>{
+    CTX.fillStyle=b.col;CTX.shadowBlur=b.type==='bomb'?16:5;CTX.shadowColor=b.col;
+    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
+  });
+
+  // Bots (interpolated)
+  (interp.bots||[]).forEach(b=>drawBot(b));
+
+  // Other players (interpolated)
+  (interp.players||[]).forEach(p=>{
+    if(p.id===myId)return; // skip self, drawn below
+    drawOther(p);
+  });
+  // Self at predicted position (no network lag)
   if(me){
     const predMe={...me,x:predX,y:predY};
     drawMe(predMe);
   }
-  
+
   CTX.restore();
-  
-  // Crosshair
+
+  // Crosshair (screen space)
   CTX.strokeStyle='rgba(0,220,255,0.85)';CTX.lineWidth=1.5;
   CTX.beginPath();CTX.arc(Mouse.x,Mouse.y,9,0,Math.PI*2);CTX.stroke();
   [[0,-16,0,-5],[0,5,0,16],[-16,0,-5,0],[5,0,16,0]].forEach(([x1,y1,x2,y2])=>{
     CTX.beginPath();CTX.moveTo(Mouse.x+x1,Mouse.y+y1);CTX.lineTo(Mouse.x+x2,Mouse.y+y2);CTX.stroke();
   });
-  
+
   renderMinimap();
 }
 
 function drawMe(p){
   const r=mtr(p.mass);
-  CTX.globalAlpha=p.stealthed?0.4:1;
+  CTX.globalAlpha=p.stealthed?0.45:1;
   if(myFlag){
     CTX.fillStyle=myColor+'88';CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
     CTX.save();CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.clip();
@@ -573,11 +565,12 @@ function drawMe(p){
   }
   CTX.globalAlpha=1;
   if(r>10){
+    CTX.shadowBlur=3;CTX.shadowColor='#000';
     CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.3,9,15)}px monospace`;
     CTX.textAlign='center';CTX.textBaseline='middle';
     CTX.fillText(myName,p.x,p.y-r*0.18);
     CTX.font=`${clamp(r*0.25,8,12)}px monospace`;CTX.fillStyle='rgba(255,255,255,0.7)';
-    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.26);
+    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.26);CTX.shadowBlur=0;
   }
 }
 
@@ -607,10 +600,10 @@ function drawOther(p){
   CTX.globalAlpha=1;
   if(r>8){
     CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.3,8,13)}px monospace`;
-    CTX.textAlign='center';CTX.textBaseline='middle';
+    CTX.textAlign='center';CTX.textBaseline='middle';CTX.shadowBlur=2;CTX.shadowColor='#000';
     CTX.fillText(p.name,p.x,p.y-r*0.16);
     CTX.fillStyle='rgba(255,255,255,0.6)';CTX.font=`${clamp(r*0.25,7,11)}px monospace`;
-    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.26);
+    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.26);CTX.shadowBlur=0;
   }
 }
 
@@ -620,10 +613,10 @@ function drawBot(b){
   CTX.strokeStyle=b.col;CTX.lineWidth=1.2;CTX.globalAlpha=1;CTX.stroke();
   if(r>8){
     CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.3,7,13)}px monospace`;
-    CTX.textAlign='center';CTX.textBaseline='middle';
+    CTX.textAlign='center';CTX.textBaseline='middle';CTX.shadowBlur=2;CTX.shadowColor='#000';
     CTX.fillText(b.name,b.x,b.y-r*0.16);
     CTX.fillStyle='rgba(255,255,255,0.6)';CTX.font=`${clamp(r*0.24,6,11)}px monospace`;
-    CTX.fillText(Math.floor(b.mass)+'M',b.x,b.y+r*0.26);
+    CTX.fillText(Math.floor(b.mass)+'M',b.x,b.y+r*0.26);CTX.shadowBlur=0;
   }
 }
 
@@ -636,11 +629,13 @@ function renderMinimap(){
     MCTX.beginPath();MCTX.moveTo(g*CELL*sx,0);MCTX.lineTo(g*CELL*sx,MS);MCTX.stroke();
     MCTX.beginPath();MCTX.moveTo(0,g*CELL*sy);MCTX.lineTo(MS,g*CELL*sy);MCTX.stroke();
   }
+  // Only show self on minimap (use latest position, not interpolated)
   const meLatest=gameState.players&&gameState.players.find(p=>p.id===myId);
   if(meLatest){
-    MCTX.fillStyle='#0ff';
+    MCTX.shadowBlur=8;MCTX.shadowColor='#0ff';MCTX.fillStyle='#0ff';
     const pr=Math.max(3,mtr(meLatest.mass)*sx*5);
     MCTX.beginPath();MCTX.arc(meLatest.x*sx,meLatest.y*sy,pr,0,Math.PI*2);MCTX.fill();
+    MCTX.shadowBlur=0;
     MCTX.strokeStyle='rgba(0,200,255,0.5)';MCTX.lineWidth=1;
     MCTX.strokeRect(camX*sx,camY*sy,SW*sx,SH*sy);
   }
