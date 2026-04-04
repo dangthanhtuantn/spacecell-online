@@ -402,13 +402,15 @@ function getInterpolated(){
     return {players:s.players,bots:s.bots,bullets:s.bullets};
   }
 
-  // Bullets: always use LATEST snapshot (no interpolation delay - they move fast)
+  // Bullets: always use LATEST snapshot
   const latestBullets=snapBuf[snapHead].bullets;
 
-  // Players/bots: interpolate with 100ms delay (reduced from 200ms)
-  const BOT_DELAY=100;
-  const renderT=Date.now()-BOT_DELAY;
+  // Render at exactly 2 ticks behind the latest snapshot
+  // This makes renderT move WITH snapshots (not wall clock) -> no t resets -> smooth
+  const TICK_MS=33;
+  const renderT=snapBuf[snapHead].t - TICK_MS*2;
 
+  // Find the snapshot pair bracketing renderT
   let prevIdx=-1,currIdx=-1;
   for(let i=0;i<snapCount;i++){
     const idx=(snapHead-i+SNAP_BUF)%SNAP_BUF;
@@ -418,6 +420,7 @@ function getInterpolated(){
       break;
     }
   }
+  // Fallbacks
   if(prevIdx===-1){
     prevIdx=(snapHead-snapCount+1+SNAP_BUF)%SNAP_BUF;
     currIdx=(snapHead-snapCount+2+SNAP_BUF)%SNAP_BUF;
@@ -430,6 +433,7 @@ function getInterpolated(){
   const prev=snapBuf[prevIdx];
   const curr=snapBuf[currIdx];
   const dt=curr.t-prev.t;
+  // t in [0,1] - no extrapolation
   const t=dt<=0?1:Math.max(0,Math.min(1,(renderT-prev.t)/dt));
 
   const prevPlayerMap=new Map(prev.players.map(p=>[p.id,p]));
