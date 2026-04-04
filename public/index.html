@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>SpaceCell Online</title>
+<!-- Google AdSense — thay ca-pub-XXXXXXXXXXXXXXXX bằng ID của bạn -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none;cursor:none;}
@@ -68,7 +70,18 @@ canvas{display:block;}
 </div>
 <div id="ping">Ping: <span id="pingVal">-</span> ms</div>
 <div id="msgs"></div>
-<div id="dead"><h2>ELIMINATED</h2><p id="dm">You were absorbed!</p><button onclick="openLobby()">RESPAWN</button></div>
+<div id="dead">
+  <h2>ELIMINATED</h2>
+  <p id="dm">You were absorbed!</p>
+  <!-- Quảng cáo 300x250 - Death Screen -->
+  <div style="width:300px;height:250px;background:rgba(0,10,28,0.9);border:1px solid rgba(0,180,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+    <ins class="adsbygoogle"
+         style="display:inline-block;width:300px;height:250px"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"></ins>
+  </div>
+  <button onclick="openLobby()">RESPAWN</button>
+</div>
 
 <!-- LOBBY -->
 <div id="lobby">
@@ -87,6 +100,13 @@ canvas{display:block;}
       <div id="panel1" style="display:none"><div class="fgrid" id="flagGrid"></div></div>
     </div>
     <button class="playbtn" onclick="startFromLobby()">▶ &nbsp;PLAY NOW</button>
+    <!-- Quảng cáo 300x250 - Lobby -->
+    <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.7);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+      <ins class="adsbygoogle"
+           style="display:inline-block;width:300px;height:250px"
+           data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX"
+           data-ad-slot="YYYYYYYYYY"></ins>
+    </div>
   </div>
 </div>
 
@@ -103,7 +123,11 @@ function buildLobby(){
   ALL_FLAGS.forEach(f=>{const d=document.createElement('div');d.className='flag';d.textContent=f;d.onclick=()=>{selFlag=f;useFlag=true;document.querySelectorAll('.flag').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');};fg.appendChild(d);});
 }
 function switchTab(i){document.getElementById('panel0').style.display=i===0?'':'none';document.getElementById('panel1').style.display=i===1?'':'none';document.getElementById('tab0').className='tab'+(i===0?' on':'');document.getElementById('tab1').className='tab'+(i===1?' on':'');}
-function openLobby(){document.getElementById('dead').style.display='none';document.getElementById('lobby').style.display='flex';}
+function openLobby(){
+  document.getElementById('dead').style.display='none';
+  document.getElementById('lobby').style.display='flex';
+  try{(adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
+}
 function startFromLobby(){const name=document.getElementById('pname').value.trim()||'Player';document.getElementById('lobby').style.display='none';joinGame(name,useFlag?selFlag:null,selColor);}
 buildLobby();
 document.getElementById('pname').addEventListener('keydown',e=>{if(e.key==='Enter')startFromLobby();});
@@ -141,10 +165,24 @@ function joinGame(name,flag,color){
   socket=io();
   socket.on('connect',()=>{myId=socket.id;socket.emit('join',{name,color,flag});pingLoop();});
   socket.on('init',d=>{GW=d.worldW;GH=d.worldH;food=d.food;items=d.items;gameState.bots=d.bots;initStars();camX=GW/2-SW/2;camY=GH/2-SH/2;});
-  socket.on('state',s=>{gameState=s;updateHUD();});
+  socket.on('state',s=>{
+    gameState=s;
+    if(s.food)food=s.food;
+    if(s.items)items=s.items;
+    updateHUD();
+    // Update camera
+    const me=s.players&&s.players.find(p=>p.id===myId);
+    if(me){camX+=(me.x-SW/2-camX)*0.1;camY+=(me.y-SH/2-camY)*0.1;}
+  });
   socket.on('playerList',list=>{document.getElementById('lbr').innerHTML=list.slice(0,8).map((e,i)=>`<div class="le${e.id===myId?' me':''}">${i+1}. ${e.name} ${e.mass}</div>`).join('');});
   socket.on('explode',({x,y,col})=>spark(x,y,col,30));
   socket.on('msg',({text,col})=>addMsg(text,col));
+  // died: show dead screen with ad
+  socket.on('died',({by})=>{
+    document.getElementById('dm').textContent='Absorbed by '+by+'!';
+    document.getElementById('dead').style.display='flex';
+    try{(adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
+  });
   socket.on('respawn',()=>{document.getElementById('dead').style.display='none';addMsg('Respawned!','#0ff');});
   socket.on('playerLeft',()=>{});
   socket.on('pong',()=>{const p=Date.now()-pingTime;document.getElementById('pingVal').textContent=p;});
@@ -192,8 +230,6 @@ function updateHUD(){
     updSk('B',me.inv.bomb,me.cdB,false,false);
     updSk('F',me.inv.magnet,me.cdF,false,false);
   }
-  // Camera follow
-  camX+=(me.x-SW/2-camX)*0.1;camY+=(me.y-SH/2-camY)*0.1;
 }
 
 function updSk(key,count,cd,active,isFire){

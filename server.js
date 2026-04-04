@@ -241,8 +241,8 @@ setInterval(() => {
         p.mass = Math.min(10000, p.mass + q.mass * 0.7);
         io.emit('explode', { x: q.x, y: q.y, col: q.color });
         io.emit('msg', { text: `${p.name} absorbed ${q.name}!`, col: '#0ff' });
+        io.to(q.id).emit('died', { by: p.name });
         q.mass = 10; q.x = rnd(500, GW - 500); q.y = rnd(500, GH - 500);
-        io.to(q.id).emit('respawn');
       }
     });
   });
@@ -264,8 +264,8 @@ setInterval(() => {
         if (p.mass < 20) {
           io.emit('explode', { x: p.x, y: p.y, col: p.color });
           io.emit('msg', { text: `${p.name} eliminated!`, col: '#f44' });
+          io.to(p.id).emit('died', { by: 'bullet' });
           p.mass = 10; p.x = rnd(500, GW - 500); p.y = rnd(500, GH - 500);
-          io.to(p.id).emit('respawn');
         }
       }
     });
@@ -341,8 +341,8 @@ setInterval(() => {
         bot.mass = Math.min(10000, bot.mass + p.mass * 0.7);
         io.emit('explode', { x: p.x, y: p.y, col: p.color });
         io.emit('msg', { text: `${p.name} absorbed by ${bot.name}!`, col: '#f80' });
+        io.to(p.id).emit('died', { by: bot.name });
         p.mass = 10; p.x = rnd(500, GW - 500); p.y = rnd(500, GH - 500);
-        io.to(p.id).emit('respawn');
       }
     });
     // Player eat bot
@@ -375,6 +375,8 @@ setInterval(() => {
     })),
     bots: bots.map(b => ({ id: b.id, x: b.x, y: b.y, mass: b.mass, col: b.col, name: b.name })),
     bullets: bullets.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r, col: b.col, type: b.type })),
+    food: food,
+    items: items,
   };
   io.emit('state', state);
 
