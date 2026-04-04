@@ -1,121 +1,143 @@
 <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>SpaceCell Online</title>
-        <style>
-            /* GIỮ NGUYÊN TOÀN BỘ CSS */
-        </style>
-    </head>
-    <body>
-        <canvas id="gc"></canvas>
-        <!-- Các div HUD, minimap, dead, lobby giữ nguyên -->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SpaceCell Online</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        <script src="/socket.io/socket.io.js"></script>
-        <script>
-            // ── Lobby (giữ nguyên) ──────────────────────────────────────
-            /* ... toàn bộ code lobby giữ nguyên ... */
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New',monospace;
+            user-select: none;
+            cursor: none;
+        }
 
-            // ── Engine ──────────────────────────────────────────────────
-            const GC = document.getElementById('gc'), CTX = GC.getContext('2d');
-            const MMC = document.getElementById('mm'), MCTX = MMC.getContext('2d');
-            let SW = 1920, SH = 1080;   // default
+        canvas {
+            display: block;
+        }
+        /* (giữ nguyên toàn bộ CSS từ file gốc của bạn) */
+        #lobby {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center,#001428,#000208);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            cursor: default;
+        }
 
-            // ── OFFSCREEN FOOD CANVAS (tối ưu cực mạnh) ────────────────
-            const FOOD_CANVAS = document.createElement('canvas');
-            const FCTX = FOOD_CANVAS.getContext('2d');
-            FOOD_CANVAS.width = 10000;
-            FOOD_CANVAS.height = 10000;
-            let foodDirty = true;
+        .lbox {
+            background: rgba(0,18,45,0.97);
+            border: 1px solid rgba(0,180,255,0.4);
+            border-radius: 16px;
+            padding: 28px 36px;
+            width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        /* ... (bạn copy hết phần style từ file index.html gốc của bạn vào đây) ... */
+    </style>
+</head>
+<body>
+    <canvas id="gc"></canvas>
+    <div id="mmw"><div class="mml">MINIMAP</div><canvas id="mm" width="130" height="130"></canvas></div>
+    <!-- HUD, skill bar, dead screen, lobby giữ nguyên như file gốc -->
+    <!-- (copy toàn bộ các div #hud, #lb, #inv, #msgs, #dead, #lobby từ file gốc của bạn) -->
 
-            function resize() {
-                SW = GC.width = window.innerWidth;
-                SH = GC.height = window.innerHeight;
-            }
-            resize(); window.addEventListener('resize', resize);
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // ── Lobby (giữ nguyên) ──────────────────────────────────────
+        const PCOLORS = ['#00cfff', '#ff4455', '#ffaa00', '#44ff88', '#ff44ff', '#ffff44', '#ff8800', '#00ffcc', '#ff88cc', '#88ff44', '#4488ff', '#ff6644'];
+        const ALL_FLAGS = [ /* giữ nguyên mảng cờ */];
 
-            // ── Game state (thêm screen size) ───────────────────────────
-            let socket = null, myId = null;
-            let food = [], items = [], parts = [];
+        let selColor = PCOLORS[0], selFlag = null, useFlag = false;
 
-            // ... (các biến khác giữ nguyên: camX, camY, predX, predY, ...)
+        // (copy nguyên hàm buildLobby, switchTab, openLobby, startFromLobby từ file gốc)
 
-            function joinGame(name, flag, color) {
-                myName = name; myFlag = flag; myColor = color;
-                if (socket) socket.disconnect();
-                socket = io();
+        // ── Engine + Offscreen Food Canvas (TỐI ƯU) ─────────────────
+        const GC = document.getElementById('gc'), CTX = GC.getContext('2d');
+        const MMC = document.getElementById('mm'), MCTX = MMC.getContext('2d');
 
-                socket.on('connect', () => {
-                    myId = socket.id;
-                    // Gửi screen size để server viewport culling chính xác
-                    socket.emit('join', {
-                        name, color, flag,
-                        screenW: SW,
-                        screenH: SH
-                    });
-                    doPing();
+        const FOOD_CANVAS = document.createElement('canvas');
+        const FCTX = FOOD_CANVAS.getContext('2d');
+        FOOD_CANVAS.width = 10000; FOOD_CANVAS.height = 10000;
+        let foodDirty = true;
+
+        let SW, SH;
+        function resize() { SW = GC.width = window.innerWidth; SH = GC.height = window.innerHeight; }
+        resize(); window.addEventListener('resize', resize);
+
+        // Các biến game khác giữ nguyên (gameState, camX, predX...)
+
+        // ── Join Game (đã sửa để gửi screen size) ───────────────────
+        function joinGame(name, flag, color) {
+            myName = name; myFlag = flag; myColor = color;
+            if (socket) socket.disconnect();
+            socket = io();
+
+            socket.on('connect', () => {
+                myId = socket.id;
+                socket.emit('join', { name, color, flag, screenW: SW, screenH: SH }); // ← quan trọng
+                doPing();
+            });
+
+            // Các socket.on khác giữ nguyên (init, state, worldUpdate, died...)
+            socket.on('worldUpdate', d => {
+                if (d.food) { food = d.food; foodDirty = true; }
+                if (d.items) items = d.items;
+            });
+
+            // ... copy hết phần socket.on còn lại từ file gốc
+        }
+
+        // ── Render (đã tối ưu food) ─────────────────────────────────
+        function render() {
+            CTX.fillStyle = '#000510'; CTX.fillRect(0, 0, SW, SH);
+            if (!gameActive || !myId) { renderMinimap(); return; }
+
+            const interp = getInterpolated();
+            const me = gameState.players && gameState.players.find(p => p.id === myId);
+
+            CTX.save(); CTX.translate(-camX, -camY);
+
+            // Food offscreen (siêu nhanh)
+            if (foodDirty) {
+                FCTX.clearRect(0, 0, 10000, 10000);
+                food.forEach(f => {
+                    FCTX.fillStyle = f.col;
+                    FCTX.beginPath(); FCTX.arc(f.x, f.y, f.r, 0, Math.PI * 2); FCTX.fill();
                 });
-
-                // ... (các socket.on khác giữ nguyên, chỉ sửa worldUpdate)
-                socket.on('worldUpdate', d => {
-                    if (d.food) { food = d.food; foodDirty = true; }
-                    if (d.items) items = d.items;
-                });
-
-                // ... phần còn lại giữ nguyên
+                foodDirty = false;
             }
+            CTX.drawImage(FOOD_CANVAS, 0, 0);
 
-            // ── Render (tối ưu food) ────────────────────────────────────
-            function render() {
-                CTX.fillStyle = '#000510'; CTX.fillRect(0, 0, SW, SH);
+            // Items, particles, bullets, bots, players... (giữ nguyên code vẽ từ file gốc)
 
-                if (!gameActive || !myId) { renderMinimap(); return; }
+            CTX.restore();
+            renderMinimap();
+        }
 
-                const interp = getInterpolated();
-                const me = gameState.players?.find(p => p.id === myId);
+        // Particles giảm (chống lag)
+        function spark(px, py, col, n = 12) {
+            for (let i = 0; i < Math.min(n, 15); i++) { /* code gốc */ }
+        }
 
-                CTX.save();
-                CTX.translate(-camX, -camY);
+        // Minimap chỉ vẽ 4 frame/lần
+        let frameSkip = 0;
+        function renderMinimap() {
+            if (++frameSkip % 4 !== 0) return;
+            // code minimap gốc
+        }
 
-                // Stars + Grid (giữ nguyên)
-
-                // FOOD - dùng offscreen canvas
-                if (foodDirty) {
-                    FCTX.clearRect(0, 0, 10000, 10000);
-                    food.forEach(f => {
-                        FCTX.fillStyle = f.col;
-                        FCTX.beginPath();
-                        FCTX.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-                        FCTX.fill();
-                    });
-                    foodDirty = false;
-                }
-                CTX.drawImage(FOOD_CANVAS, 0, 0);
-
-                // Items, Particles, Bullets (giữ nguyên)
-
-                // Bots + Players + Self (giữ nguyên)
-
-                CTX.restore();
-
-                // Crosshair (giữ nguyên)
-                renderMinimap();
-            }
-
-            // Particles giảm tối đa
-            function spark(px, py, col, n = 12) {   // ← giảm từ 30 → 12
-                for (let i = 0; i < Math.min(n, 15); i++) { /* giữ nguyên */ }
-            }
-
-            // Minimap chỉ vẽ mỗi 4 frame
-            let frameSkip = 0;
-            function renderMinimap() {
-                if (++frameSkip % 4 !== 0) return;
-                /* ... code minimap giữ nguyên ... */
-            }
-
-            // Loop giữ nguyên
-            requestAnimationFrame(loop);
-        </script>
-    </body>
+        // Loop và các hàm khác giữ nguyên
+        requestAnimationFrame(loop);
+    </script>
+</body>
 </html>
