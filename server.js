@@ -224,13 +224,11 @@ function qEmitTo(id,ev,data){pendingEmits.push({ev,data,to:id});}
 // Self-correcting game loop using setTimeout (avoids setInterval drift)
 function tick(){
   const now=Date.now();
-  const elapsed=Math.min(now-lastTick,50); // cap at 50ms
   lastTick=now;
 
-  // Always exactly 1 physics step per real tick
-  // DT scaled by actual elapsed time for smooth physics
-  const DT=elapsed/33; // normalize: 1.0 at perfect 33ms, scales smoothly
-  physicsStep(DT,now);
+  // DT=1.0 fixed — each tick is exactly 1 physics step
+  // setTimeout self-corrects timing; variable DT causes uneven bot movement (giật)
+  physicsStep(1.0,now);
   broadcastState(now);
 
   const spent=Date.now()-now;

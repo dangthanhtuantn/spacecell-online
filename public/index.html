@@ -295,15 +295,9 @@ function joinGame(name,flag,color){
   });
 
   socket.on('explode',({x,y,col})=>{
-    // Find nearest interpolated entity to server explosion pos
-    // to compensate for interpolation delay offset
-    const interp=getInterpolated();
-    let bestX=x,bestY=y,bestD=60*60; // max 60px offset
-    [...(interp.bots||[]),...(interp.players||[])].forEach(e=>{
-      const d=(e.x-x)*(e.x-x)+(e.y-y)*(e.y-y);
-      if(d<bestD){bestD=d;bestX=e.x;bestY=e.y;}
-    });
-    spark(bestX,bestY,col,30);
+    // Delay explosion by interpolation delay (100ms)
+    // so the visual explosion matches when the interpolated bot reaches hit position
+    setTimeout(()=>spark(x,y,col,30), 100);
   });
   socket.on('msg',({text,col})=>addMsg(text,col));
 
