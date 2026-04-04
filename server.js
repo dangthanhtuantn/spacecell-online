@@ -131,8 +131,13 @@ io.on('connection', socket => {
   console.log('[+]', socket.id);
 
   socket.on('join', ({ name, color, flag }) => {
-    players[socket.id] = mkPlayer(socket.id, name, color, flag);
-    socket.emit('init', { id: socket.id, food, items, bots: bots.map(bs), worldW: GW, worldH: GH });
+    const p = mkPlayer(socket.id, name, color, flag);
+    players[socket.id] = p;
+    socket.emit('init', {
+      id: socket.id,
+      spawnX: p.x, spawnY: p.y,  // send exact spawn position
+      food, items, bots: bots.map(bs), worldW: GW, worldH: GH
+    });
     // Send world data immediately (don't wait for 500ms interval)
     socket.emit('worldUpdate', { food, items });
     io.emit('playerList', playerList());
@@ -225,7 +230,10 @@ setInterval(() => {
       const f = food[i];
       if (p.mass > f.mass * 1.1 && dst(p, f) < mtr(p.mass) + f.r) {
         p.mass = Math.min(10000, p.mass + f.mass);
+        const oldFood = {x: f.x, y: f.y};
         food[i] = mkFood(); foodGridDirty = true;
+        // Notify all clients immediately so food disappears at once
+        io.emit('foodEaten', {ox: oldFood.x, oy: oldFood.y, nx: food[i].x, ny: food[i].y, ni: i, nf: food[i]});
       }
     }
 

@@ -235,9 +235,11 @@ function joinGame(name,flag,color){
     snapPrev={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
     snapCurr={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
     initStars();
-    camX=GW/2-SW/2;camY=GH/2-SH/2;
-    camTargX=camX;camTargY=camY;
-    predX=GW/2;predY=GH/2;predMass=10;predVx=0;predVy=0;predDashFrames=0;
+    // Use EXACT server spawn position — no mismatch, no snap on first state
+    predX=d.spawnX||GW/2; predY=d.spawnY||GH/2;
+    predMass=10; predVx=0; predVy=0; predDashFrames=0;
+    camX=predX-SW/2; camY=predY-SH/2;
+    camTargX=camX; camTargY=camY;
     gameActive=true;
     addMsg('Welcome '+name+'! Q Dash  W Shield  E Shoot  R Stealth  B Bomb  F Magnet','#0ff');
   });
@@ -250,14 +252,14 @@ function joinGame(name,flag,color){
     const me=s.players&&s.players.find(p=>p.id===myId);
     if(me){
       const err=Math.hypot(predX-me.x, predY-me.y);
-      if(err>300){
-        // Large error (teleport, wall bounce): snap immediately
+      if(err>150){
+        // Large error: snap (wall collision, teleport from death)
         predX=me.x;predY=me.y;predVx=0;predVy=0;
-      } else if(err>80){
-        // Medium error: blend very gently, barely noticeable
-        predX+=(me.x-predX)*0.05;predY+=(me.y-predY)*0.05;
+      } else if(err>40){
+        // Small drift: very gentle correction
+        predX+=(me.x-predX)*0.04;predY+=(me.y-predY)*0.04;
       }
-      // Small error (<80px): ignore completely — prediction is accurate enough
+      // <40px: ignore — prediction is accurate
       predMass=me.mass;
     }
     updateHUD();
@@ -273,6 +275,11 @@ function joinGame(name,flag,color){
   socket.on('itemRemoved',id=>{
     const idx=items.findIndex(it=>it.id===id);
     if(idx!==-1)items.splice(idx,1);
+  });
+
+  // Food eaten instantly — replace eaten food with new food position
+  socket.on('foodEaten',d=>{
+    if(food[d.ni])food[d.ni]=d.nf;
   });
 
   socket.on('playerList',list=>{
