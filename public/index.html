@@ -352,15 +352,14 @@ setInterval(()=>{
   });
 },33);
 
-// Send shoot ~10fps
+// Send shoot every server tick (33ms) for immediate response
 setInterval(()=>{
   if(!socket||!myId||!gameActive||!Keys['KeyE'])return;
   const me=gameState.players.find(p=>p.id===myId);if(!me||me.mass<=20)return;
   const wx=Mouse.x+camX,wy=Mouse.y+camY;
   const dx=wx-predX,dy=wy-predY,l=Math.hypot(dx,dy)||1;
-  // Send px,py so server spawns bullet at predicted position (no visual offset)
   socket.emit('shoot',{nx:dx/l,ny:dy/l,px:Math.round(predX),py:Math.round(predY)});
-},100);
+},33);
 
 // ── Helpers ────────────────────────────────────────────────────
 function addMsg(t,col){

@@ -125,7 +125,8 @@ function mkBot(i) {
 function mkPlayer(id,name,color,flag) {
   return {id,name:name||'Player',color:color||'#00cfff',flag:flag||null,
     x:rnd(300,GW-300),y:rnd(300,GH-300),mass:20,vx:0,vy:0,
-    shieldEnd:0,stealthEnd:0,_dashFrames:0,
+    shieldEnd:Date.now()+5000, // 5s spawn protection
+    stealthEnd:0,_dashFrames:0,
     inv:{dash:0,shield:0,stealth:0,bomb:0,magnet:0},
     cdQ:0,cdW:0,cdR:0,cdB:0,cdF:0,_lastShot:0};
 }
@@ -286,7 +287,7 @@ function physicsStep(DT,now){
       if(p.mass>q.mass*1.1&&dst2(p.x,p.y,q.x,q.y)<pr2){
         p.mass=Math.min(10000,p.mass+q.mass*0.7);qEmit('explode',{x:q.x,y:q.y,col:q.color});
         qEmit('msg',{text:p.name+' absorbed '+q.name+'!',col:'#0ff'});qEmitTo(q.id,'died',{by:p.name});
-        q.mass=10;q.x=rnd(500,GW-500);q.y=rnd(500,GH-500);
+        q.mass=20;q.x=rnd(300,GW-300);q.y=rnd(300,GH-300);q.shieldEnd=now+5000;
       }
     }
   }
@@ -298,7 +299,7 @@ function physicsStep(DT,now){
     for(let pi=0;pi<pLen&&!hit;pi++){
       const p=pArr[pi];if(p.id===b.ownerId||now<p.shieldEnd)continue;
       const hr=b.r+mtr(p.mass);
-      if(dst2(b.x,b.y,p.x,p.y)<hr*hr){b.type==='bomb'?p.mass=Math.max(10,p.mass*0.7):p.mass-=5;qEmit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;if(p.mass<20){qEmitTo(p.id,'died',{by:'bullet'});p.mass=10;p.x=rnd(500,GW-500);p.y=rnd(500,GH-500);}}
+      if(dst2(b.x,b.y,p.x,p.y)<hr*hr){b.type==='bomb'?p.mass=Math.max(10,p.mass*0.7):p.mass-=5;qEmit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;if(p.mass<20){qEmitTo(p.id,'died',{by:'bullet'});p.mass=20;p.x=rnd(300,GW-300);p.y=rnd(300,GH-300);p.shieldEnd=now+5000;}}
     }
     if(hit)continue;
     for(let bi2=0;bi2<bLen&&!hit;bi2++){
@@ -308,11 +309,13 @@ function physicsStep(DT,now){
     }
   }
 
-  for(let bi=0;bi<BOT_AI_GROUP;bi++){
-    const bot=bots[(botAIOffset+bi)%bLen];
-    bot.at-=TICK_MS*BOT_AI_GROUP/bLen;bot.st-=DT;
+  for(let bi=0;bi<bLen;bi++){
+    const bot=bots[bi];
+    bot.at-=TICK_MS; // at is in ms
+    bot.st-=DT;
     if(bot.at<=0){
-      bot.at=rnd(20,60);let best=null,bestScore=-Infinity,fleeX=0,fleeY=0,fleeing=false;
+      bot.at=rnd(500,1500); // 500-1500ms between target updates
+      let best=null,bestScore=-Infinity,fleeX=0,fleeY=0,fleeing=false;
       for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const d2=dst2(bot.x,bot.y,p.x,p.y);if(p.mass>bot.mass*1.1&&d2<90000){const d=Math.sqrt(d2);fleeX+=(bot.x-p.x)/d;fleeY+=(bot.y-p.y)/d;fleeing=true;}}
       if(fleeing){const fl=Math.hypot(fleeX,fleeY)||1;bot.atx=clamp(bot.x+fleeX/fl*400,100,GW-100);bot.aty=clamp(bot.y+fleeY/fl*400,100,GH-100);}
       else{
@@ -330,7 +333,7 @@ function physicsStep(DT,now){
     for(let k=0;k<bnear.length;k++){const i=bnear[k],f=food[i],hr=br+f.r;if(bot.mass>f.mass*1.1&&dst2(bot.x,bot.y,f.x,f.y)<hr*hr){bot.mass=Math.min(10000,bot.mass+f.mass);replaceFood(i);}}
     for(let pi=0;pi<pLen;pi++){
       const p=pArr[pi];if(now<p.shieldEnd)continue;
-      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,p.x,p.y)<br*br){bot.mass=Math.min(10000,bot.mass+p.mass*0.7);qEmit('explode',{x:p.x,y:p.y,col:p.color});qEmitTo(p.id,'died',{by:bot.name});p.mass=10;p.x=rnd(500,GW-500);p.y=rnd(500,GH-500);}
+      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,p.x,p.y)<br*br){bot.mass=Math.min(10000,bot.mass+p.mass*0.7);qEmit('explode',{x:p.x,y:p.y,col:p.color});qEmitTo(p.id,'died',{by:bot.name});p.mass=20;p.x=rnd(300,GW-300);p.y=rnd(300,GH-300);p.shieldEnd=now+5000;}
       const prd=mtr(p.mass);
       if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<prd*prd){p.mass=Math.min(10000,p.mass+bot.mass*0.7);qEmit('explode',{x:bot.x,y:bot.y,col:bot.col});bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
     }
@@ -338,7 +341,7 @@ function physicsStep(DT,now){
     for(let ii=0;ii<items.length;ii++){if(items[ii].type==='TOXIC'&&dst2(bot.x,bot.y,items[ii].x,items[ii].y)<10000)bot.mass=Math.max(5,bot.mass*(1-0.05*DT/60));}
     if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
   }
-  if(bLen>0) botAIOffset=(botAIOffset+BOT_AI_GROUP)%bLen;
+  // all bots updated every tick
 
   // Flush batched events AFTER all physics
   for(let i=0;i<pendingEmits.length;i++){const e=pendingEmits[i];e.to?io.to(e.to).emit(e.ev,e.data):io.emit(e.ev,e.data);}
