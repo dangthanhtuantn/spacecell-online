@@ -13,8 +13,8 @@ const GW = 6000, GH = 6000;
 const FOOD_COUNT = 1200; // same density as before (1500/10000² * 6000² ≈ 540, boost to 1200)
 const BOT_COUNT = 20;
 const TICK_MS = 33;           // ~30fps tick; client interpolates to 60fps
-const LERP_P=0.2;   // player lerp per tick (33ms)
-const LERP_B=0.15;  // bot lerp per tick
+const LERP_P=0.35;  // player lerp per tick (compensates DT=1 vs original 1.98)
+const LERP_B=0.28;  // bot lerp per tick
 const FRIC=0.82;    // friction per tick
 
 // Frame-rate independent physics helpers
@@ -190,12 +190,17 @@ io.on('connection', socket => {
   });
   socket.on('shoot',({nx,ny,px,py})=>{
     const p=players[socket.id];if(!p||p.mass<=20)return;
-    const now=Date.now();if(now-p._lastShot<33)return; // match client 33ms interval
+    const now=Date.now();if(now-p._lastShot<33)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    // Use client predicted position if close enough to server position
+    // Use client predicted position
     const spawnX=(px!==undefined&&Math.abs(px-p.x)<200)?px:p.x;
     const spawnY=(py!==undefined&&Math.abs(py-p.y)<200)?py:p.y;
-    bullets.push(acquireBullet({id:uid(),x:spawnX+nx*(r+8),y:spawnY+ny*(r+8),vx:nx*20,vy:ny*20,type:'shot',r:3,life:25,col:p.color,ownerId:socket.id}));
+    // Spawn from FRONT edge in shoot direction (nx,ny points toward mouse)
+    bullets.push(acquireBullet({id:uid(),
+      x:spawnX+nx*(r+6), y:spawnY+ny*(r+6),
+      vx:nx*20, vy:ny*20,
+      type:'shot', r:3, life:20, // life=20 ticks * speed=20px/tick = 400px range
+      col:p.color, ownerId:socket.id}));
   });
   socket.on('ping',()=>socket.emit('pong_reply',{t:Date.now()}));
   socket.on('disconnect',()=>{
@@ -263,7 +268,7 @@ function physicsStep(DT,now){
       if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){ // removed 1.05 threshold
         p.mass=Math.min(10000,p.mass+f.mass);
         replaceFood(i); eaten.add(i);
-        qEmit('foodEaten',{ni:i,nf:food[i]});
+        io.emit('foodEaten',{ni:i,nf:food[i]}); // immediate, not queued
       }
     }
     for(let i=items.length-1;i>=0;i--){
@@ -273,7 +278,8 @@ function physicsStep(DT,now){
         else if(it.type==='STEALTH')p.inv.stealth++;else if(it.type==='GROW1')p.mass=Math.min(10000,p.mass+100);
         else if(it.type==='GROW2')p.mass=Math.min(10000,p.mass+200);else if(it.type==='GROW5')p.mass=Math.min(10000,p.mass+500);
         else if(it.type==='MAGNET')p.inv.magnet++;else if(it.type==='BOMB')p.inv.bomb++;
-        const t=it.type,rid=it.id;items.splice(i,1);schedRespawn(t);qEmit('itemRemoved',rid);
+        const t=it.type,rid=it.id;items.splice(i,1);schedRespawn(t);
+        io.emit('itemRemoved',rid); // immediate, not queued
       }
     }
     for(let i=0;i<items.length;i++){if(items[i].type==='TOXIC'&&dst2(p.x,p.y,items[i].x,items[i].y)<10000)p.mass=Math.max(10,p.mass*(1-0.05*DT/60));}
