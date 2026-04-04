@@ -327,6 +327,7 @@ function handleKey(code){
   const me=gameState.players.find(p=>p.id===myId);if(!me)return;
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
   if(code==='KeyQ'){
+    if(!me.inv||me.inv.dash<=0||me.cdQ>0)return; // check before predicting
     socket.emit('dash',{nx:mdx/ml,ny:mdy/ml});
     // Predict dash instantly on client
     predVx=mdx/ml*40;predVy=mdy/ml*40;predDashFrames=12;
@@ -477,7 +478,7 @@ function loop(ts){
   // CLIENT-SIDE PREDICTION: frame-rate independent physics matching server
   if(gameActive&&myId){
     const me=gameState.players&&gameState.players.find(p=>p.id===myId);
-    const spd=me?5*speedMult(me.mass||predMass):5;
+    const spd=me?10*speedMult(me.mass||predMass):10;
     const tickFrac=dt*16.67/33; // normalize frame dt to server tick units
     const lP=1-Math.pow(0.8,tickFrac);   // FI lerp matching server LERP_P=0.2
     const fr=Math.pow(0.82,tickFrac);    // FI friction matching server FRIC=0.82

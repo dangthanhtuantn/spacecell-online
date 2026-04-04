@@ -74,7 +74,7 @@ function speedMult(mass) {
   if (mass>=2000)  return 0.729;   if (mass>=1000) return 0.81;
   if (mass>=500)   return 0.9;     return 1;
 }
-function baseSpd(mass) { return 5*speedMult(mass); }
+function baseSpd(mass) { return 10*speedMult(mass); } // x2 to compensate DT=1 normalization
 
 const FOOD_SIZES=[{mass:5,r:3,w:50},{mass:10,r:4,w:25},{mass:20,r:5,w:15},{mass:50,r:7,w:5},{mass:100,r:10,w:5}];
 function mkFood() {
@@ -190,7 +190,7 @@ io.on('connection', socket => {
   });
   socket.on('shoot',({nx,ny,px,py})=>{
     const p=players[socket.id];if(!p||p.mass<=20)return;
-    const now=Date.now();if(now-p._lastShot<100)return;
+    const now=Date.now();if(now-p._lastShot<33)return; // match client 33ms interval
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
     // Use client predicted position if close enough to server position
     const spawnX=(px!==undefined&&Math.abs(px-p.x)<200)?px:p.x;
