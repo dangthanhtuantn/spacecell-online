@@ -9,8 +9,8 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Constants ─────────────────────────────────────────────────
-const GW = 1000, GH = 1000;
-const CELL = 100, GRID = 10;
+const GW = 10000, GH = 10000;
+const CELL = 1000, GRID = 10;
 const FOOD_COUNT = 1500;
 const BOT_COUNT = 20;
 const TICK_MS = 16;          // 60fps - we have 8vCPU, use it
@@ -18,7 +18,7 @@ const ITEM_MAX = 10;
 const WORLD_UPDATE_MS = 500;
 
 // ── Spatial Grid for O(1) nearby lookups ──────────────────────
-const GRID_SIZE = 50; // grid cell size for spatial lookup
+const GRID_SIZE = 500; // grid cell size for spatial lookup
 const GRID_COLS = Math.ceil(GW / GRID_SIZE);
 const GRID_ROWS = Math.ceil(GH / GRID_SIZE);
 let foodGrid = []; // sparse grid: foodGrid[col][row] = [food indices]
