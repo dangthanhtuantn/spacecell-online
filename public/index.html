@@ -295,9 +295,10 @@ function joinGame(name,flag,color){
   });
 
   socket.on('explode',({x,y,col})=>{
-    // Delay explosion by interpolation delay (100ms)
-    // so the visual explosion matches when the interpolated bot reaches hit position
-    setTimeout(()=>spark(x,y,col,30), 100);
+    // Delay matches interpolation offset so explosion aligns with displayed bot
+    // ping ~150ms, interp 130ms, explosion arrives at ping after server event
+    // net offset ≈ interp_delay - ping/2 = 130 - 75 = ~55ms
+    setTimeout(()=>spark(x,y,col,30), 55);
   });
   socket.on('msg',({text,col})=>addMsg(text,col));
 
@@ -396,22 +397,18 @@ function spark(px,py,col,n=8){
 
 // Linear interpolation
 function lerp(a,b,t){return a+(b-a)*t;}
+function slerp(a,b,t){const s=t*t*(3-2*t);return a+(b-a)*s;} // smoothstep - smooth joins
 
-// Get interpolated game state using ring buffer
-// Finds the snapshot pair that brackets (now - INTERP_DELAY)
-// t is always clamped to [0,1] - no extrapolation ever
 function getInterpolated(){
   if(snapCount<2){
     const s=snapBuf[snapHead];
     return {players:s.players,bots:s.bots,bullets:s.bullets};
   }
 
-  // Bullets: always latest
   const latestBullets=snapBuf[snapHead].bullets;
 
-  // Render 100ms behind wall clock - advances smoothly every RAF frame
-  // t-reset stutter = ~3% of bot step = imperceptible
-  const renderT=Date.now()-100;
+  // 130ms buffer: stable t even with 10-20ms packet timing variance
+  const renderT=Date.now()-130;
 
   let prevIdx=-1,currIdx=-1;
   for(let i=0;i<snapCount;i++){
@@ -437,18 +434,18 @@ function getInterpolated(){
   const t=dt<=0?1:Math.max(0,Math.min(1,(renderT-prev.t)/dt));
 
   const prevPlayerMap=new Map(prev.players.map(p=>[p.id,p]));
-  const prevBotMap=new Map(prev.bots.map(b=>[b.id,b]));
+  const prevBotMap   =new Map(prev.bots.map(b=>[b.id,b]));
 
   const players=curr.players.map(c=>{
     const p=prevPlayerMap.get(c.id);
     if(!p)return c;
-    return {...c,x:lerp(p.x,c.x,t),y:lerp(p.y,c.y,t)};
+    return {...c,x:slerp(p.x,c.x,t),y:slerp(p.y,c.y,t)};
   });
 
   const bots=curr.bots.map(c=>{
     const p=prevBotMap.get(c.id);
     if(!p)return c;
-    return {...c,x:lerp(p.x,c.x,t),y:lerp(p.y,c.y,t)};
+    return {...c,x:slerp(p.x,c.x,t),y:slerp(p.y,c.y,t)};
   });
 
   return {players,bots,bullets:latestBullets};
