@@ -53,175 +53,58 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // ── Lobby (giữ nguyên từ file gốc của bạn) ─────────────────────
+        // ── Lobby (đã wrap DOMContentLoaded để tránh lỗi null) ───────
         const PCOLORS = ['#00cfff', '#ff4455', '#ffaa00', '#44ff88', '#ff44ff', '#ffff44', '#ff8800', '#00ffcc', '#ff88cc', '#88ff44', '#4488ff', '#ff6644'];
-        const ALL_FLAGS = ['🇦🇩', '🇦🇪', '🇦🇫', '🇦🇬', '🇦🇱', '🇦🇲', '🇦🇴', '🇦🇷', '🇦🇹', '🇦🇺', '🇦🇿', '🇧🇦', '🇧🇧', '🇧🇩', '🇧🇪', '🇧🇫', '🇧🇬', '🇧🇭', '🇧🇮', '🇧🇯', '🇧🇳', '🇧🇴', '🇧🇷', '🇧🇸', '🇧🇹', '🇧🇼', '🇧🇾', '🇧🇿', '🇨🇦', '🇨🇩', '🇨🇫', '🇨🇬', '🇨🇭', '🇨🇱', '🇨🇲', '🇨🇳', '🇨🇴', '🇨🇷', '🇨🇺', '🇨🇻', '🇨🇾', '🇨🇿', '🇩🇪', '🇩🇯', '🇩🇰', '🇩🇲', '🇩🇴', '🇩🇿', '🇪🇨', '🇪🇪', '🇪🇬', '🇪🇷', '🇪🇸', '🇪🇹', '🇫🇮', '🇫🇯', '🇫🇲', '🇫🇷', '🇬🇦', '🇬🇧', '🇬🇩', '🇬🇪', '🇬🇭', '🇬🇲', '🇬🇳', '🇬🇶', '🇬🇷', '🇬🇹', '🇬🇼', '🇬🇾', '🇭🇳', '🇭🇷', '🇭🇹', '🇭🇺', '🇮🇩', '🇮🇪', '🇮🇱', '🇮🇳', '🇮🇶', '🇮🇷', '🇮🇸', '🇮🇹', '🇯🇲', '🇯🇴', '🇯🇵', '🇰🇪', '🇰🇬', '🇰🇭', '🇰🇮', '🇰🇲', '🇰🇳', '🇰🇵', '🇰🇷', '🇰🇼', '🇰🇿', '🇱🇦', '🇱🇧', '🇱🇨', '🇱🇮', '🇱🇰', '🇱🇷', '🇱🇸', '🇱🇹', '🇱🇺', '🇱🇻', '🇱🇾', '🇲🇦', '🇲🇨', '🇲🇩', '🇲🇪', '🇲🇬', '🇲🇭', '🇲🇰', '🇲🇱', '🇲🇲', '🇲🇳', '🇲🇴', '🇲🇷', '🇲🇹', '🇲🇺', '🇲🇻', '🇲🇼', '🇲🇽', '🇲🇾', '🇲🇿', '🇳🇦', '🇳🇪', '🇳🇬', '🇳🇮', '🇳🇱', '🇳🇴', '🇳🇵', '🇳🇷', '🇳🇿', '🇴🇲', '🇵🇦', '🇵🇪', '🇵🇬', '🇵🇭', '🇵🇰', '🇵🇱', '🇵🇸', '🇵🇹', '🇵🇼', '🇵🇾', '🇶🇦', '🇷🇴', '🇷🇸', '🇷🇺', '🇷🇼', '🇸🇦', '🇸🇧', '🇸🇩', '🇸🇪', '🇸🇬', '🇸🇮', '🇸🇰', '🇸🇱', '🇸🇲', '🇸🇳', '🇸🇴', '🇸🇷', '🇸🇸', '🇸🇹', '🇸🇻', '🇸🇾', '🇸🇿', '🇹🇩', '🇹🇬', '🇹🇭', '🇹🇯', '🇹🇱', '🇹🇲', '🇹🇳', '🇹🇴', '🇹🇹', '🇹🇻', '🇹🇼', '🇹🇿', '🇺🇦', '🇺🇬', '🇺🇸', '🇺🇾', '🇺🇿', '🇻🇦', '🇻🇨', '🇻🇪', '🇻🇳', '🇻🇺', '🇼🇸', '🇽🇰', '🇾🇪', '🇿🇦', '🇿🇲', '🇿🇼'];
+        const ALL_FLAGS = ['🇦🇩', '🇦🇪', '🇦🇫', '🇦🇬', '🇦🇱', '🇦🇲', '🇦🇴', '🇦🇷', '🇦🇹', '🇦🇺', '🇦🇿', '🇧🇦', '🇧🇧', '🇧🇩', '🇧🇪', '🇧🇫', '🇧🇬', '🇧🇭', '🇧🇮', '🇧🇯', '🇧🇳', '🇧🇴', '🇧🇷', '🇧🇸', '🇧🇹', '🇧🇼', '🇧🇾', '🇧🇿', '🇨🇦', '🇨🇩', '🇨🇫', '🇨🇬', '🇨🇭', '🇨🇱', '🇨🇲', '🇨🇳', '🇨🇴', '🇨🇷', '🇨🇺', '🇨🇻', '🇨🇾', '🇨🇿', '🇩🇪', '🇩🇯', '🇩🇰', '🇩🇲', '🇩🇴', '🇩🇿', '🇪🇨', '🇪🇪', '🇪🇬', '🇪🇷', '🇪🇸', '🇪🇹', '🇫🇮', '🇫🇯', '🇫🇲', '🇫🇷', '🇬🇦', '🇬🇧', '🇬🇩', '🇬🇪', '🇬🇭', '🇬🇲', '🇬🇳', '🇬🇶', '🇬🇷', '🇬🇹', '🇬🇼', '🇬🇾', '🇭🇳', '🇭🇷', '🇭🇹', '🇭🇺', '🇮🇩', '🇮🇪', '🇮🇱', '🇮🇳', '🇮🇶', '🇮🇷', '🇮🇸', '🇮🇹', '🇯🇲', '🇯🇴', '🇯🇵', '🇰🇪', '🇰🇬', '🇰🇭', '🇰🇮', '🇰🇲', '🇰🇳', '🇰🇵', '🇰🇷', '🇰🇼', '🇰🇿', '🇱🇦', '🇱🇧', '🇱🇨', '🇱🇮', '🇱🇰', '🇱🇸', '🇱🇹', '🇱🇺', '🇱🇻', '🇱🇾', '🇲🇦', '🇲🇨', '🇲🇩', '🇲🇪', '🇲🇬', '🇲🇭', '🇲🇰', '🇲🇱', '🇲🇲', '🇲🇳', '🇲🇴', '🇲🇷', '🇲🇹', '🇲🇺', '🇲🇻', '🇲🇼', '🇲🇽', '🇲🇾', '🇲🇿', '🇳🇦', '🇳🇪', '🇳🇬', '🇳🇮', '🇳🇱', '🇳🇴', '🇳🇵', '🇳🇷', '🇳🇿', '🇴🇲', '🇵🇦', '🇵🇪', '🇵🇬', '🇵🇭', '🇵🇰', '🇵🇱', '🇵🇸', '🇵🇹', '🇵🇼', '🇵🇾', '🇶🇦', '🇷🇴', '🇷🇸', '🇷🇺', '🇷🇼', '🇸🇦', '🇸🇧', '🇸🇩', '🇸🇪', '🇸🇬', '🇸🇮', '🇸🇰', '🇸🇱', '🇸🇲', '🇸🇳', '🇸🇴', '🇸🇷', '🇸🇸', '🇸🇹', '🇸🇻', '🇸🇾', '🇸🇿', '🇹🇩', '🇹🇬', '🇹🇭', '🇹🇯', '🇹🇱', '🇹🇲', '🇹🇳', '🇹🇴', '🇹🇹', '🇹🇻', '🇹🇼', '🇹🇿', '🇺🇦', '🇺🇬', '🇺🇸', '🇺🇾', '🇺🇿', '🇻🇦', '🇻🇨', '🇻🇪', '🇻🇳', '🇻🇺', '🇼🇸', '🇽🇰', '🇾🇪', '🇿🇦', '🇿🇲', '🇿🇼'];
 
         let selColor = PCOLORS[0], selFlag = null, useFlag = false;
 
-        function buildLobby() { /* giữ nguyên hàm buildLobby, switchTab, openLobby, startFromLobby từ file gốc của bạn */ }
-        function switchTab(i) { /* code gốc */ }
-        function openLobby() { /* code gốc */ }
-        function startFromLobby() { /* code gốc */ }
-        buildLobby();
-        document.getElementById('pname').addEventListener('keydown', e => { if (e.key === 'Enter') startFromLobby(); });
-        document.getElementById('respawnBtn').onclick = () => { /* code gốc */ };
+        document.addEventListener('DOMContentLoaded', () => {
+            buildLobby();
+            const pname = document.getElementById('pname');
+            const respawnBtn = document.getElementById('respawnBtn');
 
-        // ── Engine + Tối ưu Offscreen Food ─────────────────────────────
+            if (pname) pname.addEventListener('keydown', e => { if (e.key === 'Enter') startFromLobby(); });
+            if (respawnBtn) respawnBtn.onclick = () => { document.getElementById('dead').style.display = 'none'; openLobby(); };
+        });
+
+        function buildLobby() { /* copy nguyên hàm buildLobby từ file gốc của bạn */ }
+        function switchTab(i) { /* copy nguyên */ }
+        function openLobby() { /* copy nguyên */ }
+        function startFromLobby() { /* copy nguyên */ }
+
+        // ── Engine + Tối ưu (giữ nguyên phần còn lại của script) ─────
         const GC = document.getElementById('gc'), CTX = GC.getContext('2d');
         const MMC = document.getElementById('mm'), MCTX = MMC.getContext('2d');
 
         const FOOD_CANVAS = document.createElement('canvas');
         const FCTX = FOOD_CANVAS.getContext('2d');
-        FOOD_CANVAS.width = 10000;
-        FOOD_CANVAS.height = 10000;
+        FOOD_CANVAS.width = 10000; FOOD_CANVAS.height = 10000;
         let foodDirty = true;
 
         let SW, SH;
         function resize() { SW = GC.width = window.innerWidth; SH = GC.height = window.innerHeight; }
         resize(); window.addEventListener('resize', resize);
 
-        const Mouse = { x: 0, y: 0 };
-        const Keys = {};
-        window.addEventListener('mousemove', e => { Mouse.x = e.clientX; Mouse.y = e.clientY; });
-        window.addEventListener('keydown', e => { /* code gốc */ });
-        window.addEventListener('keyup', e => { Keys[e.code] = false; });
+        // ... (copy hết phần còn lại của script từ file gốc của bạn, bao gồm tất cả biến, hàm joinGame, render, loop, drawMe, drawOther...)
 
-        const rnd = (a, b) => Math.random() * (b - a) + a;
-        const mtr = m => Math.sqrt(m) * 1.5 + 3;
-        const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-        function speedMult(mass) { /* code gốc */ }
-
-        // Game state
-        let socket = null, myId = null, myName = 'Player', myColor = '#00cfff', myFlag = null;
-        let GW = 10000, GH = 10000;
-        let food = [], items = [], parts = [];
-        let camX = 0, camY = 0, camTargX = 0, camTargY = 0;
-        let gameActive = false;
-        let gameState = { players: [], bots: [], bullets: [] };
-        const STARS = [];
-        let predX = 0, predY = 0, predMass = 10, predVx = 0, predVy = 0, predDashFrames = 0;
-        const INTERP_DELAY = 80;
-
-        function initStars() { /* code gốc */ }
-
-        // ── Join Game (đã thêm screen size) ───────────────────────────
+        // Chỉ sửa 2 chỗ nhỏ trong joinGame và worldUpdate:
         function joinGame(name, flag, color) {
-            myName = name; myFlag = flag; myColor = color;
-            if (socket) { socket.disconnect(); }
-            socket = io();
-
+            // ... code cũ ...
             socket.on('connect', () => {
                 myId = socket.id;
-                socket.emit('join', { name, color, flag, screenW: SW, screenH: SH }); // ← quan trọng
+                socket.emit('join', { name, color, flag, screenW: SW, screenH: SH });
                 doPing();
             });
-
-            socket.on('init', d => { /* code gốc */ });
-            socket.on('state', s => { /* code gốc */ });
-            socket.on('worldUpdate', d => {
-                if (d.food) { food = d.food; foodDirty = true; }
-                if (d.items && d.items.length) items = d.items;
-            });
-            socket.on('itemRemoved', id => { /* code gốc */ });
-            socket.on('playerList', list => { /* code gốc */ });
-            socket.on('explode', ({ x, y, col }) => spark(x, y, col, 15));
-            socket.on('msg', ({ text, col }) => addMsg(text, col));
-            socket.on('died', ({ by }) => { /* code gốc */ });
-            socket.on('respawn', () => { /* code gốc */ });
-            socket.on('pong_reply', () => { /* code gốc */ });
-            socket.on('disconnect', () => { gameActive = false; });
+            // ...
         }
 
-        function doPing() { /* code gốc */ }
+        socket.on('worldUpdate', d => {
+            if (d.food) { food = d.food; foodDirty = true; }
+            if (d.items) items = d.items;
+        });
 
-        // Input, HUD, Helpers (addMsg, spark, lerp, smoothstep, getInterpolated, updateHUD, updSk) giữ nguyên từ file gốc
-        // ... (copy nguyên các hàm này từ file index.html gốc của bạn)
-
-        // ── Render Loop (đã tối ưu) ───────────────────────────────────
-        let prev = 0;
-        function loop(ts) {
-            requestAnimationFrame(loop);
-            const dt = Math.min((ts - prev) / 16.67, 3); prev = ts;
-
-            if (gameActive && myId) {
-                const me = gameState.players && gameState.players.find(p => p.id === myId);
-                const spd = me ? 5 * speedMult(me.mass || predMass) : 5;
-                if (predDashFrames > 0) { predDashFrames--; predVx *= 0.82; predVy *= 0.82; }
-                else {
-                    const mdx = Mouse.x - SW / 2, mdy = Mouse.y - SH / 2, ml = Math.hypot(mdx, mdy) || 1;
-                    predVx += (mdx / ml * spd - predVx) * 0.2; predVy += (mdy / ml * spd - predVy) * 0.2;
-                    predVx *= 0.82; predVy *= 0.82;
-                }
-                const pr = me ? mtr(me.mass || predMass) : mtr(predMass);
-                predX = Math.max(pr, Math.min(GW - pr, predX + predVx * dt));
-                predY = Math.max(pr, Math.min(GH - pr, predY + predVy * dt));
-                camTargX = predX - SW / 2; camTargY = predY - SH / 2;
-            }
-
-            camX += (camTargX - camX) * 0.18;
-            camY += (camTargY - camY) * 0.18;
-
-            // Particles
-            for (let i = parts.length - 1; i >= 0; i--) {
-                const p = parts[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; p.life -= dt; p.r *= 0.95;
-                if (p.life <= 0 || p.r < 0.3) parts.splice(i, 1);
-            }
-            render();
-        }
-        requestAnimationFrame(loop);   // ← đây là dòng quan trọng
-
-        // ── Render (đã tối ưu food) ───────────────────────────────────
-        function render() {
-            CTX.fillStyle = '#000510'; CTX.fillRect(0, 0, SW, SH);
-            if (!gameActive || !myId) { renderMinimap(); return; }
-
-            const interp = getInterpolated();
-            const me = gameState.players && gameState.players.find(p => p.id === myId);
-
-            CTX.save(); CTX.translate(-camX, -camY);
-
-            // Food offscreen canvas
-            if (foodDirty) {
-                FCTX.clearRect(0, 0, 10000, 10000);
-                food.forEach(f => {
-                    FCTX.fillStyle = f.col;
-                    FCTX.beginPath(); FCTX.arc(f.x, f.y, f.r, 0, Math.PI * 2); FCTX.fill();
-                });
-                foodDirty = false;
-            }
-            CTX.drawImage(FOOD_CANVAS, 0, 0);
-
-            // Items, Particles, Bullets, Bots, Other players, Self (copy nguyên code vẽ từ file gốc của bạn)
-
-            CTX.restore();
-
-            // Crosshair
-            CTX.strokeStyle = 'rgba(0,220,255,0.85)'; CTX.lineWidth = 1.5;
-            CTX.beginPath(); CTX.arc(Mouse.x, Mouse.y, 9, 0, Math.PI * 2); CTX.stroke();
-            [[0, -16, 0, -5], [0, 5, 0, 16], [-16, 0, -5, 0], [5, 0, 16, 0]].forEach(([x1, y1, x2, y2]) => {
-                CTX.beginPath(); CTX.moveTo(Mouse.x + x1, Mouse.y + y1); CTX.lineTo(Mouse.x + x2, Mouse.y + y2); CTX.stroke();
-            });
-
-            renderMinimap();
-        }
-
-        // Minimap tối ưu (chỉ vẽ mỗi 4 frame)
-        let frameSkip = 0;
-        function renderMinimap() {
-            if (++frameSkip % 4 !== 0) return;
-            // copy nguyên code renderMinimap từ file gốc
-        }
-
-        // Particles giảm
-        function spark(px, py, col, n = 12) {
-            for (let i = 0; i < Math.min(n, 15); i++) {
-                const a = rnd(0, Math.PI * 2), s = rnd(2, 10);
-                parts.push({ x: px, y: py, vx: Math.cos(a) * s, vy: Math.sin(a) * s, r: rnd(2, 6), col, life: rnd(15, 40) });
-            }
-        }
-
-        // Các hàm còn lại (drawMe, drawOther, drawBot, getInterpolated, updateHUD...) copy nguyên từ file gốc của bạn
+        // Cuối script giữ nguyên requestAnimationFrame(loop);
     </script>
 </body>
 </html>
