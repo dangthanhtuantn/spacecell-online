@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>SpaceCell Online</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpaceCell Online - Optimized Edition</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -11,100 +13,246 @@
         }
 
         body {
-            background: #000;
+            background: #00050a;
             overflow: hidden;
-            font-family: 'Courier New',monospace;
-            user-select: none;
-            cursor: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
         }
 
         canvas {
             display: block;
         }
-        /* (giữ nguyên toàn bộ CSS từ file gốc của bạn) */
+
+        /* Giao diện sảnh chờ (Lobby) */
         #lobby {
             position: fixed;
             inset: 0;
-            background: radial-gradient(ellipse at center,#001428,#000208);
+            background: rgba(0, 10, 20, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 200;
-            cursor: default;
+            z-index: 100;
         }
 
-        .lbox {
-            background: rgba(0,18,45,0.97);
-            border: 1px solid rgba(0,180,255,0.4);
-            border-radius: 16px;
-            padding: 28px 36px;
-            width: 520px;
-            max-height: 90vh;
-            overflow-y: auto;
+        .login-box {
+            background: #001c33;
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #00d4ff;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
         }
-        /* ... (bạn copy hết phần style từ file index.html gốc của bạn vào đây) ... */
+
+        input {
+            padding: 12px;
+            width: 250px;
+            border-radius: 5px;
+            border: none;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px 30px;
+            background: #00d4ff;
+            border: none;
+            border-radius: 5px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+            button:hover {
+                background: #008fb3;
+            }
+
+        /* Chỉ số HUD */
+        #hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            font-family: monospace;
+            font-size: 18px;
+            text-shadow: 2px 2px #000;
+        }
+
+        #minimap {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0, 20, 40, 0.7);
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
-    <canvas id="gc"></canvas>
-    <div id="mmw"><div class="mml">MINIMAP</div><canvas id="mm" width="130" height="130"></canvas></div>
-    <!-- HUD, skill bar, dead screen, lobby giữ nguyên như file gốc -->
-    <!-- (copy toàn bộ các div #hud, #lb, #inv, #msgs, #dead, #lobby từ file gốc của bạn) -->
 
-    <script src="/socket.io/socket.io.js"></script>
+    <div id="lobby">
+        <div class="login-box">
+            <h1 style="color: #00d4ff; margin-bottom: 20px;">SPACE CELL</h1>
+            <input type="text" id="nick" placeholder="Nhập tên của bạn..." maxlength="15">
+            <br>
+            <button onclick="joinGame()">BẮT ĐẦU CHƠI</button>
+        </div>
+    </div>
+
+    <div id="hud">Khối lượng: <span id="mass">0</span></div>
+    <canvas id="gameCanvas"></canvas>
+    <canvas id="minimap"></canvas>
+
     <script>
-        // ── Lobby (đã wrap DOMContentLoaded để tránh lỗi null) ───────
-        const PCOLORS = ['#00cfff', '#ff4455', '#ffaa00', '#44ff88', '#ff44ff', '#ffff44', '#ff8800', '#00ffcc', '#ff88cc', '#88ff44', '#4488ff', '#ff6644'];
-        const ALL_FLAGS = ['🇦🇩', '🇦🇪', '🇦🇫', '🇦🇬', '🇦🇱', '🇦🇲', '🇦🇴', '🇦🇷', '🇦🇹', '🇦🇺', '🇦🇿', '🇧🇦', '🇧🇧', '🇧🇩', '🇧🇪', '🇧🇫', '🇧🇬', '🇧🇭', '🇧🇮', '🇧🇯', '🇧🇳', '🇧🇴', '🇧🇷', '🇧🇸', '🇧🇹', '🇧🇼', '🇧🇾', '🇧🇿', '🇨🇦', '🇨🇩', '🇨🇫', '🇨🇬', '🇨🇭', '🇨🇱', '🇨🇲', '🇨🇳', '🇨🇴', '🇨🇷', '🇨🇺', '🇨🇻', '🇨🇾', '🇨🇿', '🇩🇪', '🇩🇯', '🇩🇰', '🇩🇲', '🇩🇴', '🇩🇿', '🇪🇨', '🇪🇪', '🇪🇬', '🇪🇷', '🇪🇸', '🇪🇹', '🇫🇮', '🇫🇯', '🇫🇲', '🇫🇷', '🇬🇦', '🇬🇧', '🇬🇩', '🇬🇪', '🇬🇭', '🇬🇲', '🇬🇳', '🇬🇶', '🇬🇷', '🇬🇹', '🇬🇼', '🇬🇾', '🇭🇳', '🇭🇷', '🇭🇹', '🇭🇺', '🇮🇩', '🇮🇪', '🇮🇱', '🇮🇳', '🇮🇶', '🇮🇷', '🇮🇸', '🇮🇹', '🇯🇲', '🇯🇴', '🇯🇵', '🇰🇪', '🇰🇬', '🇰🇭', '🇰🇮', '🇰🇲', '🇰🇳', '🇰🇵', '🇰🇷', '🇰🇼', '🇰🇿', '🇱🇦', '🇱🇧', '🇱🇨', '🇱🇮', '🇱🇰', '🇱🇸', '🇱🇹', '🇱🇺', '🇱🇻', '🇱🇾', '🇲🇦', '🇲🇨', '🇲🇩', '🇲🇪', '🇲🇬', '🇲🇭', '🇲🇰', '🇲🇱', '🇲🇲', '🇲🇳', '🇲🇴', '🇲🇷', '🇲🇹', '🇲🇺', '🇲🇻', '🇲🇼', '🇲🇽', '🇲🇾', '🇲🇿', '🇳🇦', '🇳🇪', '🇳🇬', '🇳🇮', '🇳🇱', '🇳🇴', '🇳🇵', '🇳🇷', '🇳🇿', '🇴🇲', '🇵🇦', '🇵🇪', '🇵🇬', '🇵🇭', '🇵🇰', '🇵🇱', '🇵🇸', '🇵🇹', '🇵🇼', '🇵🇾', '🇶🇦', '🇷🇴', '🇷🇸', '🇷🇺', '🇷🇼', '🇸🇦', '🇸🇧', '🇸🇩', '🇸🇪', '🇸🇬', '🇸🇮', '🇸🇰', '🇸🇱', '🇸🇲', '🇸🇳', '🇸🇴', '🇸🇷', '🇸🇸', '🇸🇹', '🇸🇻', '🇸🇾', '🇸🇿', '🇹🇩', '🇹🇬', '🇹🇭', '🇹🇯', '🇹🇱', '🇹🇲', '🇹🇳', '🇹🇴', '🇹🇹', '🇹🇻', '🇹🇼', '🇹🇿', '🇺🇦', '🇺🇬', '🇺🇸', '🇺🇾', '🇺🇿', '🇻🇦', '🇻🇨', '🇻🇪', '🇻🇳', '🇻🇺', '🇼🇸', '🇽🇰', '🇾🇪', '🇿🇦', '🇿🇲', '🇿🇼'];
+        const socket = io();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const mCanvas = document.getElementById('minimap');
+        const mCtx = mCanvas.getContext('2d');
 
-        let selColor = PCOLORS[0], selFlag = null, useFlag = false;
+        // Cấu hình thế giới (Khớp với server)
+        const GW = 10000, GH = 10000;
+        let camX = GW / 2, camY = GH / 2;
+        let myId = null;
+        let players = [], bots = [];
+        let isPlaying = false;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            buildLobby();
-            const pname = document.getElementById('pname');
-            const respawnBtn = document.getElementById('respawnBtn');
+        // Tối ưu hóa kích thước màn hình
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
 
-            if (pname) pname.addEventListener('keydown', e => { if (e.key === 'Enter') startFromLobby(); });
-            if (respawnBtn) respawnBtn.onclick = () => { document.getElementById('dead').style.display = 'none'; openLobby(); };
-        });
-
-        function buildLobby() { /* copy nguyên hàm buildLobby từ file gốc của bạn */ }
-        function switchTab(i) { /* copy nguyên */ }
-        function openLobby() { /* copy nguyên */ }
-        function startFromLobby() { /* copy nguyên */ }
-
-        // ── Engine + Tối ưu (giữ nguyên phần còn lại của script) ─────
-        const GC = document.getElementById('gc'), CTX = GC.getContext('2d');
-        const MMC = document.getElementById('mm'), MCTX = MMC.getContext('2d');
-
-        const FOOD_CANVAS = document.createElement('canvas');
-        const FCTX = FOOD_CANVAS.getContext('2d');
-        FOOD_CANVAS.width = 10000; FOOD_CANVAS.height = 10000;
-        let foodDirty = true;
-
-        let SW, SH;
-        function resize() { SW = GC.width = window.innerWidth; SH = GC.height = window.innerHeight; }
-        resize(); window.addEventListener('resize', resize);
-
-        // ... (copy hết phần còn lại của script từ file gốc của bạn, bao gồm tất cả biến, hàm joinGame, render, loop, drawMe, drawOther...)
-
-        // Chỉ sửa 2 chỗ nhỏ trong joinGame và worldUpdate:
-        function joinGame(name, flag, color) {
-            // ... code cũ ...
-            socket.on('connect', () => {
-                myId = socket.id;
-                socket.emit('join', { name, color, flag, screenW: SW, screenH: SH });
-                doPing();
-            });
-            // ...
+        function joinGame() {
+            const name = document.getElementById('nick').value || 'Player';
+            socket.emit('join', { name: name, color: `hsl(${Math.random() * 360}, 70%, 60%)` });
+            document.getElementById('lobby').style.display = 'none';
+            isPlaying = true;
         }
 
-        socket.on('worldUpdate', d => {
-            if (d.food) { food = d.food; foodDirty = true; }
-            if (d.items) items = d.items;
+        // Nhận dữ liệu rút gọn (Tối ưu băng thông)
+        socket.on('s', (data) => {
+            myId = socket.id;
+            players = data.p;
+            bots = data.b;
         });
 
-        // Cuối script giữ nguyên requestAnimationFrame(loop);
+        // Theo dõi chuột
+        window.addEventListener('mousemove', (e) => {
+            if (!isPlaying) return;
+            // Chuyển đổi tọa độ chuột sang tọa độ thế giới
+            const tx = e.clientX - canvas.width / 2 + camX;
+            const ty = e.clientY - canvas.height / 2 + camY;
+            socket.emit('u', { x: tx, y: ty });
+        });
+
+        // Kiểm tra thực thể có nằm trong màn hình không (Culling)
+        function isVisible(x, y, r) {
+            const margin = 100;
+            return x + r > camX - canvas.width / 2 - margin &&
+                x - r < camX + canvas.width / 2 + margin &&
+                y + r > camY - canvas.height / 2 - margin &&
+                y - r < camY + canvas.height / 2 + margin;
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.05)';
+            ctx.lineWidth = 1;
+            const size = 500;
+            const startX = Math.floor((camX - canvas.width / 2) / size) * size;
+            const startY = Math.floor((camY - canvas.height / 2) / size) * size;
+
+            ctx.beginPath();
+            for (let x = startX; x < camX + canvas.width / 2; x += size) {
+                ctx.moveTo(x, camY - canvas.height / 2);
+                ctx.lineTo(x, camY + canvas.height / 2);
+            }
+            for (let y = startY; y < camY + canvas.height / 2; y += size) {
+                ctx.moveTo(camX - canvas.width / 2, y);
+                ctx.lineTo(camX + canvas.width / 2, y);
+            }
+            ctx.stroke();
+        }
+
+        function render() {
+            ctx.fillStyle = '#00050a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const me = players.find(p => p.i === myId);
+            if (me) {
+                // Camera Smooth Interpolation
+                camX += (me.x - camX) * 0.15;
+                camY += (me.y - camY) * 0.15;
+                document.getElementById('mass').innerText = me.m;
+            }
+
+            ctx.save();
+            ctx.translate(canvas.width / 2 - camX, canvas.height / 2 - camY);
+
+            drawGrid();
+
+            // Render Bots
+            bots.forEach(b => {
+                const r = Math.sqrt(b.m) * 5;
+                if (!isVisible(b.x, b.y, r)) return;
+
+                ctx.fillStyle = b.c;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Vẽ hiệu ứng viền để bot trông chuyên nghiệp hơn
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.stroke();
+            });
+
+            // Render Players
+            players.forEach(p => {
+                const r = Math.sqrt(p.m) * 5;
+                if (!isVisible(p.x, p.y, r)) return;
+
+                ctx.fillStyle = p.c;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Tên người chơi
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.n, p.x, p.y - r - 10);
+            });
+
+            ctx.restore();
+
+            // Vẽ Minimap
+            renderMinimap(me);
+
+            requestAnimationFrame(render);
+        }
+
+        function renderMinimap(me) {
+            mCtx.clearRect(0, 0, 150, 150);
+            const scale = 150 / GW;
+
+            // Vẽ Bot trên minimap (chấm nhỏ)
+            mCtx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+            bots.forEach(b => mCtx.fillRect(b.x * scale, b.y * scale, 2, 2));
+
+            // Vẽ mình trên minimap
+            if (me) {
+                mCtx.fillStyle = '#ff0';
+                mCtx.beginPath();
+                mCtx.arc(me.x * scale, me.y * scale, 3, 0, Math.PI * 2);
+                mCtx.fill();
+            }
+        }
+
+        requestAnimationFrame(render);
     </script>
 </body>
 </html>
