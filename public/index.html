@@ -205,7 +205,7 @@ let food=[],items=[],parts=[];
 let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
 let gameActive=false;
 const STARS=[];
-const INTERP_DELAY=80; // ms behind for other entities
+const INTERP_DELAY=100; // must be >= TICK_MS*2 to handle server jitter
 
 // Client-side prediction for OWN player
 let predX=0,predY=0,predMass=10,predVx=0,predVy=0;
@@ -237,7 +237,7 @@ function joinGame(name,flag,color){
     initStars();
     // Use EXACT server spawn position — no mismatch, no snap on first state
     predX=d.spawnX||GW/2; predY=d.spawnY||GH/2;
-    predMass=10; predVx=0; predVy=0; predDashFrames=0;
+    predMass=20; predVx=0; predVy=0; predDashFrames=0;
     camX=predX-SW/2; camY=predY-SH/2;
     camTargX=camX; camTargY=camY;
     gameActive=true;
@@ -376,25 +376,35 @@ function getInterpolated(){
   const now=Date.now()-INTERP_DELAY;
   const dt=snapCurr.t-snapPrev.t;
   if(dt<=0)return {players:snapCurr.players,bots:snapCurr.bots,bullets:snapCurr.bullets};
-  const t=Math.min(1.1,(now-snapPrev.t)/dt);
-  const tBot=Math.max(0,Math.min(1,t)); // bots: strictly [0,1], no extrapolation ever
+  const t=(now-snapPrev.t)/dt;
+  // For bots: clamp to [0,1.3] — allow slight extrapolation to bridge tick gaps
+  // but cap it to prevent runaway drift when ticks are very late
+  const tBot=Math.max(0,Math.min(1.3,t));
+  const tP=Math.max(0,Math.min(1.1,t));
 
-  // Build lookup Maps for O(1) access (not O(n) find())
   const prevPlayerMap=new Map(snapPrev.players.map(p=>[p.id,p]));
   const prevBotMap=new Map(snapPrev.bots.map(b=>[b.id,b]));
 
-  // Interpolate players (linear, slight extrapolation ok)
   const players=snapCurr.players.map(curr=>{
     const prev=prevPlayerMap.get(curr.id);
     if(!prev)return curr;
-    return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
+    return {...curr,x:lerp(prev.x,curr.x,tP),y:lerp(prev.y,curr.y,tP)};
   });
 
-  // Interpolate bots with smoothstep — eases motion, hides network steps
+  // Bots: smoothstep up to t=1, then linear extrapolate slightly beyond
   const bots=snapCurr.bots.map(curr=>{
     const prev=prevBotMap.get(curr.id);
     if(!prev)return curr;
-    return {...curr, x:smoothstep(prev.x,curr.x,tBot), y:smoothstep(prev.y,curr.y,tBot)};
+    if(tBot<=1){
+      // Smoothstep for t in [0,1]
+      const s=tBot*tBot*(3-2*tBot);
+      return {...curr,x:lerp(prev.x,curr.x,s),y:lerp(prev.y,curr.y,s)};
+    } else {
+      // Gentle linear extrapolation beyond snapshot (bridge tick gaps)
+      const extra=tBot-1;
+      const vx=curr.x-prev.x, vy=curr.y-prev.y;
+      return {...curr,x:curr.x+vx*extra*0.5,y:curr.y+vy*extra*0.5};
+    }
   });
 
   return {players,bots,bullets:snapCurr.bullets};

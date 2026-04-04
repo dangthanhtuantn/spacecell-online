@@ -9,8 +9,8 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Constants ─────────────────────────────────────────────────
-const GW = 10000, GH = 10000;
-const FOOD_COUNT = 1500;
+const GW = 6000, GH = 6000;
+const FOOD_COUNT = 1200; // same density as before (1500/10000² * 6000² ≈ 540, boost to 1200)
 const BOT_COUNT = 20;
 const TICK_MS = 33;           // ~30fps tick; client interpolates to 60fps
 let lastTick = Date.now();  // for variable DT measurement
@@ -114,7 +114,7 @@ function mkBot(i) {
 }
 function mkPlayer(id,name,color,flag) {
   return {id,name:name||'Player',color:color||'#00cfff',flag:flag||null,
-    x:rnd(500,GW-500),y:rnd(500,GH-500),mass:10,vx:0,vy:0,
+    x:rnd(300,GW-300),y:rnd(300,GH-300),mass:20,vx:0,vy:0,
     shieldEnd:0,stealthEnd:0,_dashFrames:0,
     inv:{dash:0,shield:0,stealth:0,bomb:0,magnet:0},
     cdQ:0,cdW:0,cdR:0,cdB:0,cdF:0,_lastShot:0};
@@ -211,10 +211,16 @@ function tick(){
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx*DT,pr,GW-pr);p.y=clamp(p.y+p.vy*DT,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
-    const er=mtr(p.mass)+10,nearby=nearbyFood(p.x,p.y,er);
+    const er=pr+15, nearby=nearbyFood(p.x,p.y,er);
+    const eaten=new Set(); // prevent double-eating replaced food
     for(let k=0;k<nearby.length;k++){
-      const i=nearby[k],f=food[i],hitR=mtr(p.mass)+f.r;
-      if(p.mass>f.mass*1.1&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){p.mass=Math.min(10000,p.mass+f.mass);replaceFood(i);qEmit('foodEaten',{ni:i,nf:food[i]});}
+      const i=nearby[k]; if(eaten.has(i)) continue;
+      const f=food[i], hitR=pr+f.r;
+      if(p.mass>f.mass*1.05&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){
+        p.mass=Math.min(10000,p.mass+f.mass);
+        replaceFood(i); eaten.add(i);
+        qEmit('foodEaten',{ni:i,nf:food[i]});
+      }
     }
     for(let i=items.length-1;i>=0;i--){
       const it=items[i];if(!it.pickup)continue;const hitR=pr+it.r;
