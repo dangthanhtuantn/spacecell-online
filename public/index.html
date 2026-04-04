@@ -351,8 +351,10 @@ setInterval(()=>{
 setInterval(()=>{
   if(!socket||!myId||!gameActive||!Keys['KeyE'])return;
   const me=gameState.players.find(p=>p.id===myId);if(!me||me.mass<=20)return;
-  const wx=Mouse.x+camX,wy=Mouse.y+camY,dx=wx-me.x,dy=wy-me.y,l=Math.hypot(dx,dy)||1;
-  socket.emit('shoot',{nx:dx/l,ny:dy/l});
+  const wx=Mouse.x+camX,wy=Mouse.y+camY;
+  const dx=wx-predX,dy=wy-predY,l=Math.hypot(dx,dy)||1;
+  // Send px,py so server spawns bullet at predicted position (no visual offset)
+  socket.emit('shoot',{nx:dx/l,ny:dy/l,px:Math.round(predX),py:Math.round(predY)});
 },100);
 
 // ── Helpers ────────────────────────────────────────────────────

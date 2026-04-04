@@ -175,11 +175,14 @@ io.on('connection', socket => {
     }
     socket.emit('msg',{text:'MAGNET pulled '+n+' food!',col:'#f0f'});
   });
-  socket.on('shoot',({nx,ny})=>{
+  socket.on('shoot',({nx,ny,px,py})=>{
     const p=players[socket.id];if(!p||p.mass<=20)return;
     const now=Date.now();if(now-p._lastShot<100)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    bullets.push(acquireBullet({id:uid(),x:p.x+nx*(r+8),y:p.y+ny*(r+8),vx:nx*20,vy:ny*20,type:'shot',r:3,life:25,col:p.color,ownerId:socket.id}));
+    // Use client predicted position if close enough to server position
+    const spawnX=(px!==undefined&&Math.abs(px-p.x)<200)?px:p.x;
+    const spawnY=(py!==undefined&&Math.abs(py-p.y)<200)?py:p.y;
+    bullets.push(acquireBullet({id:uid(),x:spawnX+nx*(r+8),y:spawnY+ny*(r+8),vx:nx*20,vy:ny*20,type:'shot',r:3,life:25,col:p.color,ownerId:socket.id}));
   });
   socket.on('ping',()=>socket.emit('pong_reply',{t:Date.now()}));
   socket.on('disconnect',()=>{
@@ -239,19 +242,19 @@ function physicsStep(DT,now){
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx*DT,pr,GW-pr);p.y=clamp(p.y+p.vy*DT,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
-    const er=pr+15, nearby=nearbyFood(p.x,p.y,er);
-    const eaten=new Set(); // prevent double-eating replaced food
+    const er=pr+30, nearby=nearbyFood(p.x,p.y,er); // +30 to compensate prediction drift
+    const eaten=new Set();
     for(let k=0;k<nearby.length;k++){
       const i=nearby[k]; if(eaten.has(i)) continue;
-      const f=food[i], hitR=pr+f.r;
-      if(p.mass>f.mass*1.05&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){
+      const f=food[i], hitR=pr+f.r+10; // +10 extra tolerance
+      if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){ // removed 1.05 threshold
         p.mass=Math.min(10000,p.mass+f.mass);
         replaceFood(i); eaten.add(i);
         qEmit('foodEaten',{ni:i,nf:food[i]});
       }
     }
     for(let i=items.length-1;i>=0;i--){
-      const it=items[i];if(!it.pickup)continue;const hitR=pr+it.r;
+      const it=items[i];if(!it.pickup)continue;const hitR=pr+it.r+10;
       if(dst2(p.x,p.y,it.x,it.y)<hitR*hitR){
         if(it.type==='DASH')p.inv.dash++;else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;else if(it.type==='GROW1')p.mass=Math.min(10000,p.mass+100);
@@ -319,7 +322,7 @@ function physicsStep(DT,now){
       const prd=mtr(p.mass);
       if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<prd*prd){p.mass=Math.min(10000,p.mass+bot.mass*0.7);qEmit('explode',{x:bot.x,y:bot.y,col:bot.col});bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
     }
-    if(bot.st<=0&&bot.mass>20){bot.st=rnd(80,220);for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const dd2=dst2(bot.x,bot.y,p.x,p.y);if(dd2>1&&dd2<250000){const dd=Math.sqrt(dd2),nx=(p.x-bot.x)/dd,ny=(p.y-bot.y)/dd;bullets.push(acquireBullet({id:uid(),x:bot.x+nx*(br+8),y:bot.y+ny*(br+8),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,ownerId:bot.id}));bot.mass=Math.max(5,bot.mass-1);}}}
+    if(bot.st<=0&&bot.mass>20){bot.st=rnd(2,7);for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const dd2=dst2(bot.x,bot.y,p.x,p.y);if(dd2>1&&dd2<250000){const dd=Math.sqrt(dd2),nx=(p.x-bot.x)/dd,ny=(p.y-bot.y)/dd;bullets.push(acquireBullet({id:uid(),x:bot.x+nx*(br+8),y:bot.y+ny*(br+8),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,ownerId:bot.id}));bot.mass=Math.max(5,bot.mass-1);}}}
     for(let ii=0;ii<items.length;ii++){if(items[ii].type==='TOXIC'&&dst2(bot.x,bot.y,items[ii].x,items[ii].y)<10000)bot.mass=Math.max(5,bot.mass*(1-0.05*DT/60));}
     if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
   }
