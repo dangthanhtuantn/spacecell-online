@@ -225,6 +225,7 @@ function joinGame(name,flag,color){
   socket.on('connect',()=>{
     myId=socket.id;
     socket.emit('join',{name,color,flag});
+    doPing(); // start ping loop
   });
 
   socket.on('init',d=>{
@@ -360,7 +361,8 @@ function getInterpolated(){
   const now=Date.now()-INTERP_DELAY;
   const dt=snapCurr.t-snapPrev.t;
   if(dt<=0)return {players:snapCurr.players,bots:snapCurr.bots,bullets:snapCurr.bullets};
-  const t=Math.min(1,(now-snapPrev.t)/dt);
+  const t=Math.min(1.15,(now-snapPrev.t)/dt);
+  const tBot=Math.min(1,t); // bots: never extrapolate, prevents jitter
 
   // Interpolate players
   const players=snapCurr.players.map(curr=>{
@@ -369,14 +371,13 @@ function getInterpolated(){
     return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
   });
 
-  // Interpolate bots
+  // Interpolate bots — hard clamp prevents backward snap
   const bots=snapCurr.bots.map(curr=>{
     const prev=snapPrev.bots.find(b=>b.id===curr.id);
     if(!prev)return curr;
-    return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
+    return {...curr, x:lerp(prev.x,curr.x,tBot), y:lerp(prev.y,curr.y,tBot)};
   });
 
-  // Bullets move fast - no interpolation needed, use latest
   return {players,bots,bullets:snapCurr.bullets};
 }
 
