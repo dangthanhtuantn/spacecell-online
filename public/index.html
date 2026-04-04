@@ -294,16 +294,19 @@ function joinGame(name,flag,color){
     ).join('');
   });
 
-  socket.on('explode',({x,y,col})=>{
-    // Fire immediately at nearest INTERPOLATED entity position
-    // This matches where the bot is visually displayed
+  socket.on('explode',({x,y,nx,ny,r,col})=>{
+    // Find nearest interpolated entity to server hit position
     const interp=getInterpolated();
-    let ex=x,ey=y,bestD2=120*120;
+    let ex=x,ey=y,er=r||20,bestD2=200*200;
     [...(interp.bots||[]),...(interp.players||[])].forEach(e=>{
       const d2=(e.x-x)*(e.x-x)+(e.y-y)*(e.y-y);
-      if(d2<bestD2){bestD2=d2;ex=e.x;ey=e.y;}
+      if(d2<bestD2){bestD2=d2;ex=e.x;ey=e.y;er=mtr(e.mass);}
     });
-    spark(ex,ey,col,30);
+    // Place spark at the EDGE of the entity, on the side facing the bullet
+    // nx,ny = bullet direction -> hit point is at center + nx*radius
+    const hitX = ex+(nx||0)*er;
+    const hitY = ey+(ny||0)*er;
+    spark(hitX,hitY,col,30);
   });
   socket.on('msg',({text,col})=>addMsg(text,col));
 

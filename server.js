@@ -294,13 +294,26 @@ function physicsStep(DT,now){
     for(let pi=0;pi<pLen&&!hit;pi++){
       const p=pArr[pi];if(p.id===b.ownerId||now<p.shieldEnd)continue;
       const hr=b.r+mtr(p.mass);
-      if(dst2(b.x,b.y,p.x,p.y)<hr*hr){b.type==='bomb'?p.mass=Math.max(10,p.mass*0.7):p.mass-=5;qEmit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;if(p.mass<20){qEmitTo(p.id,'died',{by:'bullet'});p.mass=20;p.x=rnd(300,GW-300);p.y=rnd(300,GH-300);p.shieldEnd=now+5000;}}
+      if(dst2(b.x,b.y,p.x,p.y)<hr*hr){
+        b.type==='bomb'?p.mass=Math.max(10,p.mass*0.7):p.mass-=5;
+        // Send bullet direction (normalized) and target radius for edge explosion
+        const dl=Math.hypot(b.vx,b.vy)||1;
+        qEmit('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});
+        b.active=false;bullets.splice(bi,1);hit=true;
+        if(p.mass<20){qEmitTo(p.id,'died',{by:'bullet'});p.mass=20;p.x=rnd(300,GW-300);p.y=rnd(300,GH-300);p.shieldEnd=now+5000;}
+      }
     }
     if(hit)continue;
     for(let bi2=0;bi2<bLen&&!hit;bi2++){
       const bot=bots[bi2];if(bot.id===b.ownerId)continue;
       const hr=b.r+mtr(bot.mass);
-      if(dst2(b.x,b.y,bot.x,bot.y)<hr*hr){b.type==='bomb'?bot.mass=Math.max(5,bot.mass*0.7):bot.mass-=5;qEmit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}}
+      if(dst2(b.x,b.y,bot.x,bot.y)<hr*hr){
+        b.type==='bomb'?bot.mass=Math.max(5,bot.mass*0.7):bot.mass-=5;
+        const dl=Math.hypot(b.vx,b.vy)||1;
+        qEmit('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
+        b.active=false;bullets.splice(bi,1);hit=true;
+        if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
+      }
     }
   }
 
