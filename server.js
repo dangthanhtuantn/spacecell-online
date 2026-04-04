@@ -231,8 +231,8 @@ function physicsStep(DT,now){
 
   for(let pi=0;pi<pLen;pi++){
     const p=pArr[pi];
-    if(p.cdQ>0)p.cdQ-=elapsed;if(p.cdW>0)p.cdW-=elapsed;
-    if(p.cdR>0)p.cdR-=elapsed;if(p.cdB>0)p.cdB-=elapsed;if(p.cdF>0)p.cdF-=elapsed;
+    if(p.cdQ>0)p.cdQ-=TICK_MS;if(p.cdW>0)p.cdW-=TICK_MS;
+    if(p.cdR>0)p.cdR-=TICK_MS;if(p.cdB>0)p.cdB-=TICK_MS;if(p.cdF>0)p.cdF-=TICK_MS;
     const spd=baseSpd(p.mass);
     if(p._dashFrames>0){p._dashFrames--;p.vx*=fr;p.vy*=fr;}
     else if(p.inputVx!==undefined){p.vx+=(p.inputVx*spd-p.vx)*lP;p.vy+=(p.inputVy*spd-p.vy)*lP;p.vx*=0.82;p.vy*=0.82;}
@@ -295,7 +295,7 @@ function physicsStep(DT,now){
 
   for(let bi=0;bi<BOT_AI_GROUP;bi++){
     const bot=bots[(botAIOffset+bi)%bLen];
-    bot.at-=elapsed*BOT_AI_GROUP/bLen;bot.st-=DT;
+    bot.at-=TICK_MS*BOT_AI_GROUP/bLen;bot.st-=DT;
     if(bot.at<=0){
       bot.at=rnd(20,60);let best=null,bestScore=-Infinity,fleeX=0,fleeY=0,fleeing=false;
       for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const d2=dst2(bot.x,bot.y,p.x,p.y);if(p.mass>bot.mass*1.1&&d2<90000){const d=Math.sqrt(d2);fleeX+=(bot.x-p.x)/d;fleeY+=(bot.y-p.y)/d;fleeing=true;}}
