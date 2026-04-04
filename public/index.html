@@ -245,14 +245,19 @@ function joinGame(name,flag,color){
     snapPrev={...snapCurr};
     snapCurr={players:s.players||[],bots:s.bots||[],bullets:s.bullets||[],t:Date.now()};
     gameState=s;
-    // Server reconciliation: smoothly correct predicted position
+    // Server reconciliation: only correct if drift is significant
     const me=s.players&&s.players.find(p=>p.id===myId);
     if(me){
-      // Blend predicted pos toward server pos (server is authoritative)
       const err=Math.hypot(predX-me.x, predY-me.y);
-      if(err>200){predX=me.x;predY=me.y;} // big error: snap
-      else{predX+=(me.x-predX)*0.3;predY+=(me.y-predY)*0.3;} // small: smooth
-      predMass=me.mass; // mass always from server
+      if(err>300){
+        // Large error (teleport, wall bounce): snap immediately
+        predX=me.x;predY=me.y;predVx=0;predVy=0;
+      } else if(err>80){
+        // Medium error: blend very gently, barely noticeable
+        predX+=(me.x-predX)*0.05;predY+=(me.y-predY)*0.05;
+      }
+      // Small error (<80px): ignore completely — prediction is accurate enough
+      predMass=me.mass;
     }
     updateHUD();
   });
@@ -417,8 +422,9 @@ function loop(ts){
     if(predDashFrames>0){predDashFrames--;predVx*=0.82;predVy*=0.82;}
     else{
       const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-      predVx+=(mdx/ml*spd-predVx)*0.18;predVy+=(mdy/ml*spd-predVy)*0.18;
-      predVx*=0.85;predVy*=0.85;
+      // Match server physics exactly: lerp 0.2, friction 0.82
+      predVx+=(mdx/ml*spd-predVx)*0.2;predVy+=(mdy/ml*spd-predVy)*0.2;
+      predVx*=0.82;predVy*=0.82;
     }
     const pr=me?mtr(me.mass||predMass):mtr(predMass);
     predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dt));
