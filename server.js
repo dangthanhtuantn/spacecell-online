@@ -12,10 +12,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ── World constants ───────────────────────────────────────────
 const CELL = 1000, GRID = 10;
 const GW = CELL * GRID, GH = CELL * GRID;
-const FOOD_COUNT = 5000;
-const BOT_COUNT = 50;
-const TICK_MS = 1000 / 60;
-const ITEM_MAX = 30;
+const FOOD_COUNT = 2000;  // Reduced from 5000 for network performance
+const BOT_COUNT = 30;     // Reduced from 50
+const TICK_MS = 1000 / 30; // 30fps server tick (was 60fps)
+const ITEM_MAX = 10;      // Reduced from 30
 const FOOD_SIZES = [
   { mass: 5,   r: 3, w: 50 },
   { mass: 10,  r: 4, w: 25 },
@@ -367,7 +367,7 @@ setInterval(() => {
     if (bot.mass < 20) { bot.mass = rnd(20, 60); bot.x = rnd(100, GW - 100); bot.y = rnd(100, GH - 100); }
   });
 
-  // Broadcast game state (every tick)
+  // Broadcast game state (every tick) - only moving objects, NOT food/items
   const state = {
     players: pArr.map(p => ({
       id: p.id, name: p.name, color: p.color, flag: p.flag,
@@ -377,13 +377,17 @@ setInterval(() => {
     })),
     bots: bots.map(b => ({ id: b.id, x: b.x, y: b.y, mass: b.mass, col: b.col, name: b.name })),
     bullets: bullets.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r, col: b.col, type: b.type })),
-    food: food,
-    items: items,
   };
   io.emit('state', state);
 
   // Leaderboard every 1s
 }, TICK_MS);
+
+// Send food + items every 500ms (much less frequent, large payload)
+let foodDirty = true;
+setInterval(() => {
+  io.emit('worldUpdate', { food, items });
+}, 500);
 
 setInterval(() => { io.emit('playerList', playerList()); }, 1000);
 

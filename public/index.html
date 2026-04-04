@@ -232,12 +232,16 @@ function joinGame(name,flag,color){
 
   socket.on('state',s=>{
     gameState=s;
-    if(s.food&&s.food.length)food=s.food;
-    if(s.items&&s.items.length)items=s.items;
     // Camera follow my player
     const me=s.players&&s.players.find(p=>p.id===myId);
     if(me){camX+=(me.x-SW/2-camX)*0.1;camY+=(me.y-SH/2-camY)*0.1;}
     updateHUD();
+  });
+
+  // Food and items update every 500ms
+  socket.on('worldUpdate',d=>{
+    if(d.food&&d.food.length)food=d.food;
+    if(d.items&&d.items.length)items=d.items;
   });
 
   socket.on('playerList',list=>{
