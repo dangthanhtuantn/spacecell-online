@@ -159,6 +159,8 @@ io.on('connection', socket => {
     io.emit('playerLeft', socket.id);
     io.emit('playerList', playerList());
   });
+
+  socket.on('ping', () => { socket.emit('pong_reply'); });
 });
 
 function playerList() {
