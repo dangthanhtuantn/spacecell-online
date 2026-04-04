@@ -269,6 +269,12 @@ function joinGame(name,flag,color){
     if(d.items&&d.items.length)items=d.items;
   });
 
+  // Item removed instantly — don't wait for next worldUpdate
+  socket.on('itemRemoved',id=>{
+    const idx=items.findIndex(it=>it.id===id);
+    if(idx!==-1)items.splice(idx,1);
+  });
+
   socket.on('playerList',list=>{
     document.getElementById('lbr').innerHTML=list.slice(0,8).map((e,i)=>
       `<div class="le${e.id===myId?' me':''}">${i+1}. ${e.name} ${e.mass}</div>`
@@ -355,27 +361,33 @@ function spark(px,py,col,n=8){
 
 // Linear interpolation
 function lerp(a,b,t){return a+(b-a)*t;}
+// Smoothstep - eases in/out, less jitter than linear for bots
+function smoothstep(a,b,t){const s=t*t*(3-2*t);return a+(b-a)*s;}
 
 // Get interpolated game state for smooth rendering
 function getInterpolated(){
   const now=Date.now()-INTERP_DELAY;
   const dt=snapCurr.t-snapPrev.t;
   if(dt<=0)return {players:snapCurr.players,bots:snapCurr.bots,bullets:snapCurr.bullets};
-  const t=Math.min(1.15,(now-snapPrev.t)/dt);
-  const tBot=Math.min(1,t); // bots: never extrapolate, prevents jitter
+  const t=Math.min(1.1,(now-snapPrev.t)/dt);
+  const tBot=Math.max(0,Math.min(1,t)); // bots: strictly [0,1], no extrapolation ever
 
-  // Interpolate players
+  // Build lookup Maps for O(1) access (not O(n) find())
+  const prevPlayerMap=new Map(snapPrev.players.map(p=>[p.id,p]));
+  const prevBotMap=new Map(snapPrev.bots.map(b=>[b.id,b]));
+
+  // Interpolate players (linear, slight extrapolation ok)
   const players=snapCurr.players.map(curr=>{
-    const prev=snapPrev.players.find(p=>p.id===curr.id);
+    const prev=prevPlayerMap.get(curr.id);
     if(!prev)return curr;
     return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
   });
 
-  // Interpolate bots — hard clamp prevents backward snap
+  // Interpolate bots with smoothstep — eases motion, hides network steps
   const bots=snapCurr.bots.map(curr=>{
-    const prev=snapPrev.bots.find(b=>b.id===curr.id);
+    const prev=prevBotMap.get(curr.id);
     if(!prev)return curr;
-    return {...curr, x:lerp(prev.x,curr.x,tBot), y:lerp(prev.y,curr.y,tBot)};
+    return {...curr, x:smoothstep(prev.x,curr.x,tBot), y:smoothstep(prev.y,curr.y,tBot)};
   });
 
   return {players,bots,bullets:snapCurr.bullets};

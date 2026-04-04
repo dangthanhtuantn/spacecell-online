@@ -133,6 +133,8 @@ io.on('connection', socket => {
   socket.on('join', ({ name, color, flag }) => {
     players[socket.id] = mkPlayer(socket.id, name, color, flag);
     socket.emit('init', { id: socket.id, food, items, bots: bots.map(bs), worldW: GW, worldH: GH });
+    // Send world data immediately (don't wait for 500ms interval)
+    socket.emit('worldUpdate', { food, items });
     io.emit('playerList', playerList());
   });
 
@@ -239,7 +241,12 @@ setInterval(() => {
         else if (it.type==='GROW5')    p.mass = Math.min(10000, p.mass+500);
         else if (it.type==='MAGNET')   p.inv.magnet++;
         else if (it.type==='BOMB')     p.inv.bomb++;
-        const t = it.type; items.splice(i, 1); schedRespawn(t);
+        const t = it.type;
+        const removedId = it.id;
+        items.splice(i, 1);
+        schedRespawn(t);
+        // Notify all clients immediately so item disappears instantly
+        io.emit('itemRemoved', removedId);
       }
     }
 
