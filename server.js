@@ -143,9 +143,21 @@ io.on('connection', socket => {
     io.emit('playerList',playerList());
   });
 
-  socket.on('input',({vx,vy})=>{
+  socket.on('input',({vx,vy,px,py})=>{
     const p=players[socket.id];if(!p)return;
     p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);
+    // Reconcile server position toward client prediction
+    // Only blend if client prediction is plausible (within max speed range)
+    if(px!==undefined&&py!==undefined){
+      const maxDrift=200; // max allowed drift in px
+      const dx=px-p.x, dy=py-p.y;
+      const dist=Math.hypot(dx,dy);
+      if(dist<maxDrift){
+        // Gently pull server position toward client prediction
+        p.x+=dx*0.3;
+        p.y+=dy*0.3;
+      }
+    }
   });
   socket.on('dash',({nx,ny})=>{
     const p=players[socket.id];if(!p||p.inv.dash<=0||p.cdQ>0)return;

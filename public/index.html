@@ -340,11 +340,16 @@ function handleKey(code){
   if(code==='KeyF')socket.emit('magnet');
 }
 
-// Send movement input to server ~30fps
+// Send movement input + predicted position to server ~30fps
 setInterval(()=>{
   if(!socket||!myId||!gameActive)return;
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  socket.emit('input',{vx:ml>5?mdx/ml:0,vy:ml>5?mdy/ml:0});
+  socket.emit('input',{
+    vx:ml>5?mdx/ml:0,
+    vy:ml>5?mdy/ml:0,
+    px:Math.round(predX),  // predicted position for server reconciliation
+    py:Math.round(predY)
+  });
 },33);
 
 // Send shoot ~10fps
