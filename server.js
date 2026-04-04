@@ -13,9 +13,9 @@ const GW = 6000, GH = 6000;
 const FOOD_COUNT = 1200; // same density as before (1500/10000² * 6000² ≈ 540, boost to 1200)
 const BOT_COUNT = 20;
 const TICK_MS = 33;           // ~30fps tick; client interpolates to 60fps
-const LERP_P=0.35;  // player lerp per tick (compensates DT=1 vs original 1.98)
-const LERP_B=0.28;  // bot lerp per tick
-const FRIC=0.82;    // friction per tick
+const LERP_P=0.25;  // player lerp per tick - snappy but not too fast
+const LERP_B=0.18;  // bot lerp per tick - smooth turns
+const FRIC=0.85;    // friction per tick - slightly less slippery
 
 // Frame-rate independent physics helpers
 // These scale lerp/friction correctly for any DT
@@ -74,7 +74,7 @@ function speedMult(mass) {
   if (mass>=2000)  return 0.729;   if (mass>=1000) return 0.81;
   if (mass>=500)   return 0.9;     return 1;
 }
-function baseSpd(mass) { return 10*speedMult(mass); } // x2 to compensate DT=1 normalization
+function baseSpd(mass) { return 6*speedMult(mass); }
 
 const FOOD_SIZES=[{mass:5,r:3,w:50},{mass:10,r:4,w:25},{mass:20,r:5,w:15},{mass:50,r:7,w:5},{mass:100,r:10,w:5}];
 function mkFood() {
@@ -192,15 +192,13 @@ io.on('connection', socket => {
     const p=players[socket.id];if(!p||p.mass<=20)return;
     const now=Date.now();if(now-p._lastShot<33)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    // Use client predicted position
     const spawnX=(px!==undefined&&Math.abs(px-p.x)<200)?px:p.x;
     const spawnY=(py!==undefined&&Math.abs(py-p.y)<200)?py:p.y;
-    // Spawn from FRONT edge in shoot direction (nx,ny points toward mouse)
+    // Spawn from front edge in shoot direction, 400px range (life=20, speed=20)
+    const bx=spawnX+nx*r, by=spawnY+ny*r; // start at player edge
     bullets.push(acquireBullet({id:uid(),
-      x:spawnX+nx*(r+6), y:spawnY+ny*(r+6),
-      vx:nx*20, vy:ny*20,
-      type:'shot', r:3, life:20, // life=20 ticks * speed=20px/tick = 400px range
-      col:p.color, ownerId:socket.id}));
+      x:bx,y:by,vx:nx*20,vy:ny*20,
+      type:'shot',r:3,life:20,col:p.color,ownerId:socket.id}));
   });
   socket.on('ping',()=>socket.emit('pong_reply',{t:Date.now()}));
   socket.on('disconnect',()=>{

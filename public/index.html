@@ -271,7 +271,7 @@ function joinGame(name,flag,color){
 
   // Food and items update every 500ms
   socket.on('worldUpdate',d=>{
-    if(d.food&&d.food.length)food=d.food;
+    if(d.food&&d.food.length){food=d.food;} // new array has no _hidden flags
     if(d.items&&d.items.length)items=d.items;
   });
 
@@ -283,7 +283,7 @@ function joinGame(name,flag,color){
 
   // Food eaten instantly — replace eaten food with new food position
   socket.on('foodEaten',d=>{
-    if(food[d.ni])food[d.ni]=d.nf;
+    if(food[d.ni]){food[d.ni]=d.nf;food[d.ni]._hidden=false;}
   });
 
   socket.on('playerList',list=>{
@@ -478,10 +478,10 @@ function loop(ts){
   // CLIENT-SIDE PREDICTION: frame-rate independent physics matching server
   if(gameActive&&myId){
     const me=gameState.players&&gameState.players.find(p=>p.id===myId);
-    const spd=me?10*speedMult(me.mass||predMass):10;
-    const tickFrac=dt*16.67/33; // normalize frame dt to server tick units
-    const lP=1-Math.pow(0.65,tickFrac);   // FI lerp matching server LERP_P=0.35
-    const fr=Math.pow(0.82,tickFrac);    // FI friction matching server FRIC=0.82
+    const spd=me?6*speedMult(me.mass||predMass):6; // match server baseSpd=6
+    const tickFrac=dt*16.67/33;
+    const lP=1-Math.pow(1-0.25,tickFrac);  // match server LERP_P=0.25
+    const fr=Math.pow(0.85,tickFrac);       // match server FRIC=0.85
     if(predDashFrames>0){predDashFrames--;predVx*=fr;predVy*=fr;}
     else{
       const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
@@ -492,6 +492,22 @@ function loop(ts){
     predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dt));
     predY=Math.max(pr,Math.min(GH-pr,predY+predVy*dt));
     camTargX=predX-SW/2;camTargY=predY-SH/2;
+
+    // Client-side food hiding: immediately hide food predX overlaps
+    // Server confirms via foodEaten; this removes visual lag
+    if(food.length){
+      const eatR=pr+15;const eatR2=eatR*eatR;
+      for(let i=food.length-1;i>=0;i--){
+        const f=food[i];
+        if(!f||!f._visible)continue; // already hidden
+        const dx=predX-f.x,dy=predY-f.y;
+        if(predMass>f.mass&&dx*dx+dy*dy<eatR2){
+          f._hidden=true; // hide locally, server will confirm
+        }
+      }
+    }
+    // Update predMass from server
+    if(me)predMass=me.mass;
   }
 
   // Smooth camera
@@ -540,6 +556,7 @@ function render(){
 
   // Food
   food.forEach(f=>{
+    if(f._hidden)return; // client-side hidden (eaten prediction)
     if(f.x<camX-20||f.x>camX+SW+20||f.y<camY-20||f.y>camY+SH+20)return;
     CTX.fillStyle=f.col;CTX.beginPath();CTX.arc(f.x,f.y,f.r,0,Math.PI*2);CTX.fill();
   });
