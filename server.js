@@ -13,7 +13,7 @@ const GW = 10000, GH = 10000;
 const FOOD_COUNT = 1500;
 const BOT_COUNT = 20;
 const TICK_MS = 33;           // ~30fps tick; client interpolates to 60fps
-const DT = TICK_MS / 16.67;
+let lastTick = Date.now();  // for variable DT measurement
 const ITEM_MAX = 10;
 const WORLD_UPDATE_MS = 600;
 const AOI_RANGE = 3500;       // Area of Interest radius
@@ -186,223 +186,133 @@ function playerList() {
 }
 
 // ── Game loop ──────────────────────────────────────────────────
-setInterval(()=>{
-  const now=Date.now();
-  const pArr=Object.values(players);
-  const pLen=pArr.length;
-  const bLen=bots.length;
 
-  // ── Players ────────────────────────────────────────────────
+// Pending events — batched after physics to avoid mid-loop emit delays
+const pendingEmits=[];
+function qEmit(ev,data){pendingEmits.push({ev,data,to:null});}
+function qEmitTo(id,ev,data){pendingEmits.push({ev,data,to:id});}
+
+// Self-correcting game loop using setTimeout (avoids setInterval drift)
+function tick(){
+  const now=Date.now();
+  const elapsed=Math.min(Math.max(now-lastTick,8),66);
+  lastTick=now;
+  const DT=elapsed/16.67;
+
+  const pArr=Object.values(players),pLen=pArr.length,bLen=bots.length;
+
   for(let pi=0;pi<pLen;pi++){
     const p=pArr[pi];
-    if(p.cdQ>0)p.cdQ-=TICK_MS;if(p.cdW>0)p.cdW-=TICK_MS;
-    if(p.cdR>0)p.cdR-=TICK_MS;if(p.cdB>0)p.cdB-=TICK_MS;if(p.cdF>0)p.cdF-=TICK_MS;
-
+    if(p.cdQ>0)p.cdQ-=elapsed;if(p.cdW>0)p.cdW-=elapsed;
+    if(p.cdR>0)p.cdR-=elapsed;if(p.cdB>0)p.cdB-=elapsed;if(p.cdF>0)p.cdF-=elapsed;
     const spd=baseSpd(p.mass);
     if(p._dashFrames>0){p._dashFrames--;p.vx*=0.82;p.vy*=0.82;}
-    else if(p.inputVx!==undefined){
-      p.vx+=(p.inputVx*spd-p.vx)*0.2;p.vy+=(p.inputVy*spd-p.vy)*0.2;p.vx*=0.82;p.vy*=0.82;
-    }
+    else if(p.inputVx!==undefined){p.vx+=(p.inputVx*spd-p.vx)*0.2;p.vy+=(p.inputVy*spd-p.vy)*0.2;p.vx*=0.82;p.vy*=0.82;}
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx*DT,pr,GW-pr);p.y=clamp(p.y+p.vy*DT,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
-
-    // Eat food (spatial grid + squared distance)
-    const er=mtr(p.mass)+10;
-    const nearby=nearbyFood(p.x,p.y,er);
+    const er=mtr(p.mass)+10,nearby=nearbyFood(p.x,p.y,er);
     for(let k=0;k<nearby.length;k++){
-      const i=nearby[k];const f=food[i];
-      const hitR=mtr(p.mass)+f.r;
-      if(p.mass>f.mass*1.1 && dst2(p.x,p.y,f.x,f.y)<hitR*hitR){
-        p.mass=Math.min(10000,p.mass+f.mass);
-        replaceFood(i);
-        io.emit('foodEaten',{ni:i,nf:food[i]});
-      }
+      const i=nearby[k],f=food[i],hitR=mtr(p.mass)+f.r;
+      if(p.mass>f.mass*1.1&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){p.mass=Math.min(10000,p.mass+f.mass);replaceFood(i);qEmit('foodEaten',{ni:i,nf:food[i]});}
     }
-
-    // Pickup items
     for(let i=items.length-1;i>=0;i--){
-      const it=items[i];if(!it.pickup)continue;
-      const hitR=pr+it.r;
+      const it=items[i];if(!it.pickup)continue;const hitR=pr+it.r;
       if(dst2(p.x,p.y,it.x,it.y)<hitR*hitR){
-        if(it.type==='DASH')         p.inv.dash++;
-        else if(it.type==='SHIELD')  p.inv.shield++;
-        else if(it.type==='STEALTH') p.inv.stealth++;
-        else if(it.type==='GROW1')   p.mass=Math.min(10000,p.mass+100);
-        else if(it.type==='GROW2')   p.mass=Math.min(10000,p.mass+200);
-        else if(it.type==='GROW5')   p.mass=Math.min(10000,p.mass+500);
-        else if(it.type==='MAGNET')  p.inv.magnet++;
-        else if(it.type==='BOMB')    p.inv.bomb++;
-        const t=it.type,rid=it.id;items.splice(i,1);schedRespawn(t);io.emit('itemRemoved',rid);
+        if(it.type==='DASH')p.inv.dash++;else if(it.type==='SHIELD')p.inv.shield++;
+        else if(it.type==='STEALTH')p.inv.stealth++;else if(it.type==='GROW1')p.mass=Math.min(10000,p.mass+100);
+        else if(it.type==='GROW2')p.mass=Math.min(10000,p.mass+200);else if(it.type==='GROW5')p.mass=Math.min(10000,p.mass+500);
+        else if(it.type==='MAGNET')p.inv.magnet++;else if(it.type==='BOMB')p.inv.bomb++;
+        const t=it.type,rid=it.id;items.splice(i,1);schedRespawn(t);qEmit('itemRemoved',rid);
       }
     }
-
-    // TOXIC passive
-    for(let i=0;i<items.length;i++){
-      if(items[i].type==='TOXIC'&&dst2(p.x,p.y,items[i].x,items[i].y)<10000)
-        p.mass=Math.max(10,p.mass*(1-0.05*DT/60));
-    }
+    for(let i=0;i<items.length;i++){if(items[i].type==='TOXIC'&&dst2(p.x,p.y,items[i].x,items[i].y)<10000)p.mass=Math.max(10,p.mass*(1-0.05*DT/60));}
   }
 
-  // ── PvP ────────────────────────────────────────────────────
   for(let i=0;i<pLen;i++){
-    const p=pArr[i];const pr=mtr(p.mass);const pr2=pr*pr;
+    const p=pArr[i],pr=mtr(p.mass),pr2=pr*pr;
     for(let j=0;j<pLen;j++){
       if(i===j)continue;const q=pArr[j];
       if(now<q.shieldEnd||now<q.stealthEnd)continue;
       if(p.mass>q.mass*1.1&&dst2(p.x,p.y,q.x,q.y)<pr2){
-        p.mass=Math.min(10000,p.mass+q.mass*0.7);
-        io.emit('explode',{x:q.x,y:q.y,col:q.color});
-        io.emit('msg',{text:`${p.name} absorbed ${q.name}!`,col:'#0ff'});
-        io.to(q.id).emit('died',{by:p.name});
+        p.mass=Math.min(10000,p.mass+q.mass*0.7);qEmit('explode',{x:q.x,y:q.y,col:q.color});
+        qEmit('msg',{text:p.name+' absorbed '+q.name+'!',col:'#0ff'});qEmitTo(q.id,'died',{by:p.name});
         q.mass=10;q.x=rnd(500,GW-500);q.y=rnd(500,GH-500);
       }
     }
   }
 
-  // ── Bullets (splice backwards, reuse pool objects) ──────────
   for(let bi=bullets.length-1;bi>=0;bi--){
-    const b=bullets[bi];
-    b.x+=b.vx*DT;b.y+=b.vy*DT;b.life-=DT;
+    const b=bullets[bi];b.x+=b.vx*DT;b.y+=b.vy*DT;b.life-=DT;
     if(b.life<=0||b.x<0||b.x>GW||b.y<0||b.y>GH){b.active=false;bullets.splice(bi,1);continue;}
     let hit=false;
     for(let pi=0;pi<pLen&&!hit;pi++){
       const p=pArr[pi];if(p.id===b.ownerId||now<p.shieldEnd)continue;
       const hr=b.r+mtr(p.mass);
-      if(dst2(b.x,b.y,p.x,p.y)<hr*hr){
-        b.type==='bomb'?p.mass=Math.max(10,p.mass*0.7):p.mass-=5;
-        io.emit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;
-        if(p.mass<20){io.to(p.id).emit('died',{by:'bullet'});p.mass=10;p.x=rnd(500,GW-500);p.y=rnd(500,GH-500);}
-      }
+      if(dst2(b.x,b.y,p.x,p.y)<hr*hr){b.type==='bomb'?p.mass=Math.max(10,p.mass*0.7):p.mass-=5;qEmit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;if(p.mass<20){qEmitTo(p.id,'died',{by:'bullet'});p.mass=10;p.x=rnd(500,GW-500);p.y=rnd(500,GH-500);}}
     }
     if(hit)continue;
     for(let bi2=0;bi2<bLen&&!hit;bi2++){
       const bot=bots[bi2];if(bot.id===b.ownerId)continue;
       const hr=b.r+mtr(bot.mass);
-      if(dst2(b.x,b.y,bot.x,bot.y)<hr*hr){
-        b.type==='bomb'?bot.mass=Math.max(5,bot.mass*0.7):bot.mass-=5;
-        io.emit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;
-        if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
-      }
+      if(dst2(b.x,b.y,bot.x,bot.y)<hr*hr){b.type==='bomb'?bot.mass=Math.max(5,bot.mass*0.7):bot.mass-=5;qEmit('explode',{x:b.x,y:b.y,col:b.col});b.active=false;bullets.splice(bi,1);hit=true;if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}}
     }
   }
 
-  // ── Bots AI — Interleaved update ───────────────────────────
   for(let bi=0;bi<BOT_AI_GROUP;bi++){
     const bot=bots[(botAIOffset+bi)%bLen];
-    bot.at-=DT*BOT_AI_GROUP;bot.st-=DT;
-
+    bot.at-=elapsed*BOT_AI_GROUP/bLen;bot.st-=DT;
     if(bot.at<=0){
-      bot.at=rnd(20,60);
-      let best=null,bestScore=-Infinity,fleeX=0,fleeY=0,fleeing=false;
-      for(let pi=0;pi<pLen;pi++){
-        const p=pArr[pi];if(now<p.stealthEnd)continue;
-        const d2=dst2(bot.x,bot.y,p.x,p.y);
-        if(p.mass>bot.mass*1.1&&d2<90000){const d=Math.sqrt(d2);fleeX+=(bot.x-p.x)/d;fleeY+=(bot.y-p.y)/d;fleeing=true;}
-      }
-      if(fleeing){
-        const fl=Math.hypot(fleeX,fleeY)||1;
-        bot.atx=clamp(bot.x+fleeX/fl*400,100,GW-100);bot.aty=clamp(bot.y+fleeY/fl*400,100,GH-100);
-      } else {
+      bot.at=rnd(20,60);let best=null,bestScore=-Infinity,fleeX=0,fleeY=0,fleeing=false;
+      for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const d2=dst2(bot.x,bot.y,p.x,p.y);if(p.mass>bot.mass*1.1&&d2<90000){const d=Math.sqrt(d2);fleeX+=(bot.x-p.x)/d;fleeY+=(bot.y-p.y)/d;fleeing=true;}}
+      if(fleeing){const fl=Math.hypot(fleeX,fleeY)||1;bot.atx=clamp(bot.x+fleeX/fl*400,100,GW-100);bot.aty=clamp(bot.y+fleeY/fl*400,100,GH-100);}
+      else{
         const nb=nearbyFood(bot.x,bot.y,600);
-        for(let k=0;k<nb.length;k++){
-          const f=food[nb[k]];if(bot.mass<=f.mass*1.1)continue;
-          const s=f.mass/(Math.hypot(bot.x-f.x,bot.y-f.y)+1);if(s>bestScore){bestScore=s;best=f;}
-        }
-        for(let pi=0;pi<pLen;pi++){
-          const p=pArr[pi];if(now<p.stealthEnd||bot.mass<=p.mass*1.1)continue;
-          const d2=dst2(bot.x,bot.y,p.x,p.y);
-          if(d2<250000){const s=600/(Math.sqrt(d2)+1);if(s>bestScore){bestScore=s;best=p;}}
-        }
+        for(let k=0;k<nb.length;k++){const f=food[nb[k]];if(bot.mass<=f.mass*1.1)continue;const s=f.mass/(Math.hypot(bot.x-f.x,bot.y-f.y)+1);if(s>bestScore){bestScore=s;best=f;}}
+        for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd||bot.mass<=p.mass*1.1)continue;const d2=dst2(bot.x,bot.y,p.x,p.y);if(d2<250000){const s=600/(Math.sqrt(d2)+1);if(s>bestScore){bestScore=s;best=p;}}}
         bot.atx=best?best.x:rnd(100,GW-100);bot.aty=best?best.y:rnd(100,GH-100);
       }
     }
-
     const bdx=bot.atx-bot.x,bdy=bot.aty-bot.y,bl=Math.hypot(bdx,bdy)||1,bspd=baseSpd(bot.mass);
     bot.vx+=(bdx/bl*bspd-bot.vx)*0.15;bot.vy+=(bdy/bl*bspd-bot.vy)*0.15;bot.vx*=0.82;bot.vy*=0.82;
     const br=mtr(bot.mass);
     bot.x=clamp(bot.x+bot.vx*DT,br,GW-br);bot.y=clamp(bot.y+bot.vy*DT,br,GH-br);
-
-    // Bot eat food
     const bnear=nearbyFood(bot.x,bot.y,br+15);
-    for(let k=0;k<bnear.length;k++){
-      const i=bnear[k];const f=food[i];const hr=br+f.r;
-      if(bot.mass>f.mass*1.1&&dst2(bot.x,bot.y,f.x,f.y)<hr*hr){bot.mass=Math.min(10000,bot.mass+f.mass);replaceFood(i);}
-    }
-
-    // Bot vs players
+    for(let k=0;k<bnear.length;k++){const i=bnear[k],f=food[i],hr=br+f.r;if(bot.mass>f.mass*1.1&&dst2(bot.x,bot.y,f.x,f.y)<hr*hr){bot.mass=Math.min(10000,bot.mass+f.mass);replaceFood(i);}}
     for(let pi=0;pi<pLen;pi++){
       const p=pArr[pi];if(now<p.shieldEnd)continue;
-      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,p.x,p.y)<br*br){
-        bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
-        io.emit('explode',{x:p.x,y:p.y,col:p.color});io.to(p.id).emit('died',{by:bot.name});
-        p.mass=10;p.x=rnd(500,GW-500);p.y=rnd(500,GH-500);
-      }
+      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,p.x,p.y)<br*br){bot.mass=Math.min(10000,bot.mass+p.mass*0.7);qEmit('explode',{x:p.x,y:p.y,col:p.color});qEmitTo(p.id,'died',{by:bot.name});p.mass=10;p.x=rnd(500,GW-500);p.y=rnd(500,GH-500);}
       const prd=mtr(p.mass);
-      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<prd*prd){
-        p.mass=Math.min(10000,p.mass+bot.mass*0.7);
-        io.emit('explode',{x:bot.x,y:bot.y,col:bot.col});
-        bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);
-      }
+      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<prd*prd){p.mass=Math.min(10000,p.mass+bot.mass*0.7);qEmit('explode',{x:bot.x,y:bot.y,col:bot.col});bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
     }
-
-    // Bot shoot
-    if(bot.st<=0&&bot.mass>20){
-      bot.st=rnd(80,220);
-      for(let pi=0;pi<pLen;pi++){
-        const p=pArr[pi];if(now<p.stealthEnd)continue;
-        const dd2=dst2(bot.x,bot.y,p.x,p.y);
-        if(dd2>1&&dd2<250000){
-          const dd=Math.sqrt(dd2),nx=(p.x-bot.x)/dd,ny=(p.y-bot.y)/dd;
-          bullets.push(acquireBullet({id:uid(),x:bot.x+nx*(br+8),y:bot.y+ny*(br+8),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,ownerId:bot.id}));
-          bot.mass=Math.max(5,bot.mass-1);
-        }
-      }
-    }
-
-    // TOXIC
-    for(let ii=0;ii<items.length;ii++){
-      if(items[ii].type==='TOXIC'&&dst2(bot.x,bot.y,items[ii].x,items[ii].y)<10000)
-        bot.mass=Math.max(5,bot.mass*(1-0.05*DT/60));
-    }
+    if(bot.st<=0&&bot.mass>20){bot.st=rnd(80,220);for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const dd2=dst2(bot.x,bot.y,p.x,p.y);if(dd2>1&&dd2<250000){const dd=Math.sqrt(dd2),nx=(p.x-bot.x)/dd,ny=(p.y-bot.y)/dd;bullets.push(acquireBullet({id:uid(),x:bot.x+nx*(br+8),y:bot.y+ny*(br+8),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,ownerId:bot.id}));bot.mass=Math.max(5,bot.mass-1);}}}
+    for(let ii=0;ii<items.length;ii++){if(items[ii].type==='TOXIC'&&dst2(bot.x,bot.y,items[ii].x,items[ii].y)<10000)bot.mass=Math.max(5,bot.mass*(1-0.05*DT/60));}
     if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
   }
   botAIOffset=(botAIOffset+BOT_AI_GROUP)%bLen;
 
-  // ── Broadcast — Area of Interest per player ─────────────────
+  // Flush batched events AFTER all physics
+  for(let i=0;i<pendingEmits.length;i++){const e=pendingEmits[i];e.to?io.to(e.to).emit(e.ev,e.data):io.emit(e.ev,e.data);}
+  pendingEmits.length=0;
+
+  // AoI broadcast per player
   const aoiR2=AOI_RANGE*AOI_RANGE;
   for(let pi=0;pi<pLen;pi++){
-    const p=pArr[pi];
-    const sock=io.sockets.sockets.get(p.id);if(!sock)continue;
-
+    const p=pArr[pi],sock=io.sockets.sockets.get(p.id);if(!sock)continue;
     const visP=[],visB=[],visBu=[];
-
-    // Self always included
-    visP.push({id:p.id,name:p.name,color:p.color,flag:p.flag,x:p.x,y:p.y,mass:p.mass,
-      shielded:now<p.shieldEnd,stealthed:now<p.stealthEnd,
-      inv:p.inv,cdQ:p.cdQ,cdW:p.cdW,cdR:p.cdR,cdB:p.cdB,cdF:p.cdF});
-
-    for(let j=0;j<pLen;j++){
-      if(j===pi)continue;const q=pArr[j];
-      if(dst2(p.x,p.y,q.x,q.y)<aoiR2)
-        visP.push({id:q.id,name:q.name,color:q.color,flag:q.flag,x:q.x,y:q.y,mass:q.mass,
-          shielded:now<q.shieldEnd,stealthed:now<q.stealthEnd,
-          inv:q.inv,cdQ:q.cdQ,cdW:q.cdW,cdR:q.cdR,cdB:q.cdB,cdF:q.cdF});
-    }
-    for(let bi=0;bi<bLen;bi++){
-      const bot=bots[bi];
-      if(dst2(p.x,p.y,bot.x,bot.y)<aoiR2)
-        visB.push({id:bot.id,x:bot.x,y:bot.y,mass:bot.mass,col:bot.col,name:bot.name});
-    }
-    for(let bi=0;bi<bullets.length;bi++){
-      const b=bullets[bi];
-      if(dst2(p.x,p.y,b.x,b.y)<aoiR2)
-        visBu.push({id:b.id,x:b.x,y:b.y,r:b.r,col:b.col,type:b.type});
-    }
-
+    visP.push({id:p.id,name:p.name,color:p.color,flag:p.flag,x:p.x,y:p.y,mass:p.mass,shielded:now<p.shieldEnd,stealthed:now<p.stealthEnd,inv:p.inv,cdQ:p.cdQ,cdW:p.cdW,cdR:p.cdR,cdB:p.cdB,cdF:p.cdF});
+    for(let j=0;j<pLen;j++){if(j===pi)continue;const q=pArr[j];if(dst2(p.x,p.y,q.x,q.y)<aoiR2)visP.push({id:q.id,name:q.name,color:q.color,flag:q.flag,x:q.x,y:q.y,mass:q.mass,shielded:now<q.shieldEnd,stealthed:now<q.stealthEnd,inv:q.inv,cdQ:q.cdQ,cdW:q.cdW,cdR:q.cdR,cdB:q.cdB,cdF:q.cdF});}
+    for(let bi=0;bi<bLen;bi++){const bot=bots[bi];if(dst2(p.x,p.y,bot.x,bot.y)<aoiR2)visB.push({id:bot.id,x:bot.x,y:bot.y,mass:bot.mass,col:bot.col,name:bot.name});}
+    for(let bi=0;bi<bullets.length;bi++){const b=bullets[bi];if(dst2(p.x,p.y,b.x,b.y)<aoiR2)visBu.push({id:b.id,x:b.x,y:b.y,r:b.r,col:b.col,type:b.type});}
     sock.emit('state',{players:visP,bots:visB,bullets:visBu});
   }
-},TICK_MS);
+
+  // Self-correcting: next tick fires after compensating for time spent
+  const spent=Date.now()-now;
+  setTimeout(tick,Math.max(0,TICK_MS-spent));
+}
+setTimeout(tick,TICK_MS);
+
 
 setInterval(()=>{io.emit('worldUpdate',{food,items});},WORLD_UPDATE_MS);
 setInterval(()=>{io.emit('playerList',playerList());},2000);
