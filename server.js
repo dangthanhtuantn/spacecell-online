@@ -23,6 +23,7 @@ function lerpFactor(base,dt){return 1-Math.pow(1-base,dt);}
 function fricFactor(dt){return Math.pow(FRIC,dt);}
 
 let accumulator=0; // fixed timestep accumulator
+let lastTick=Date.now(); // for elapsed measurement
 const ITEM_MAX = 10;
 const WORLD_UPDATE_MS = 600;
 const AOI_RANGE = 3500;       // Area of Interest radius
@@ -322,7 +323,7 @@ function physicsStep(DT,now){
     for(let ii=0;ii<items.length;ii++){if(items[ii].type==='TOXIC'&&dst2(bot.x,bot.y,items[ii].x,items[ii].y)<10000)bot.mass=Math.max(5,bot.mass*(1-0.05*DT/60));}
     if(bot.mass<20){bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
   }
-  botAIOffset=(botAIOffset+BOT_AI_GROUP)%bLen;
+  if(bLen>0) botAIOffset=(botAIOffset+BOT_AI_GROUP)%bLen;
 
   // Flush batched events AFTER all physics
   for(let i=0;i<pendingEmits.length;i++){const e=pendingEmits[i];e.to?io.to(e.to).emit(e.ev,e.data):io.emit(e.ev,e.data);}
