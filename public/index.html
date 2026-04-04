@@ -194,10 +194,10 @@ function speedMult(mass){
   if(mass>=500)return Math.pow(0.9,1);return 1;
 }
 
-// Game state with interpolation support
+// Game state with interpolation + client-side prediction
 let socket=null,myId=null,myName='Player',myColor='#00cfff',myFlag=null;
 let GW=10000,GH=10000,CELL=1000,GRID=10;
-// Two snapshots for interpolation
+// Server snapshots for interpolation (other players/bots)
 let snapPrev={players:[],bots:[],bullets:[],t:0};
 let snapCurr={players:[],bots:[],bullets:[],t:0};
 let gameState={players:[],bots:[],bullets:[]};
@@ -205,7 +205,11 @@ let food=[],items=[],parts=[];
 let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
 let gameActive=false;
 const STARS=[];
-const INTERP_DELAY=100; // ms behind server for smooth interpolation
+const INTERP_DELAY=80; // ms behind for other entities
+
+// Client-side prediction for OWN player
+let predX=0,predY=0,predMass=10,predVx=0,predVy=0;
+let predDashFrames=0;
 
 function initStars(){
   STARS.length=0;
@@ -225,25 +229,31 @@ function joinGame(name,flag,color){
 
   socket.on('init',d=>{
     GW=d.worldW;GH=d.worldH;
-    food=d.food||[];
-    items=d.items||[];
+    food=d.food||[];items=d.items||[];
     gameState={players:[],bots:d.bots||[],bullets:[]};
+    snapPrev={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
+    snapCurr={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
     initStars();
     camX=GW/2-SW/2;camY=GH/2-SH/2;
+    camTargX=camX;camTargY=camY;
+    predX=GW/2;predY=GH/2;predMass=10;predVx=0;predVy=0;predDashFrames=0;
     gameActive=true;
     addMsg('Welcome '+name+'! Q Dash  W Shield  E Shoot  R Stealth  B Bomb  F Magnet','#0ff');
   });
 
   socket.on('state',s=>{
-    // Shift snapshots: curr becomes prev, new becomes curr
     snapPrev={...snapCurr};
-    snapCurr={
-      players:s.players||[],
-      bots:s.bots||[],
-      bullets:s.bullets||[],
-      t:Date.now()
-    };
+    snapCurr={players:s.players||[],bots:s.bots||[],bullets:s.bullets||[],t:Date.now()};
     gameState=s;
+    // Server reconciliation: smoothly correct predicted position
+    const me=s.players&&s.players.find(p=>p.id===myId);
+    if(me){
+      // Blend predicted pos toward server pos (server is authoritative)
+      const err=Math.hypot(predX-me.x, predY-me.y);
+      if(err>200){predX=me.x;predY=me.y;} // big error: snap
+      else{predX+=(me.x-predX)*0.3;predY+=(me.y-predY)*0.3;} // small: smooth
+      predMass=me.mass; // mass always from server
+    }
     updateHUD();
   });
 
@@ -292,11 +302,15 @@ function handleKey(code){
   if(!socket||!myId)return;
   const me=gameState.players.find(p=>p.id===myId);if(!me)return;
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  if(code==='KeyQ')socket.emit('dash',{nx:mdx/ml,ny:mdy/ml});
+  if(code==='KeyQ'){
+    socket.emit('dash',{nx:mdx/ml,ny:mdy/ml});
+    // Predict dash instantly on client
+    predVx=mdx/ml*40;predVy=mdy/ml*40;predDashFrames=12;
+  }
   if(code==='KeyW')socket.emit('shield');
   if(code==='KeyR')socket.emit('stealth');
   if(code==='KeyB'){
-    const wx=Mouse.x+camX,wy=Mouse.y+camY,dx=wx-me.x,dy=wy-me.y,l=Math.hypot(dx,dy)||1;
+    const wx=Mouse.x+camX,wy=Mouse.y+camY,dx=wx-predX,dy=wy-predY,l=Math.hypot(dx,dy)||1;
     socket.emit('bomb',{nx:dx/l,ny:dy/l});
   }
   if(code==='KeyF')socket.emit('magnet');
@@ -396,11 +410,28 @@ function loop(ts){
   requestAnimationFrame(loop);
   const dt=Math.min((ts-prev)/16.67,3);prev=ts;
 
-  // Smooth camera at 60fps (not tied to server tick)
-  camX+=(camTargX-camX)*0.12;
-  camY+=(camTargY-camY)*0.12;
+  // CLIENT-SIDE PREDICTION: move own player locally every frame
+  if(gameActive&&myId){
+    const me=gameState.players&&gameState.players.find(p=>p.id===myId);
+    const spd=me?5*speedMult(me.mass||predMass):5;
+    if(predDashFrames>0){predDashFrames--;predVx*=0.82;predVy*=0.82;}
+    else{
+      const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
+      predVx+=(mdx/ml*spd-predVx)*0.18;predVy+=(mdy/ml*spd-predVy)*0.18;
+      predVx*=0.85;predVy*=0.85;
+    }
+    const pr=me?mtr(me.mass||predMass):mtr(predMass);
+    predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dt));
+    predY=Math.max(pr,Math.min(GH-pr,predY+predVy*dt));
+    // Camera follows predicted position — instant, no lag
+    camTargX=predX-SW/2;camTargY=predY-SH/2;
+  }
 
-  // Update particles
+  // Smooth camera
+  camX+=(camTargX-camX)*0.18;
+  camY+=(camTargY-camY)*0.18;
+
+  // Particles
   for(let i=parts.length-1;i>=0;i--){
     const p=parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.92;p.vy*=0.92;p.life-=dt;p.r*=0.95;
     if(p.life<=0||p.r<0.3)parts.splice(i,1);
@@ -418,9 +449,10 @@ function render(){
     renderMinimap();return;
   }
 
-  // Get interpolated state for smooth rendering
+  // Get interpolated state for smooth rendering (others)
   const interp=getInterpolated();
-  const me=interp.players.find(p=>p.id===myId);
+  // For self: use predicted position (instant, no lag)
+  const me=gameState.players&&gameState.players.find(p=>p.id===myId);
 
   CTX.save();CTX.translate(-camX,-camY);
 
@@ -472,10 +504,16 @@ function render(){
   // Bots (interpolated)
   (interp.bots||[]).forEach(b=>drawBot(b));
 
-  // Other players + self (interpolated)
+  // Other players (interpolated)
   (interp.players||[]).forEach(p=>{
-    if(p.id===myId)drawMe(p);else drawOther(p);
+    if(p.id===myId)return; // skip self, drawn below
+    drawOther(p);
   });
+  // Self at predicted position (no network lag)
+  if(me){
+    const predMe={...me,x:predX,y:predY};
+    drawMe(predMe);
+  }
 
   CTX.restore();
 

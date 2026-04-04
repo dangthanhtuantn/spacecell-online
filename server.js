@@ -12,10 +12,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 const GW = 10000, GH = 10000;
 const CELL = 1000, GRID = 10;
 const FOOD_COUNT = 1500;
-const BOT_COUNT = 20;        // reduced - less CPU
-const TICK_MS = 50;          // 20fps server tick - enough for game, less CPU
+const BOT_COUNT = 20;
+const TICK_MS = 16;          // 60fps - we have 8vCPU, use it
 const ITEM_MAX = 10;
-const WORLD_UPDATE_MS = 800; // food/items update interval
+const WORLD_UPDATE_MS = 500;
 
 // ── Spatial Grid for O(1) nearby lookups ──────────────────────
 const GRID_SIZE = 500; // grid cell size for spatial lookup
