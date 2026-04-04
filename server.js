@@ -14,7 +14,7 @@ const CELL = 1000, GRID = 10;
 const GW = CELL * GRID, GH = CELL * GRID;
 const FOOD_COUNT = 2000;  // Reduced from 5000 for network performance
 const BOT_COUNT = 30;     // Reduced from 50
-const TICK_MS = 1000 / 30; // 30fps server tick (was 60fps)
+const TICK_MS = 1000 / 60; // 60fps server tick
 const ITEM_MAX = 10;      // Reduced from 30
 const FOOD_SIZES = [
   { mass: 5,   r: 3, w: 50 },

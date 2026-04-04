@@ -194,14 +194,18 @@ function speedMult(mass){
   if(mass>=500)return Math.pow(0.9,1);return 1;
 }
 
-// Game state
+// Game state with interpolation support
 let socket=null,myId=null,myName='Player',myColor='#00cfff',myFlag=null;
 let GW=10000,GH=10000,CELL=1000,GRID=10;
+// Two snapshots for interpolation
+let snapPrev={players:[],bots:[],bullets:[],t:0};
+let snapCurr={players:[],bots:[],bullets:[],t:0};
 let gameState={players:[],bots:[],bullets:[]};
 let food=[],items=[],parts=[];
-let camX=0,camY=0,pingTime=0;
+let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
 let gameActive=false;
 const STARS=[];
+const INTERP_DELAY=100; // ms behind server for smooth interpolation
 
 function initStars(){
   STARS.length=0;
@@ -231,10 +235,15 @@ function joinGame(name,flag,color){
   });
 
   socket.on('state',s=>{
+    // Shift snapshots: curr becomes prev, new becomes curr
+    snapPrev={...snapCurr};
+    snapCurr={
+      players:s.players||[],
+      bots:s.bots||[],
+      bullets:s.bullets||[],
+      t:Date.now()
+    };
     gameState=s;
-    // Camera follow my player
-    const me=s.players&&s.players.find(p=>p.id===myId);
-    if(me){camX+=(me.x-SW/2-camX)*0.1;camY+=(me.y-SH/2-camY)*0.1;}
     updateHUD();
   });
 
@@ -324,12 +333,40 @@ function spark(px,py,col,n=8){
   }
 }
 
+// Linear interpolation
+function lerp(a,b,t){return a+(b-a)*t;}
+
+// Get interpolated game state for smooth rendering
+function getInterpolated(){
+  const now=Date.now()-INTERP_DELAY;
+  const dt=snapCurr.t-snapPrev.t;
+  if(dt<=0)return {players:snapCurr.players,bots:snapCurr.bots,bullets:snapCurr.bullets};
+  const t=Math.min(1,(now-snapPrev.t)/dt);
+
+  // Interpolate players
+  const players=snapCurr.players.map(curr=>{
+    const prev=snapPrev.players.find(p=>p.id===curr.id);
+    if(!prev)return curr;
+    return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
+  });
+
+  // Interpolate bots
+  const bots=snapCurr.bots.map(curr=>{
+    const prev=snapPrev.bots.find(b=>b.id===curr.id);
+    if(!prev)return curr;
+    return {...curr, x:lerp(prev.x,curr.x,t), y:lerp(prev.y,curr.y,t)};
+  });
+
+  // Bullets move fast - no interpolation needed, use latest
+  return {players,bots,bullets:snapCurr.bullets};
+}
+
 // ── HUD ────────────────────────────────────────────────────────
 function updateHUD(){
-  const me=gameState.players.find(p=>p.id===myId);if(!me)return;
+  const me=(gameState.players||[]).find(p=>p.id===myId);if(!me)return;
   document.getElementById('hm').textContent=Math.floor(me.mass)+' M';
   document.getElementById('hs').textContent=Math.round(speedMult(me.mass)*100)+'%';
-  const all=[...gameState.players,...(gameState.bots||[])].map(p=>p.mass).sort((a,b)=>b-a);
+  const all=[...(gameState.players||[]),...(gameState.bots||[])].map(p=>p.mass).sort((a,b)=>b-a);
   document.getElementById('hr').textContent='#'+(all.findIndex(m=>m===me.mass)+1);
   if(me.inv){
     updSk('Q',me.inv.dash,me.cdQ,false,false);
@@ -339,6 +376,8 @@ function updateHUD(){
     updSk('B',me.inv.bomb,me.cdB,false,false);
     updSk('F',me.inv.magnet,me.cdF,false,false);
   }
+  // Smooth camera: follow my interpolated position
+  camTargX=me.x-SW/2; camTargY=me.y-SH/2;
 }
 function updSk(key,count,cd,active,isFire){
   const box=document.getElementById('sk'+key);
@@ -356,6 +395,11 @@ let prev=0;
 function loop(ts){
   requestAnimationFrame(loop);
   const dt=Math.min((ts-prev)/16.67,3);prev=ts;
+
+  // Smooth camera at 60fps (not tied to server tick)
+  camX+=(camTargX-camX)*0.12;
+  camY+=(camTargY-camY)*0.12;
+
   // Update particles
   for(let i=parts.length-1;i>=0;i--){
     const p=parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.92;p.vy*=0.92;p.life-=dt;p.r*=0.95;
@@ -373,6 +417,10 @@ function render(){
   if(!gameActive||!myId){
     renderMinimap();return;
   }
+
+  // Get interpolated state for smooth rendering
+  const interp=getInterpolated();
+  const me=interp.players.find(p=>p.id===myId);
 
   CTX.save();CTX.translate(-camX,-camY);
 
@@ -415,17 +463,17 @@ function render(){
   parts.forEach(p=>{CTX.globalAlpha=Math.min(1,p.life/20);CTX.fillStyle=p.col;CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.fill();});
   CTX.globalAlpha=1;
 
-  // Bullets
-  (gameState.bullets||[]).forEach(b=>{
+  // Bullets (latest from server, move fast enough)
+  (interp.bullets||[]).forEach(b=>{
     CTX.fillStyle=b.col;CTX.shadowBlur=b.type==='bomb'?16:5;CTX.shadowColor=b.col;
     CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
   });
 
-  // Bots
-  (gameState.bots||[]).forEach(b=>drawBot(b));
+  // Bots (interpolated)
+  (interp.bots||[]).forEach(b=>drawBot(b));
 
-  // Other players + self
-  (gameState.players||[]).forEach(p=>{
+  // Other players + self (interpolated)
+  (interp.players||[]).forEach(p=>{
     if(p.id===myId)drawMe(p);else drawOther(p);
   });
 
@@ -524,12 +572,12 @@ function renderMinimap(){
     MCTX.beginPath();MCTX.moveTo(g*CELL*sx,0);MCTX.lineTo(g*CELL*sx,MS);MCTX.stroke();
     MCTX.beginPath();MCTX.moveTo(0,g*CELL*sy);MCTX.lineTo(MS,g*CELL*sy);MCTX.stroke();
   }
-  // Only show self on minimap
-  const me=gameState.players&&gameState.players.find(p=>p.id===myId);
-  if(me){
+  // Only show self on minimap (use latest position, not interpolated)
+  const meLatest=gameState.players&&gameState.players.find(p=>p.id===myId);
+  if(meLatest){
     MCTX.shadowBlur=8;MCTX.shadowColor='#0ff';MCTX.fillStyle='#0ff';
-    const pr=Math.max(3,mtr(me.mass)*sx*5);
-    MCTX.beginPath();MCTX.arc(me.x*sx,me.y*sy,pr,0,Math.PI*2);MCTX.fill();
+    const pr=Math.max(3,mtr(meLatest.mass)*sx*5);
+    MCTX.beginPath();MCTX.arc(meLatest.x*sx,meLatest.y*sy,pr,0,Math.PI*2);MCTX.fill();
     MCTX.shadowBlur=0;
     MCTX.strokeStyle='rgba(0,200,255,0.5)';MCTX.lineWidth=1;
     MCTX.strokeRect(camX*sx,camY*sy,SW*sx,SH*sy);
