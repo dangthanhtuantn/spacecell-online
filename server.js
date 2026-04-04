@@ -224,20 +224,13 @@ function qEmitTo(id,ev,data){pendingEmits.push({ev,data,to:id});}
 // Self-correcting game loop using setTimeout (avoids setInterval drift)
 function tick(){
   const now=Date.now();
-  const elapsed=Math.min(now-lastTick,66); // cap at 66ms to prevent spiral
+  const elapsed=Math.min(now-lastTick,50); // cap at 50ms
   lastTick=now;
-  accumulator+=elapsed;
 
-  // Run fixed-step physics (TICK_MS per step) - stable regardless of real elapsed
-  let steps=0;
-  while(accumulator>=TICK_MS&&steps<3){ // max 3 steps per real tick
-    accumulator-=TICK_MS;
-    steps++;
-    const DT=1; // 1.0 = exactly one tick - physics are normalized per tick now
-    physicsStep(DT,now);
-  }
-
-  // Broadcast once per real tick (not per physics step)
+  // Always exactly 1 physics step per real tick
+  // DT scaled by actual elapsed time for smooth physics
+  const DT=elapsed/33; // normalize: 1.0 at perfect 33ms, scales smoothly
+  physicsStep(DT,now);
   broadcastState(now);
 
   const spent=Date.now()-now;

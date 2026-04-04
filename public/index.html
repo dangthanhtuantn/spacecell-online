@@ -294,7 +294,17 @@ function joinGame(name,flag,color){
     ).join('');
   });
 
-  socket.on('explode',({x,y,col})=>spark(x,y,col,30));
+  socket.on('explode',({x,y,col})=>{
+    // Find nearest interpolated entity to server explosion pos
+    // to compensate for interpolation delay offset
+    const interp=getInterpolated();
+    let bestX=x,bestY=y,bestD=60*60; // max 60px offset
+    [...(interp.bots||[]),...(interp.players||[])].forEach(e=>{
+      const d=(e.x-x)*(e.x-x)+(e.y-y)*(e.y-y);
+      if(d<bestD){bestD=d;bestX=e.x;bestY=e.y;}
+    });
+    spark(bestX,bestY,col,30);
+  });
   socket.on('msg',({text,col})=>addMsg(text,col));
 
   socket.on('died',({by})=>{
@@ -402,15 +412,13 @@ function getInterpolated(){
     return {players:s.players,bots:s.bots,bullets:s.bullets};
   }
 
-  // Bullets: always use LATEST snapshot
+  // Bullets: always latest
   const latestBullets=snapBuf[snapHead].bullets;
 
-  // Render at exactly 2 ticks behind the latest snapshot
-  // This makes renderT move WITH snapshots (not wall clock) -> no t resets -> smooth
-  const TICK_MS=33;
-  const renderT=snapBuf[snapHead].t - TICK_MS*2;
+  // Render 100ms behind wall clock - advances smoothly every RAF frame
+  // t-reset stutter = ~3% of bot step = imperceptible
+  const renderT=Date.now()-100;
 
-  // Find the snapshot pair bracketing renderT
   let prevIdx=-1,currIdx=-1;
   for(let i=0;i<snapCount;i++){
     const idx=(snapHead-i+SNAP_BUF)%SNAP_BUF;
@@ -420,7 +428,6 @@ function getInterpolated(){
       break;
     }
   }
-  // Fallbacks
   if(prevIdx===-1){
     prevIdx=(snapHead-snapCount+1+SNAP_BUF)%SNAP_BUF;
     currIdx=(snapHead-snapCount+2+SNAP_BUF)%SNAP_BUF;
@@ -433,7 +440,6 @@ function getInterpolated(){
   const prev=snapBuf[prevIdx];
   const curr=snapBuf[currIdx];
   const dt=curr.t-prev.t;
-  // t in [0,1] - no extrapolation
   const t=dt<=0?1:Math.max(0,Math.min(1,(renderT-prev.t)/dt));
 
   const prevPlayerMap=new Map(prev.players.map(p=>[p.id,p]));
