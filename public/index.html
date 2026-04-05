@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang='en'>
 <head>
-<meta charset="UTF-8">
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>SpaceCell Online</title>
-<!-- Google AdSense — thay ca-pub-XXXXXXXXXXXXXXXX bằng ID của bạn -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none;cursor:none;}
@@ -60,6 +59,7 @@ canvas{display:block;}
 </style>
 </head>
 <body>
+
 <canvas id="gc"></canvas>
 
 <!-- Minimap -->
@@ -123,532 +123,254 @@ canvas{display:block;}
   </div>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+
+<script src='/socket.io/socket.io.js'></script>
 <script>
-// ── Lobby ──────────────────────────────────────────────────────
-const PCOLORS=['#00cfff','#ff4455','#ffaa00','#44ff88','#ff44ff','#ffff44','#ff8800','#00ffcc','#ff88cc','#88ff44','#4488ff','#ff6644'];
-const ALL_FLAGS=['🇦🇩','🇦🇪','🇦🇫','🇦🇬','🇦🇱','🇦🇲','🇦🇴','🇦🇷','🇦🇹','🇦🇺','🇦🇿','🇧🇦','🇧🇧','🇧🇩','🇧🇪','🇧🇫','🇧🇬','🇧🇭','🇧🇮','🇧🇯','🇧🇳','🇧🇴','🇧🇷','🇧🇸','🇧🇹','🇧🇼','🇧🇾','🇧🇿','🇨🇦','🇨🇩','🇨🇫','🇨🇬','🇨🇭','🇨🇱','🇨🇲','🇨🇳','🇨🇴','🇨🇷','🇨🇺','🇨🇻','🇨🇾','🇨🇿','🇩🇪','🇩🇯','🇩🇰','🇩🇲','🇩🇴','🇩🇿','🇪🇨','🇪🇪','🇪🇬','🇪🇷','🇪🇸','🇪🇹','🇫🇮','🇫🇯','🇫🇲','🇫🇷','🇬🇦','🇬🇧','🇬🇩','🇬🇪','🇬🇭','🇬🇲','🇬🇳','🇬🇶','🇬🇷','🇬🇹','🇬🇼','🇬🇾','🇭🇳','🇭🇷','🇭🇹','🇭🇺','🇮🇩','🇮🇪','🇮🇱','🇮🇳','🇮🇶','🇮🇷','🇮🇸','🇮🇹','🇯🇲','🇯🇴','🇯🇵','🇰🇪','🇰🇬','🇰🇭','🇰🇮','🇰🇲','🇰🇳','🇰🇵','🇰🇷','🇰🇼','🇰🇿','🇱🇦','🇱🇧','🇱🇨','🇱🇮','🇱🇰','🇱🇷','🇱🇸','🇱🇹','🇱🇺','🇱🇻','🇱🇾','🇲🇦','🇲🇨','🇲🇩','🇲🇪','🇲🇬','🇲🇭','🇲🇰','🇲🇱','🇲🇲','🇲🇳','🇲🇴','🇲🇷','🇲🇹','🇲🇺','🇲🇻','🇲🇼','🇲🇽','🇲🇾','🇲🇿','🇳🇦','🇳🇪','🇳🇬','🇳🇮','🇳🇱','🇳🇴','🇳🇵','🇳🇷','🇳🇿','🇴🇲','🇵🇦','🇵🇪','🇵🇬','🇵🇭','🇵🇰','🇵🇱','🇵🇸','🇵🇹','🇵🇼','🇵🇾','🇶🇦','🇷🇴','🇷🇸','🇷🇺','🇷🇼','🇸🇦','🇸🇧','🇸🇩','🇸🇪','🇸🇬','🇸🇮','🇸🇰','🇸🇱','🇸🇲','🇸🇳','🇸🇴','🇸🇷','🇸🇸','🇸🇹','🇸🇻','🇸🇾','🇸🇿','🇹🇩','🇹🇬','🇹🇭','🇹🇯','🇹🇱','🇹🇲','🇹🇳','🇹🇴','🇹🇹','🇹🇻','🇹🇼','🇹🇿','🇺🇦','🇺🇬','🇺🇸','🇺🇾','🇺🇿','🇻🇦','🇻🇨','🇻🇪','🇻🇳','🇻🇺','🇼🇸','🇽🇰','🇾🇪','🇿🇦','🇿🇲','🇿🇼'];
+// ── Config ────────────────────────────────────────────────────
+const TICK_MS=33;
+const INTERP_DELAY=100; // ms behind latest snapshot - enough for 3 ticks buffer
 
-let selColor=PCOLORS[0],selFlag=null,useFlag=false;
+// ── Canvas ────────────────────────────────────────────────────
+const CVS=document.getElementById('gc');
+const CTX=CVS.getContext('2d');
+const MCV=document.getElementById('mm');
+const MCX=MCV.getContext('2d');
+let SW=window.innerWidth,SH=window.innerHeight;
+CVS.width=SW;CVS.height=SH;
+window.addEventListener('resize',()=>{SW=window.innerWidth;SH=window.innerHeight;CVS.width=SW;CVS.height=SH;});
 
-function buildLobby(){
-  const cg=document.getElementById('colorGrid');
-  PCOLORS.forEach((c,i)=>{
-    const d=document.createElement('div');d.className='csw'+(i===0?' sel':'');d.style.background=c;
-    d.onclick=()=>{selColor=c;selFlag=null;useFlag=false;document.querySelectorAll('.csw').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');};
-    cg.appendChild(d);
-  });
-  const fg=document.getElementById('flagGrid');
-  ALL_FLAGS.forEach(f=>{
-    const d=document.createElement('div');d.className='flag';d.textContent=f;
-    d.onclick=()=>{selFlag=f;useFlag=true;document.querySelectorAll('.flag').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');};
-    fg.appendChild(d);
-  });
-}
-function switchTab(i){
-  document.getElementById('panel0').style.display=i===0?'':'none';
-  document.getElementById('panel1').style.display=i===1?'':'none';
-  document.getElementById('tab0').className='tab'+(i===0?' on':'');
-  document.getElementById('tab1').className='tab'+(i===1?' on':'');
-}
-function openLobby(){
-  document.getElementById('dead').style.display='none';
-  document.getElementById('lobby').style.display='flex';
-  try{(adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
-}
-function startFromLobby(){
-  const name=document.getElementById('pname').value.trim()||'Player';
-  document.getElementById('lobby').style.display='none';
-  joinGame(name,useFlag?selFlag:null,selColor);
-}
-buildLobby();
-document.getElementById('pname').addEventListener('keydown',e=>{if(e.key==='Enter')startFromLobby();});
-document.getElementById('respawnBtn').onclick=()=>{
-  document.getElementById('dead').style.display='none';
-  openLobby();
-};
-
-// ── Engine ─────────────────────────────────────────────────────
-const GC=document.getElementById('gc'),CTX=GC.getContext('2d');
-const MMC=document.getElementById('mm'),MCTX=MMC.getContext('2d');
-let SW,SH;
-function resize(){SW=GC.width=window.innerWidth;SH=GC.height=window.innerHeight;}
-resize();window.addEventListener('resize',resize);
-
-const Mouse={x:0,y:0};
-const Keys={};
-window.addEventListener('mousemove',e=>{Mouse.x=e.clientX;Mouse.y=e.clientY;});
-window.addEventListener('keydown',e=>{
-  if(Keys[e.code])return;Keys[e.code]=true;
-  if(e.code==='Space')e.preventDefault();
-  if(gameActive)handleKey(e.code);
-});
-window.addEventListener('keyup',e=>{Keys[e.code]=false;});
-
-const rnd=(a,b)=>Math.random()*(b-a)+a;
+// ── State ─────────────────────────────────────────────────────
 const mtr=m=>Math.sqrt(m)*1.5+3;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-function speedMult(mass){
-  if(mass>=10000)return Math.pow(0.9,5);if(mass>=5000)return Math.pow(0.9,4);
-  if(mass>=2000)return Math.pow(0.9,3);if(mass>=1000)return Math.pow(0.9,2);
-  if(mass>=500)return Math.pow(0.9,1);return 1;
-}
+function speedMult(m){if(m>=5000)return 0.6;if(m>=2000)return 0.72;if(m>=1000)return 0.81;if(m>=500)return 0.9;return 1;}
 
-// Game state with interpolation + client-side prediction
-let socket=null,myId=null,myName='Player',myColor='#00cfff',myFlag=null;
-let GW=10000,GH=10000,CELL=1000,GRID=10;
-// Ring buffer of snapshots (receive timestamps, no clock sync needed)
-const SNAP_BUF=8;
-const snapBuf=Array.from({length:SNAP_BUF},()=>({players:[],bots:[],bullets:[],t:Date.now()}));
-let snapHead=0;
-let snapCount=0;
-let gameState={players:[],bots:[],bullets:[]};
-let food=[],items=[],parts=[];
-let localBullets=[]; // client-predicted bullets (immediate visual)
-let camX=0,camY=0,camTargX=0,camTargY=0,pingTime=0;
+let socket=null,myId=null,myColor='#00cfff',myName='Player',myFlag=null;
+let GW=6000,GH=6000;
+let food=[],items=[];
 let gameActive=false;
+let camX=0,camY=0;
+let pingTime=0,latency=0;
+const parts=[];
 const STARS=[];
-// 200ms delay: enough buffer for ping~150ms + jitter + 2 ticks
-// t will almost always be in [0,1] -> no extrapolation -> no giật
-const INTERP_DELAY=200;
+const Keys={};
+const Mouse={x:0,y:0};
 
-// Client-side prediction for OWN player
-let predX=0,predY=0,predMass=20,predVx=0,predVy=0;
-let predDashFrames=0;
+// Ring buffer for server snapshots
+const SNAP_N=8;
+const snaps=Array.from({length:SNAP_N},()=>({t:0,players:[],bots:[],bullets:[]}));
+let snapHead=0,snapCount=0;
 
-function initStars(){
-  STARS.length=0;
-  for(let i=0;i<800;i++)STARS.push({x:rnd(0,GW),y:rnd(0,GH),s:rnd(0.4,2.2),b:rnd(0.2,0.9)});
+function pushSnap(snap){
+  snapHead=(snapHead+1)%SNAP_N;
+  snaps[snapHead]=snap;
+  if(snapCount<SNAP_N)snapCount++;
 }
 
-// ── Socket + game start ────────────────────────────────────────
-function joinGame(name,flag,color){
-  myName=name;myFlag=flag;myColor=color;
-  if(socket){socket.disconnect();}
-  socket=io();
-
-  socket.on('connect',()=>{
-    myId=socket.id;
-    socket.emit('join',{name,color,flag});
-    doPing(); // start ping loop
-  });
-
-  socket.on('init',d=>{
-    GW=d.worldW;GH=d.worldH;
-    food=d.food||[];items=d.items||[];
-    gameState={players:[],bots:d.bots||[],bullets:[]};
-    // Reset ring buffer
-    snapHead=0;snapCount=0;
-    localBullets=[];
-    for(let i=0;i<SNAP_BUF;i++) snapBuf[i]={players:[],bots:d.bots||[],bullets:[],t:Date.now()};
-    initStars();
-    predX=d.spawnX||GW/2;predY=d.spawnY||GH/2;
-    predMass=20;predVx=0;predVy=0;predDashFrames=0;
-    camX=predX-SW/2;camY=predY-SH/2;
-    camTargX=camX;camTargY=camY;
-    gameActive=true;
-    addMsg('Welcome '+name+'! Q Dash  W Shield  E Shoot  R Stealth  B Bomb  F Magnet','#0ff');
-  });
-
-  socket.on('state',s=>{
-    // Expand compact keys from server
-    const players=(s.p||[]).map(p=>({id:p.i,name:p.n,color:p.c,flag:p.f,x:p.x,y:p.y,mass:p.m,shielded:!!p.sh,stealthed:!!p.st,inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,cdF:p.cF}));
-    const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
-    const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
-    // Push into ring buffer with receive timestamp
-    snapHead=(snapHead+1)%SNAP_BUF;
-    snapBuf[snapHead]={players,bots,bullets,t:Date.now()};
-    if(snapCount<SNAP_BUF)snapCount++;
-    gameState={players,bots,bullets};
-    // Reconcile prediction with server
-    const me=s.players&&s.players.find(p=>p.id===myId);
-    if(me){
-      const err=Math.hypot(predX-me.x,predY-me.y);
-      if(err>150){predX=me.x;predY=me.y;predVx=0;predVy=0;}
-      else if(err>40){predX+=(me.x-predX)*0.04;predY+=(me.y-predY)*0.04;}
-      predMass=me.mass;
-    }
-    updateHUD();
-  });
-
-  // Food and items update every 500ms
-  socket.on('worldUpdate',d=>{
-    if(d.food&&d.food.length)food=d.food; // new array, all _hidden cleared
-    if(d.items&&d.items.length)items=d.items;
-  });
-
-  // Item removed instantly — don't wait for next worldUpdate
-  socket.on('itemRemoved',id=>{
-    const idx=items.findIndex(it=>it.id===id);
-    if(idx!==-1)items.splice(idx,1);
-  });
-
-  // Food eaten instantly — replace eaten food with new food position
-  socket.on('foodEaten',d=>{
-    // Hide food at index - worldUpdate (600ms) will restore with new random position
-    if(food[d.ni])food[d.ni]._hidden=true;
-  });
-
-  socket.on('playerList',list=>{
-    document.getElementById('lbr').innerHTML=list.slice(0,8).map((e,i)=>
-      `<div class="le${e.id===myId?' me':''}">${i+1}. ${e.name} ${e.mass}</div>`
-    ).join('');
-  });
-
-  socket.on('explode',({x,y,nx,ny,r,col})=>{
-    // localBullets already handled client-side hit spark
-    // This handles edge cases (bot-vs-player absorption, etc.)
-    spark(x-(nx||0)*(r||20), y-(ny||0)*(r||20), col, 20);
-  });
-  socket.on('msg',({text,col})=>addMsg(text,col));
-
-  socket.on('died',({by})=>{
-    document.getElementById('dm').textContent='Absorbed by '+by+'!';
-    document.getElementById('dead').style.display='flex';
-    try{(adsbygoogle=window.adsbygoogle||[]).push({});}catch(e){}
-  });
-
-  socket.on('respawn',()=>{
-    document.getElementById('dead').style.display='none';
-    addMsg('Respawned!','#0ff');
-  });
-
-  socket.on('pong_reply',({t:serverT})=>{
-    const rtt=Date.now()-pingTime;
-    document.getElementById('pingval').textContent=rtt;
-    setTimeout(doPing,2000);
-  });
-
-  socket.on('disconnect',()=>{gameActive=false;});
-}
-
-function doPing(){
-  if(!socket||!socket.connected)return;
-  pingTime=Date.now();socket.emit('ping');
-  setTimeout(()=>{if(Date.now()-pingTime>1999)document.getElementById('pingval').textContent='--';},2000);
-}
-
-// ── Input ──────────────────────────────────────────────────────
-function handleKey(code){
-  if(!socket||!myId)return;
-  const me=gameState.players.find(p=>p.id===myId);if(!me)return;
-  const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  if(code==='KeyQ'){
-    if(!me.inv||me.inv.dash<=0||me.cdQ>0)return; // check before predicting
-    socket.emit('dash',{nx:mdx/ml,ny:mdy/ml});
-    // Predict dash instantly on client
-    predVx=mdx/ml*40;predVy=mdy/ml*40;predDashFrames=12;
-  }
-  if(code==='KeyW')socket.emit('shield');
-  if(code==='KeyR')socket.emit('stealth');
-  if(code==='KeyB'){
-    const wx=Mouse.x+camX,wy=Mouse.y+camY,dx=wx-predX,dy=wy-predY,l=Math.hypot(dx,dy)||1;
-    socket.emit('bomb',{nx:dx/l,ny:dy/l});
-  }
-  if(code==='KeyF')socket.emit('magnet');
-}
-
-// Send movement input + predicted position to server ~30fps
-setInterval(()=>{
-  if(!socket||!myId||!gameActive)return;
-  const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  socket.emit('input',{
-    vx:ml>5?mdx/ml:0,
-    vy:ml>5?mdy/ml:0,
-    px:Math.round(predX),  // predicted position for server reconciliation
-    py:Math.round(predY)
-  });
-},33);
-
-// Shoot every 250ms (one bullet per 0.25s) while holding E
-let _lastLocalShot=0;
-setInterval(()=>{
-  if(!socket||!myId||!gameActive||!Keys['KeyE'])return;
-  const me=gameState.players.find(p=>p.id===myId);if(!me||me.mass<=20)return;
-  const now=Date.now();
-  if(now-_lastLocalShot<250)return; // 0.25s between shots
-  _lastLocalShot=now;
-  const wx=Mouse.x+camX,wy=Mouse.y+camY;
-  const dx=wx-predX,dy=wy-predY,l=Math.hypot(dx,dy)||1;
-  const nx=dx/l,ny=dy/l;
-  socket.emit('shoot',{nx,ny,px:Math.round(predX),py:Math.round(predY)});
-  // Spawn local bullet immediately for zero-latency visual
-  const r=mtr(predMass);
-  localBullets.push({x:predX+nx*r,y:predY+ny*r,vx:nx*20,vy:ny*20,
-    r:3,col:myColor,life:20,t:now});
-},33); // poll at 33ms for responsive key detection
-
-// ── Helpers ────────────────────────────────────────────────────
-function addMsg(t,col){
-  const d=document.getElementById('msgs');
-  const el=document.createElement('div');el.className='msg';
-  if(col)el.style.borderLeftColor=col;
-  el.textContent=t;d.appendChild(el);
-  if(d.children.length>5)d.removeChild(d.children[0]);
-  setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),500);},2500);
-}
-function spark(px,py,col,n=8){
-  for(let i=0;i<n;i++){
-    const a=rnd(0,Math.PI*2),s=rnd(2,10);
-    parts.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rnd(2,6),col,life:rnd(15,40)});
-  }
-}
-
-// Linear interpolation
+// ── Interpolation — smooth lerp between snapshots ─────────────
 function lerp(a,b,t){return a+(b-a)*t;}
-function slerp(a,b,t){const s=t*t*(3-2*t);return a+(b-a)*s;} // smoothstep - smooth joins
+function slerp(a,b,t){const s=t*t*(3-2*t);return a+(b-a)*s;} // smoothstep
 
-function getInterpolated(){
-  if(snapCount<2){
-    const s=snapBuf[snapHead];
-    return {players:s.players,bots:s.bots,bullets:s.bullets};
-  }
-
-  const latestBullets=snapBuf[snapHead].bullets;
-
-  // 130ms buffer: stable t even with 10-20ms packet timing variance
-  const renderT=Date.now()-100; // 100ms buffer - less lag, better collision visual
-
+function getInterp(){
+  if(snapCount<2){const s=snaps[snapHead];return{players:s.players,bots:s.bots,bullets:s.bullets};}
+  const renderT=Date.now()-INTERP_DELAY;
+  // Find prev (newest snapshot <= renderT) and curr (one newer)
   let prevIdx=-1,currIdx=-1;
   for(let i=0;i<snapCount;i++){
-    const idx=(snapHead-i+SNAP_BUF)%SNAP_BUF;
-    if(snapBuf[idx].t<=renderT){
-      currIdx=(snapHead-(i-1)+SNAP_BUF)%SNAP_BUF;
+    const idx=(snapHead-i+SNAP_N)%SNAP_N;
+    if(snaps[idx].t<=renderT){
       prevIdx=idx;
+      currIdx=(snapHead-(i-1)+SNAP_N)%SNAP_N;
       break;
     }
   }
-  if(prevIdx===-1){
-    prevIdx=(snapHead-snapCount+1+SNAP_BUF)%SNAP_BUF;
-    currIdx=(snapHead-snapCount+2+SNAP_BUF)%SNAP_BUF;
-  }
-  if(currIdx===-1||currIdx===prevIdx){
-    currIdx=snapHead;
-    prevIdx=(snapHead-1+SNAP_BUF)%SNAP_BUF;
-  }
-
-  const prev=snapBuf[prevIdx];
-  const curr=snapBuf[currIdx];
+  if(prevIdx===-1){prevIdx=(snapHead-snapCount+1+SNAP_N)%SNAP_N;currIdx=(snapHead-snapCount+2+SNAP_N)%SNAP_N;}
+  if(currIdx===prevIdx||currIdx===-1){currIdx=snapHead;prevIdx=(snapHead-1+SNAP_N)%SNAP_N;}
+  const prev=snaps[prevIdx],curr=snaps[currIdx];
   const dt=curr.t-prev.t;
   const t=dt<=0?1:Math.max(0,Math.min(1,(renderT-prev.t)/dt));
-
-  const prevPlayerMap=new Map(prev.players.map(p=>[p.id,p]));
-  const prevBotMap   =new Map(prev.bots.map(b=>[b.id,b]));
-
+  const pMap=new Map(prev.players.map(p=>[p.id,p]));
+  const bMap=new Map(prev.bots.map(b=>[b.id,b]));
   const players=curr.players.map(c=>{
-    const p=prevPlayerMap.get(c.id);
-    if(!p)return c;
-    return {...c,x:slerp(p.x,c.x,t),y:slerp(p.y,c.y,t)};
+    const p=pMap.get(c.id);if(!p)return c;
+    return{...c,x:slerp(p.x,c.x,t),y:slerp(p.y,c.y,t)};
   });
-
   const bots=curr.bots.map(c=>{
-    const p=prevBotMap.get(c.id);
-    if(!p)return c;
-    return {...c,x:slerp(p.x,c.x,t),y:slerp(p.y,c.y,t)};
+    const p=bMap.get(c.id);if(!p)return c;
+    return{...c,x:slerp(p.x,c.x,t),y:slerp(p.y,c.y,t)};
   });
-
-  return {players,bots,bullets:latestBullets};
+  return{players,bots,bullets:snaps[snapHead].bullets}; // bullets always latest
 }
 
-// ── HUD ────────────────────────────────────────────────────────
-function updateHUD(){
-  const me=(gameState.players||[]).find(p=>p.id===myId);if(!me)return;
-  document.getElementById('hm').textContent=Math.floor(me.mass)+' M';
-  document.getElementById('hs').textContent=Math.round(speedMult(me.mass)*100)+'%';
-  const all=[...(gameState.players||[]),...(gameState.bots||[])].map(p=>p.mass).sort((a,b)=>b-a);
-  document.getElementById('hr').textContent='#'+(all.findIndex(m=>m===me.mass)+1);
+// ── Messages ──────────────────────────────────────────────────
+function addMsg(text,col){
+  const d=document.getElementById('msgs');
+  if(!d)return;
+  const el=document.createElement('div');el.className='msg';
+  el.style.color=col||'#fff';el.textContent=text;
+  d.appendChild(el);setTimeout(()=>el.remove(),4000);
+}
+
+// ── Particles ─────────────────────────────────────────────────
+function spark(x,y,col,n=20){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,spd=1+Math.random()*4;
+    parts.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,r:1+Math.random()*3,life:15+Math.random()*20,col});
+  }
+}
+
+// ── Stars ─────────────────────────────────────────────────────
+function initStars(){
+  STARS.length=0;
+  for(let i=0;i<200;i++)STARS.push({x:Math.random()*GW,y:Math.random()*GH,r:Math.random()*1.5+0.3,a:0.2+Math.random()*0.6});
+}
+
+// ── Networking ────────────────────────────────────────────────
+function connect(){
+  const name=document.getElementById('ni').value.trim()||'Player';
+  const color=document.getElementById('ci').value||'#00cfff';
+  const flag=document.getElementById('fi').value||'';
+  myName=name;myColor=color;myFlag=flag||null;
+  socket=io();
+
+  socket.on('init',d=>{
+    myId=d.id;GW=d.worldW;GH=d.worldH;
+    food=d.food||[];items=d.items||[];
+    // Init snapshots with initial bots
+    const initSnap={t:Date.now(),players:[],bots:d.bots||[],bullets:[]};
+    for(let i=0;i<SNAP_N;i++)snaps[i]={...initSnap};
+    snapHead=0;snapCount=1;
+    initStars();
+    gameActive=true;
+    document.getElementById('lobby').style.display='none';
+    addMsg('Welcome '+name+'! Q=Dash W=Shield E=Shoot R=Stealth B=Bomb F=Magnet','#0ff');
+  });
+
+  socket.on('state',s=>{
+    // Expand compact keys
+    const players=(s.p||[]).map(p=>({
+      id:p.i,name:p.n,color:p.c,flag:p.f,
+      x:p.x,y:p.y,mass:p.m,
+      shielded:!!p.sh,stealthed:!!p.st,
+      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,cdF:p.cF
+    }));
+    const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
+    const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
+    pushSnap({t:Date.now(),players,bots,bullets});
+    // Update HUD from self
+    const me=players.find(p=>p.id===myId);
+    if(me)updateHUD(me);
+  });
+
+  socket.on('worldUpdate',d=>{
+    if(d.food&&d.food.length)food=d.food;
+    if(d.items&&d.items.length)items=d.items;
+  });
+  socket.on('itemAdded',it=>{items.push(it);});
+  socket.on('itemRemoved',id=>{const i=items.findIndex(x=>x.id===id);if(i!==-1)items.splice(i,1);});
+  socket.on('foodEaten',d=>{
+    // Update food immediately to new position
+    if(food[d.ni])food[d.ni]=d.nf;
+  });
+  socket.on('died',({by})=>{addMsg('Eaten by '+by+'!','#f55');});
+  socket.on('explode',({x,y,nx,ny,r,col})=>{
+    // Spark at entry edge of entity
+    spark(x-(nx||0)*(r||20),y-(ny||0)*(r||20),col,25);
+  });
+  socket.on('msg',({text,col})=>addMsg(text,col));
+  socket.on('playerLeft',id=>{});
+  socket.on('playerList',list=>{
+    const lb=document.getElementById('lbr');if(!lb)return;
+    lb.innerHTML=list.slice(0,8).map((e,i)=>`<div class="le${e.id===myId?' me':''}">${i+1}. ${e.name} ${e.mass}</div>`).join('');
+  });
+  socket.on('pong',t=>{
+    latency=Date.now()-pingTime;
+    const el=document.getElementById('pingval');if(el)el.textContent=latency;
+    setTimeout(doPing,2000);
+  });
+  doPing();
+  socket.emit('join',{name,color,flag:myFlag});
+}
+
+function doPing(){if(!socket||!socket.connected)return;pingTime=Date.now();socket.emit('ping');}
+
+// ── HUD ───────────────────────────────────────────────────────
+function updateHUD(me){
+  const hm=document.getElementById('hm');if(hm)hm.textContent=Math.floor(me.mass)+' M';
+  const hs=document.getElementById('hs');if(hs)hs.textContent=Math.round(speedMult(me.mass)*100)+'%';
   if(me.inv){
     updSk('Q',me.inv.dash,me.cdQ,false,false);
-    updSk('W',me.inv.shield,me.cdW,me.shielded,false);
-    updSk('E',-1,0,false,true);
-    updSk('R',me.inv.stealth,me.cdR,me.stealthed,false);
+    updSk('W',me.inv.shield,me.cdW,false,false);
+    updSk('E',me.mass>20?1:0,0,true,false);
+    updSk('R',me.inv.stealth,me.cdR,false,false);
     updSk('B',me.inv.bomb,me.cdB,false,false);
     updSk('F',me.inv.magnet,me.cdF,false,false);
   }
-  // Smooth camera: follow my interpolated position
-  camTargX=me.x-SW/2; camTargY=me.y-SH/2;
-}
-function updSk(key,count,cd,active,isFire){
-  const box=document.getElementById('sk'+key);
-  const cnt=document.getElementById('cnt'+key);
-  const cde=document.getElementById('cd'+key);
-  if(!box||!cnt||!cde)return;
-  if(isFire){cnt.textContent=Keys['KeyE']?'firing':'hold';cde.textContent='';box.className='sk'+(Keys['KeyE']?' fire':'');return;}
-  cnt.textContent=count>=0?count:'';
-  cde.textContent=cd>0?(cd/1000).toFixed(1)+'s':'';
-  box.className='sk'+(active?' act':count===0?' emp':'');
+  // Rank
+  const interp=getInterp();
+  const all=[...(interp.players||[]),...(interp.bots||[])].map(e=>e.mass).sort((a,b)=>b-a);
+  const hr=document.getElementById('hr');if(hr)hr.textContent='#'+(all.findIndex(m=>m===me.mass)+1||'?');
 }
 
-// ── Render loop ────────────────────────────────────────────────
-let prev=0;
-function loop(ts){
-  requestAnimationFrame(loop);
-  const dt=Math.min((ts-prev)/16.67,3);prev=ts;
+function updSk(k,count,cd,isFire,isToggle){
+  const box=document.getElementById('sk'+k);const cnt=document.getElementById('cnt'+k);const cde=document.getElementById('cd'+k);
+  if(!box||!cnt)return;
+  const active=isFire||count>0;
+  const onCD=cd>0;
+  cnt.textContent=isFire?'∞':count;
+  cde.textContent=onCD?(cd/1000).toFixed(1)+'s':'';
+  box.className='sk'+(active?' act':count===0?' emp':'')+(onCD?' cd':'');
+}
 
-  // CLIENT-SIDE PREDICTION: frame-rate independent physics matching server
-  if(gameActive&&myId){
-    const me=gameState.players&&gameState.players.find(p=>p.id===myId);
-    const spd=me?6*speedMult(me.mass||predMass):6; // match server baseSpd=6
-    const tickFrac=dt*16.67/33;
-    const lP=1-Math.pow(1-0.25,tickFrac);  // match server LERP_P=0.25
-    const fr=Math.pow(0.85,tickFrac);       // match server FRIC=0.85
-    if(predDashFrames>0){predDashFrames--;predVx*=fr;predVy*=fr;}
-    else{
-      const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-      predVx+=(mdx/ml*spd-predVx)*lP;predVy+=(mdy/ml*spd-predVy)*lP;
-      predVx*=fr;predVy*=fr;
-    }
-    const pr=me?mtr(me.mass||predMass):mtr(predMass);
-    predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dt));
-    predY=Math.max(pr,Math.min(GH-pr,predY+predVy*dt));
-    camTargX=predX-SW/2;camTargY=predY-SH/2;
+// ── Input ─────────────────────────────────────────────────────
+window.addEventListener('keydown',e=>{if(!Keys[e.code]){Keys[e.code]=true;handleKey(e.code);}});
+window.addEventListener('keyup',e=>{Keys[e.code]=false;});
+window.addEventListener('mousemove',e=>{Mouse.x=e.clientX;Mouse.y=e.clientY;});
 
-    // Client-side food hiding: immediately hide food predX overlaps
-    if(food.length){
-      const eatR=pr+15, eatR2=eatR*eatR;
-      for(let i=0;i<food.length;i++){
-        const f=food[i];
-        if(!f||f._hidden)continue; // skip already hidden
-        const dx=predX-f.x,dy=predY-f.y;
-        if(predMass>f.mass&&dx*dx+dy*dy<eatR2) f._hidden=true;
-      }
-    }
-    if(me)predMass=me.mass;
-  }
+function handleKey(code){
+  if(!socket||!myId||!gameActive)return;
+  // Get self from interpolated state for checks
+  const interp=getInterp();
+  const me=interp.players.find(p=>p.id===myId);
+  const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
+  if(code==='KeyQ'){if(!me||!me.inv||me.inv.dash<=0||me.cdQ>0)return;socket.emit('dash',{nx:mdx/ml,ny:mdy/ml});}
+  if(code==='KeyW')socket.emit('shield');
+  if(code==='KeyR')socket.emit('stealth');
+  if(code==='KeyB'){const wx=Mouse.x+camX,wy=Mouse.y+camY;const dx=wx-(me?me.x:camX+SW/2),dy=wy-(me?me.y:camY+SH/2);const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
+  if(code==='KeyF')socket.emit('magnet');
+}
 
-  // Smooth camera
-  camX+=(camTargX-camX)*0.18;
-  camY+=(camTargY-camY)*0.18;
-
-  // Particles
-  for(let i=parts.length-1;i>=0;i--){
-    const p=parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.92;p.vy*=0.92;p.life-=dt;p.r*=0.95;
-    if(p.life<=0||p.r<0.3)parts.splice(i,1);
-  }
-  // Update local predicted bullets + client-side hit detection
-  const interpNow=getInterpolated();
-  for(let i=localBullets.length-1;i>=0;i--){
-    const b=localBullets[i];
-    b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
-    if(b.life<=0){localBullets.splice(i,1);continue;}
-    // Check collision with interpolated bots and players
-    let hit=false;
-    const bl=Math.hypot(b.vx,b.vy)||1;
-    const bnx=b.vx/bl,bny=b.vy/bl;
-    const targets=[...(interpNow.bots||[]),...(interpNow.players||[])
-      .filter(p=>p.id!==myId)]; // skip self
-    for(const e of targets){
-      const er=mtr(e.mass);
-      const dx=b.x-e.x,dy=b.y-e.y;
-      if(dx*dx+dy*dy<(er+b.r)*(er+b.r)){
-        // Spark at entry point (opposite bullet direction)
-        spark(e.x-bnx*er, e.y-bny*er, b.col, 20);
-        localBullets.splice(i,1);hit=true;break;
+// Send input every tick
+let _lastShot=0;
+setInterval(()=>{
+  if(!socket||!myId||!gameActive)return;
+  const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
+  socket.emit('input',{vx:ml>5?mdx/ml:0,vy:ml>5?mdy/ml:0});
+  // Shoot
+  if(Keys['KeyE']){
+    const now=Date.now();
+    if(now-_lastShot>=250){
+      _lastShot=now;
+      const interp=getInterp();
+      const me=interp.players.find(p=>p.id===myId);
+      if(me&&me.mass>20){
+        const wx=Mouse.x+camX,wy=Mouse.y+camY;
+        const dx=wx-me.x,dy=wy-me.y,l=Math.hypot(dx,dy)||1;
+        socket.emit('shoot',{nx:dx/l,ny:dy/l});
+        // Local bullet for immediate visual
+        localBullets.push({x:me.x+(dx/l)*mtr(me.mass),y:me.y+(dy/l)*mtr(me.mass),vx:dx/l*20,vy:dy/l*20,r:3,col:myColor,life:20});
       }
     }
   }
-  render();
-}
-requestAnimationFrame(loop);
+},33);
 
-// ── Render ─────────────────────────────────────────────────────
-function render(){
-  // Always draw background
-  CTX.fillStyle='#000510';CTX.fillRect(0,0,SW,SH);
+// Local bullets for zero-latency visual
+const localBullets=[];
 
-  if(!gameActive||!myId){
-    renderMinimap();return;
-  }
-
-  // Get interpolated state for smooth rendering (others)
-  const interp=getInterpolated();
-  // For self: use predicted position (instant, no lag)
-  const me=gameState.players&&gameState.players.find(p=>p.id===myId);
-
-  CTX.save();CTX.translate(-camX,-camY);
-
-  // Stars
-  CTX.fillStyle='#fff';
-  STARS.forEach(s=>{
-    if(s.x<camX-5||s.x>camX+SW+5||s.y<camY-5||s.y>camY+SH+5)return;
-    CTX.globalAlpha=s.b;CTX.beginPath();CTX.arc(s.x,s.y,s.s,0,Math.PI*2);CTX.fill();
-  });
-  CTX.globalAlpha=1;
-
-  // Grid
-  CTX.strokeStyle='rgba(0,55,120,0.2)';CTX.lineWidth=1;
-  const gx0=Math.floor(camX/CELL)*CELL,gy0=Math.floor(camY/CELL)*CELL;
-  for(let gx=gx0;gx<camX+SW+CELL;gx+=CELL){CTX.beginPath();CTX.moveTo(gx,0);CTX.lineTo(gx,GH);CTX.stroke();}
-  for(let gy=gy0;gy<camY+SH+CELL;gy+=CELL){CTX.beginPath();CTX.moveTo(0,gy);CTX.lineTo(GW,gy);CTX.stroke();}
-  CTX.strokeStyle='rgba(0,160,255,0.7)';CTX.lineWidth=6;CTX.strokeRect(0,0,GW,GH);
-
-  // Food
-  food.forEach(f=>{
-    if(f._hidden)return; // client-side hidden (eaten prediction)
-    if(f.x<camX-20||f.x>camX+SW+20||f.y<camY-20||f.y>camY+SH+20)return;
-    CTX.fillStyle=f.col;CTX.beginPath();CTX.arc(f.x,f.y,f.r,0,Math.PI*2);CTX.fill();
-  });
-
-  // Items
-  items.forEach(it=>{
-    if(it.x<camX-50||it.x>camX+SW+50||it.y<camY-50||it.y>camY+SH+50)return;
-    if(!it._age)it._age=0;it._age++;
-    const pulse=Math.sin(it._age*0.06)*0.28+0.72;
-    CTX.globalAlpha=pulse*0.35;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r+8,0,Math.PI*2);CTX.fill();
-    CTX.globalAlpha=1;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r,0,Math.PI*2);CTX.fill();
-    const lbl=it.label||it.type;
-    CTX.font='bold 9px monospace';CTX.textAlign='center';CTX.textBaseline='middle';
-    const tw=CTX.measureText(lbl).width;
-    CTX.fillStyle='rgba(0,0,0,0.72)';CTX.fillRect(it.x-tw/2-2,it.y-5,tw+4,10);
-    CTX.fillStyle='#fff';CTX.fillText(lbl,it.x,it.y+1);
-  });
-
-  // Particles
-  parts.forEach(p=>{CTX.globalAlpha=Math.min(1,p.life/20);CTX.fillStyle=p.col;CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.fill();});
-  CTX.globalAlpha=1;
-
-  // Local predicted bullets (zero latency - rendered immediately when shot)
-  localBullets.forEach(b=>{
-    CTX.fillStyle=b.col;CTX.shadowBlur=5;CTX.shadowColor=b.col;
-    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
-  });
-
-  // Server bullets (others' bullets only - skip own since localBullets covers them)
-  (interp.bullets||[]).forEach(b=>{
-    if(b.col===myColor)return; // own bullet already shown via localBullets
-    CTX.fillStyle=b.col;CTX.shadowBlur=b.type==='bomb'?16:5;CTX.shadowColor=b.col;
-    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
-  });
-
-  // Bots (interpolated)
-  (interp.bots||[]).forEach(b=>drawBot(b));
-
-  // Other players (interpolated)
-  (interp.players||[]).forEach(p=>{
-    if(p.id===myId)return; // skip self, drawn below
-    drawOther(p);
-  });
-  // Self at predicted position (no network lag)
-  if(me){
-    const predMe={...me,x:predX,y:predY};
-    drawMe(predMe);
-  }
-
-  CTX.restore();
-
-  // Crosshair (screen space)
-  CTX.strokeStyle='rgba(0,220,255,0.85)';CTX.lineWidth=1.5;
-  CTX.beginPath();CTX.arc(Mouse.x,Mouse.y,9,0,Math.PI*2);CTX.stroke();
-  [[0,-16,0,-5],[0,5,0,16],[-16,0,-5,0],[5,0,16,0]].forEach(([x1,y1,x2,y2])=>{
-    CTX.beginPath();CTX.moveTo(Mouse.x+x1,Mouse.y+y1);CTX.lineTo(Mouse.x+x2,Mouse.y+y2);CTX.stroke();
-  });
-
-  renderMinimap();
-}
-
+// ── Drawing ───────────────────────────────────────────────────
 function drawMe(p){
   const r=mtr(p.mass);
-  CTX.globalAlpha=p.stealthed?0.45:1;
+  CTX.globalAlpha=p.stealthed?0.4:1;
+  if(p.shielded){CTX.strokeStyle='#88f';CTX.lineWidth=4;CTX.beginPath();CTX.arc(p.x,p.y,r+4,0,Math.PI*2);CTX.stroke();}
   if(myFlag){
     CTX.fillStyle=myColor+'88';CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
     CTX.save();CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.clip();
@@ -657,90 +379,177 @@ function drawMe(p){
   } else {
     CTX.fillStyle=myColor;CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
   }
-  CTX.globalAlpha=p.stealthed?0.3:0.9;
-  CTX.strokeStyle=myColor;CTX.lineWidth=2.5;CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.stroke();
-  if(p.shielded){
-    CTX.strokeStyle='rgba(180,180,255,0.9)';CTX.lineWidth=3;CTX.setLineDash([8,5]);
-    CTX.beginPath();CTX.arc(p.x,p.y,r+12,0,Math.PI*2);CTX.stroke();CTX.setLineDash([]);
+  if(r>8){
+    CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.35,8,16)}px monospace`;
+    CTX.textAlign='center';CTX.textBaseline='middle';CTX.shadowBlur=3;CTX.shadowColor='#000';
+    CTX.fillText(p.name,p.x,p.y-r*0.15);
+    CTX.fillStyle='rgba(255,255,255,0.7)';CTX.font=`${clamp(r*0.28,7,13)}px monospace`;
+    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.25);CTX.shadowBlur=0;
   }
   CTX.globalAlpha=1;
-  if(r>10){
-    CTX.shadowBlur=3;CTX.shadowColor='#000';
-    CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.3,9,15)}px monospace`;
-    CTX.textAlign='center';CTX.textBaseline='middle';
-    CTX.fillText(myName,p.x,p.y-r*0.18);
-    CTX.font=`${clamp(r*0.25,8,12)}px monospace`;CTX.fillStyle='rgba(255,255,255,0.7)';
-    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.26);CTX.shadowBlur=0;
-  }
 }
 
 function drawOther(p){
   const r=mtr(p.mass);
-  if(p.stealthed){
-    CTX.globalAlpha=0.15;
-    CTX.fillStyle=p.color;CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
-    CTX.strokeStyle=p.color;CTX.lineWidth=1;CTX.setLineDash([4,6]);
-    CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.stroke();
-    CTX.setLineDash([]);CTX.globalAlpha=1;return;
-  }
-  CTX.globalAlpha=0.9;
+  CTX.globalAlpha=p.stealthed?0.15:1;
+  if(p.shielded){CTX.strokeStyle='#88f';CTX.lineWidth=3;CTX.beginPath();CTX.arc(p.x,p.y,r+3,0,Math.PI*2);CTX.stroke();}
   if(p.flag){
     CTX.fillStyle=p.color+'88';CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
     CTX.save();CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.clip();
-    CTX.font=`${clamp(r*1.1,12,50)}px serif`;CTX.textAlign='center';CTX.textBaseline='middle';
-    CTX.globalAlpha=0.9;CTX.fillText(p.flag,p.x,p.y);CTX.restore();
+    CTX.font=`${clamp(r*1.1,12,50)}px serif`;CTX.textAlign='center';CTX.textBaseline='middle';CTX.fillText(p.flag,p.x,p.y);
+    CTX.restore();
   } else {
     CTX.fillStyle=p.color;CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
   }
-  CTX.strokeStyle=p.color;CTX.lineWidth=1.5;CTX.globalAlpha=0.9;CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.stroke();
-  if(p.shielded){
-    CTX.strokeStyle='rgba(180,180,255,0.8)';CTX.lineWidth=2;CTX.setLineDash([6,4]);
-    CTX.beginPath();CTX.arc(p.x,p.y,r+10,0,Math.PI*2);CTX.stroke();CTX.setLineDash([]);
+  if(r>8){
+    CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.35,8,16)}px monospace`;
+    CTX.textAlign='center';CTX.textBaseline='middle';CTX.shadowBlur=3;CTX.shadowColor='#000';
+    CTX.fillText(p.name,p.x,p.y-r*0.15);
+    CTX.fillStyle='rgba(255,255,255,0.7)';CTX.font=`${clamp(r*0.28,7,13)}px monospace`;
+    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.25);CTX.shadowBlur=0;
   }
   CTX.globalAlpha=1;
-  if(r>8){
-    CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.3,8,13)}px monospace`;
-    CTX.textAlign='center';CTX.textBaseline='middle';CTX.shadowBlur=2;CTX.shadowColor='#000';
-    CTX.fillText(p.name,p.x,p.y-r*0.16);
-    CTX.fillStyle='rgba(255,255,255,0.6)';CTX.font=`${clamp(r*0.25,7,11)}px monospace`;
-    CTX.fillText(Math.floor(p.mass)+'M',p.x,p.y+r*0.26);CTX.shadowBlur=0;
-  }
 }
 
 function drawBot(b){
   const r=mtr(b.mass);
   CTX.fillStyle=b.col;CTX.globalAlpha=0.85;CTX.beginPath();CTX.arc(b.x,b.y,r,0,Math.PI*2);CTX.fill();
-  CTX.strokeStyle=b.col;CTX.lineWidth=1.2;CTX.globalAlpha=1;CTX.stroke();
+  CTX.strokeStyle=b.col;CTX.lineWidth=1.5;CTX.globalAlpha=1;CTX.stroke();
   if(r>8){
     CTX.fillStyle='#fff';CTX.font=`bold ${clamp(r*0.3,7,13)}px monospace`;
     CTX.textAlign='center';CTX.textBaseline='middle';CTX.shadowBlur=2;CTX.shadowColor='#000';
-    CTX.fillText(b.name,b.x,b.y-r*0.16);
+    CTX.fillText(b.name,b.x,b.y-r*0.15);
     CTX.fillStyle='rgba(255,255,255,0.6)';CTX.font=`${clamp(r*0.24,6,11)}px monospace`;
-    CTX.fillText(Math.floor(b.mass)+'M',b.x,b.y+r*0.26);CTX.shadowBlur=0;
+    CTX.fillText(Math.floor(b.mass)+'M',b.x,b.y+r*0.25);CTX.shadowBlur=0;
   }
 }
 
-function renderMinimap(){
-  const MS=130;
-  MCTX.fillStyle='rgba(0,4,16,0.96)';MCTX.fillRect(0,0,MS,MS);
-  const sx=MS/GW,sy=MS/GH;
-  MCTX.strokeStyle='rgba(0,70,160,0.2)';MCTX.lineWidth=0.5;
-  for(let g=0;g<=GRID;g++){
-    MCTX.beginPath();MCTX.moveTo(g*CELL*sx,0);MCTX.lineTo(g*CELL*sx,MS);MCTX.stroke();
-    MCTX.beginPath();MCTX.moveTo(0,g*CELL*sy);MCTX.lineTo(MS,g*CELL*sy);MCTX.stroke();
+// ── Render ────────────────────────────────────────────────────
+function render(){
+  if(!gameActive){CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);return;}
+  const interp=getInterp();
+  const me=interp.players.find(p=>p.id===myId);
+
+  // Camera: smoothly follow self interpolated position
+  if(me){
+    const tx=me.x-SW/2,ty=me.y-SH/2;
+    camX+=(tx-camX)*0.12;camY+=(ty-camY)*0.12;
   }
-  // Only show self on minimap (use latest position, not interpolated)
-  const meLatest=gameState.players&&gameState.players.find(p=>p.id===myId);
-  if(meLatest){
-    MCTX.shadowBlur=8;MCTX.shadowColor='#0ff';MCTX.fillStyle='#0ff';
-    const pr=Math.max(3,mtr(meLatest.mass)*sx*5);
-    MCTX.beginPath();MCTX.arc(meLatest.x*sx,meLatest.y*sy,pr,0,Math.PI*2);MCTX.fill();
-    MCTX.shadowBlur=0;
-    MCTX.strokeStyle='rgba(0,200,255,0.5)';MCTX.lineWidth=1;
-    MCTX.strokeRect(camX*sx,camY*sy,SW*sx,SH*sy);
+  camX=clamp(camX,0,GW-SW);camY=clamp(camY,0,GH-SH);
+
+  CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);
+  CTX.save();CTX.translate(-camX,-camY);
+
+  // Stars
+  STARS.forEach(s=>{CTX.fillStyle=`rgba(255,255,255,${s.a})`;CTX.beginPath();CTX.arc(s.x,s.y,s.r,0,Math.PI*2);CTX.fill();});
+
+  // Grid
+  CTX.strokeStyle='rgba(255,255,255,0.04)';CTX.lineWidth=1;
+  const gc0=Math.floor(camX/500)*500,gr0=Math.floor(camY/500)*500;
+  for(let gx=gc0;gx<camX+SW+500;gx+=500){CTX.beginPath();CTX.moveTo(gx,0);CTX.lineTo(gx,GH);CTX.stroke();}
+  for(let gy=gr0;gy<camY+SH+500;gy+=500){CTX.beginPath();CTX.moveTo(0,gy);CTX.lineTo(GW,gy);CTX.stroke();}
+
+  // Food
+  food.forEach(f=>{
+    if(!f||f.x<camX-20||f.x>camX+SW+20||f.y<camY-20||f.y>camY+SH+20)return;
+    CTX.fillStyle=f.col;CTX.beginPath();CTX.arc(f.x,f.y,f.r,0,Math.PI*2);CTX.fill();
+  });
+
+  // Items
+  items.forEach(it=>{
+    if(it.x<camX-50||it.x>camX+SW+50||it.y<camY-50||it.y>camY+SH+50)return;
+    if(!it._a)it._a=0;it._a++;
+    const pulse=Math.sin(it._a*0.06)*0.25+0.75;
+    CTX.globalAlpha=pulse*0.35;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r+8,0,Math.PI*2);CTX.fill();
+    CTX.globalAlpha=1;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r,0,Math.PI*2);CTX.fill();
+    CTX.fillStyle='#fff';CTX.font='bold 9px monospace';CTX.textAlign='center';CTX.textBaseline='middle';
+    CTX.fillText(it.label||it.type,it.x,it.y);
+  });
+
+  // Local predicted bullets (own, zero-latency)
+  localBullets.forEach(b=>{
+    CTX.fillStyle=b.col;CTX.shadowBlur=5;CTX.shadowColor=b.col;
+    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
+  });
+
+  // Server bullets (others)
+  (interp.bullets||[]).forEach(b=>{
+    if(b.col===myColor)return; // own already shown via localBullets
+    CTX.fillStyle=b.col;CTX.shadowBlur=b.type==='bomb'?16:5;CTX.shadowColor=b.col;
+    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
+  });
+
+  // Bots
+  (interp.bots||[]).forEach(drawBot);
+
+  // Other players
+  (interp.players||[]).forEach(p=>{if(p.id!==myId)drawOther(p);});
+
+  // Self — always drawn from interpolated server state (no prediction drift!)
+  if(me)drawMe(me);
+
+  // Particles
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    CTX.globalAlpha=p.life/35;CTX.fillStyle=p.col;
+    CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.fill();
+    p.x+=p.vx;p.y+=p.vy;p.vx*=0.9;p.vy*=0.9;p.r*=0.94;p.life--;
+    if(p.life<=0)parts.splice(i,1);
   }
-  MCTX.strokeStyle='rgba(0,160,255,0.4)';MCTX.lineWidth=1;MCTX.strokeRect(0,0,MS,MS);
+  CTX.globalAlpha=1;
+  CTX.restore();
+
+  // Minimap
+  renderMinimap(interp,me);
 }
+
+function renderMinimap(interp,me){
+  const MS=130,scale=MS/Math.max(GW,GH);
+  MCX.fillStyle='rgba(0,0,0,0.7)';MCX.fillRect(0,0,MS,MS);
+  MCX.strokeStyle='#333';MCX.lineWidth=1;MCX.strokeRect(0,0,MS,MS);
+  // Food dots
+  food.forEach(f=>{MCX.fillStyle='rgba(255,255,255,0.15)';MCX.fillRect(f.x*scale-0.5,f.y*scale-0.5,1,1);});
+  // Bots
+  (interp.bots||[]).forEach(b=>{MCX.fillStyle=b.col;MCX.beginPath();MCX.arc(b.x*scale,b.y*scale,2,0,Math.PI*2);MCX.fill();});
+  // Players
+  (interp.players||[]).forEach(p=>{
+    MCX.fillStyle=p.id===myId?'#fff':p.color;
+    MCX.beginPath();MCX.arc(p.x*scale,p.y*scale,p.id===myId?3:2,0,Math.PI*2);MCX.fill();
+  });
+  if(me){MCX.strokeStyle='rgba(255,255,255,0.3)';MCX.strokeRect(camX*scale,camY*scale,(window.innerWidth)*scale,(window.innerHeight)*scale);}
+}
+
+// ── Game loop ─────────────────────────────────────────────────
+function loop(){
+  requestAnimationFrame(loop);
+  // Update local bullets
+  const interp=getInterp();
+  for(let i=localBullets.length-1;i>=0;i--){
+    const b=localBullets[i];
+    b.x+=b.vx;b.y+=b.vy;b.life--;
+    if(b.life<=0){localBullets.splice(i,1);continue;}
+    // Check local collision with interp bots/players
+    const bl=Math.hypot(b.vx,b.vy)||1;
+    const bnx=b.vx/bl,bny=b.vy/bl;
+    let hit=false;
+    const targets=[...(interp.bots||[]),...(interp.players||[]).filter(p=>p.id!==myId)];
+    for(const e of targets){
+      const er=mtr(e.mass),dx=b.x-e.x,dy=b.y-e.y;
+      if(dx*dx+dy*dy<(er+b.r)*(er+b.r)){
+        spark(e.x-bnx*er,e.y-bny*er,b.col,20);
+        localBullets.splice(i,1);hit=true;break;
+      }
+    }
+    if(hit)break;
+  }
+  render();
+}
+
+// ── Start ─────────────────────────────────────────────────────
+document.getElementById('sb')?.addEventListener('click',connect);
+document.querySelector('#lobby')?.addEventListener('keydown',e=>{if(e.key==='Enter')connect();});
+loop();
+
 </script>
 </body>
 </html>
