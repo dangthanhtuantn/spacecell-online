@@ -295,17 +295,15 @@ function joinGame(name,flag,color){
   });
 
   socket.on('explode',({x,y,nx,ny,r,col})=>{
-    // Find nearest interpolated entity to server hit position
     const interp=getInterpolated();
     let ex=x,ey=y,er=r||20,bestD2=200*200;
     [...(interp.bots||[]),...(interp.players||[])].forEach(e=>{
       const d2=(e.x-x)*(e.x-x)+(e.y-y)*(e.y-y);
       if(d2<bestD2){bestD2=d2;ex=e.x;ey=e.y;er=mtr(e.mass);}
     });
-    // Place spark at the EDGE of the entity, on the side facing the bullet
-    // nx,ny = bullet direction -> hit point is at center + nx*radius
-    const hitX = ex+(nx||0)*er;
-    const hitY = ey+(ny||0)*er;
+    // Entry side = OPPOSITE of bullet direction (bullet flies nx,ny -> enters from -nx,-ny side)
+    const hitX=ex-(nx||0)*er;
+    const hitY=ey-(ny||0)*er;
     spark(hitX,hitY,col,30);
   });
   socket.on('msg',({text,col})=>addMsg(text,col));
@@ -415,7 +413,7 @@ function getInterpolated(){
   const latestBullets=snapBuf[snapHead].bullets;
 
   // 130ms buffer: stable t even with 10-20ms packet timing variance
-  const renderT=Date.now()-160; // 160ms = ~5 ticks buffer, handles ±20ms packet jitter
+  const renderT=Date.now()-200; // 200ms = ping(150) + 2 ticks(66) buffer
 
   let prevIdx=-1,currIdx=-1;
   for(let i=0;i<snapCount;i++){
