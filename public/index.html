@@ -276,8 +276,8 @@ function connect(){
     const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
     pushSnap({t:Date.now(),players,bots,bullets});
     // Update HUD from self
-    const me=players.find(p=>p.id===myId);
-    if(me)updateHUD(me);
+    const meHud=players.find(p=>p.id===myId);
+    if(meHud)updateHUD(meHud);
   });
 
   // worldUpdate removed - food synced via init + foodEaten, items via itemAdded/itemRemoved
@@ -449,15 +449,16 @@ function drawBot(b){
 function render(){
   if(!gameActive){CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);return;}
   const interp=getInterp();
-  const me=interp.players.find(p=>p.id===myId);
 
-  // Camera follows PREDICTED position for instant smooth response
-  // Camera follows server-interpolated player position
-  // Direct velocity means server catches up in 1 tick - no need for prediction
-  const followX=me?me.x:camX+SW/2;
-  const followY=me?me.y:camY+SH/2;
-  camX+=(followX-SW/2-camX)*0.20;
-  camY+=(followY-SH/2-camY)*0.20;
+  // Self: always use LATEST snapshot (no interpolation delay)
+  // Eliminates edge-pull, lag, stutter for own character
+  const me=snaps[snapHead].players.find(p=>p.id===myId);
+
+  // Camera follows LATEST position - no lerp needed, no lag
+  if(me){
+    camX=me.x-SW/2;
+    camY=me.y-SH/2;
+  }
   camX=clamp(camX,0,Math.max(0,GW-SW));camY=clamp(camY,0,Math.max(0,GH-SH));
 
   CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);
