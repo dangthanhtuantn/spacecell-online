@@ -147,9 +147,17 @@ io.on('connection', socket => {
   socket.on('input',({vx,vy,px,py})=>{
     const p=players[socket.id];if(!p)return;
     p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);
-    // Store client prediction for bullet spawn only (not for position blending)
-    // Blending p.x toward predX caused false collision deaths
-    if(px!==undefined){p._px=px;p._py=py;}
+    if(px!==undefined&&py!==undefined){
+      p._px=px;p._py=py;
+      const dx=px-p.x, dy=py-p.y, dist=Math.hypot(dx,dy);
+      // Gentle blend: max 3px correction per input packet
+      // Prevents false collision deaths while keeping p.x near predX for food eating
+      if(dist>0&&dist<150){
+        const move=Math.min(dist*0.05, 3); // max 3px per packet
+        p.x+=dx/dist*move;
+        p.y+=dy/dist*move;
+      }
+    }
   });
   socket.on('dash',({nx,ny})=>{
     const p=players[socket.id];if(!p||p.inv.dash<=0||p.cdQ>0)return;
@@ -241,11 +249,11 @@ function physicsStep(DT,now){
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx*DT,pr,GW-pr);p.y=clamp(p.y+p.vy*DT,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
-    const er=pr+30, nearby=nearbyFood(p.x,p.y,er); // +30 to compensate prediction drift
+    const er=pr+40, nearby=nearbyFood(p.x,p.y,er); // +40 for prediction drift tolerance
     const eaten=new Set();
     for(let k=0;k<nearby.length;k++){
       const i=nearby[k]; if(eaten.has(i)) continue;
-      const f=food[i], hitR=pr+f.r+10; // +10 extra tolerance
+      const f=food[i], hitR=pr+f.r+20; // +20 tolerance
       if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){ // removed 1.05 threshold
         p.mass=Math.min(10000,p.mass+f.mass);
         replaceFood(i); eaten.add(i);
@@ -253,7 +261,7 @@ function physicsStep(DT,now){
       }
     }
     for(let i=items.length-1;i>=0;i--){
-      const it=items[i];if(!it.pickup)continue;const hitR=pr+it.r+10;
+      const it=items[i];if(!it.pickup)continue;const hitR=pr+it.r+20;
       if(dst2(p.x,p.y,it.x,it.y)<hitR*hitR){
         if(it.type==='DASH')p.inv.dash++;else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;else if(it.type==='GROW1')p.mass=Math.min(10000,p.mass+100);
