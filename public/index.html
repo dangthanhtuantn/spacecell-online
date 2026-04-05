@@ -379,7 +379,7 @@ setInterval(()=>{
         const dx=wx-me.x,dy=wy-me.y,l=Math.hypot(dx,dy)||1;
         socket.emit('shoot',{nx:dx/l,ny:dy/l});
         // Local bullet for immediate visual
-        localBullets.push({x:me.x+(dx/l)*mtr(me.mass),y:me.y+(dy/l)*mtr(me.mass),vx:dx/l*20,vy:dy/l*20,r:3,col:myColor,life:20});
+        localBullets.push({x:me.x+(dx/l)*(mtr(me.mass)+5),y:me.y+(dy/l)*(mtr(me.mass)+5),vx:dx/l*16,vy:dy/l*16,r:3,col:myColor,life:30});
       }
     }
   }
@@ -486,17 +486,27 @@ function render(){
     CTX.fillText(it.label||it.type,it.x,it.y);
   });
 
-  // Local predicted bullets (own, zero-latency)
-  localBullets.forEach(b=>{
-    CTX.fillStyle=b.col;CTX.shadowBlur=5;CTX.shadowColor=b.col;
-    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
-  });
-
-  // Server bullets (others)
+  // Draw all bullets with same style (local=own, server=others+bots)
+  function drawBullet(b,isBomb){
+    const r=isBomb?b.r:b.r;
+    CTX.save();
+    // Glow outer
+    CTX.shadowBlur=isBomb?20:10;CTX.shadowColor=b.col;
+    CTX.fillStyle=b.col+'99';
+    CTX.beginPath();CTX.arc(b.x,b.y,r+3,0,Math.PI*2);CTX.fill();
+    // Core
+    CTX.shadowBlur=isBomb?14:6;
+    CTX.fillStyle=b.col;
+    CTX.beginPath();CTX.arc(b.x,b.y,r,0,Math.PI*2);CTX.fill();
+    // Bright center
+    CTX.shadowBlur=0;CTX.fillStyle='#fff';
+    CTX.beginPath();CTX.arc(b.x,b.y,r*0.4,0,Math.PI*2);CTX.fill();
+    CTX.restore();
+  }
+  localBullets.forEach(b=>drawBullet(b,false));
   (interp.bullets||[]).forEach(b=>{
-    if(b.col===myColor)return; // own already shown via localBullets
-    CTX.fillStyle=b.col;CTX.shadowBlur=b.type==='bomb'?16:5;CTX.shadowColor=b.col;
-    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();CTX.shadowBlur=0;
+    if(b.col===myColor)return; // own shown via localBullets
+    drawBullet(b,b.type==='bomb');
   });
 
   // Bots

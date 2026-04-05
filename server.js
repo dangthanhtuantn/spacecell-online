@@ -144,8 +144,8 @@ io.on('connection',sock=>{
     const p=players[sock.id];if(!p||p.mass<=20)return;
     const now=Date.now();if(now-p._lastShot<250)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    // Spawn at player's actual server position - no prediction needed
-    bullets.push(getBullet({id:uid(),x:p.x+nx*r,y:p.y+ny*r,vx:nx*20,vy:ny*20,type:'shot',r:3,life:20,col:p.color,owner:sock.id}));
+    // Same as bot: vx=16, life=30, spawn just outside edge
+    bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:p.color,owner:sock.id}));
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
   sock.on('disconnect',()=>{delete players[sock.id];io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
