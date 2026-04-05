@@ -11,7 +11,7 @@ app.use(express.static(path.join(__dirname,'public')));
 // ── Constants ─────────────────────────────────────────────────
 const GW=6000,GH=6000,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
 const ITEM_MAX=1,AOI_RANGE=3500;
-const LERP_P=0.55,LERP_B=0.40,FRIC=0.78; // snappier server response
+const LERP_B=0.35,FRIC=0.80; // bots only - players use direct velocity
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
 const dst2=(ax,ay,bx,by)=>(ax-bx)*(ax-bx)+(ay-by)*(ay-by);
@@ -174,7 +174,7 @@ function tick(){
 
 function physics(now){
   const PA=Object.values(players),PL=PA.length,BL=bots.length;
-  const lP=1-Math.pow(1-LERP_P,1),lB=1-Math.pow(1-LERP_B,1),fr=Math.pow(FRIC,1);
+  const lB=1-Math.pow(1-LERP_B,1),fr=Math.pow(FRIC,1); // bots only
 
   // Players
   for(let i=0;i<PL;i++){
@@ -182,8 +182,13 @@ function physics(now){
     if(p.cdQ>0)p.cdQ-=TICK_MS;if(p.cdW>0)p.cdW-=TICK_MS;
     if(p.cdR>0)p.cdR-=TICK_MS;if(p.cdB>0)p.cdB-=TICK_MS;if(p.cdF>0)p.cdF-=TICK_MS;
     const spd=baseSpd(p.mass);
-    if(p._dashFrames>0){p._dashFrames--;p.vx*=fr;p.vy*=fr;}
-    else{p.vx+=(p.inputVx*spd-p.vx)*lP;p.vy+=(p.inputVy*spd-p.vy)*lP;p.vx*=fr;p.vy*=fr;}
+    if(p._dashFrames>0){p._dashFrames--;p.vx*=0.7;p.vy*=0.7;}
+    else{
+      // Direct velocity: instant response, no lerp/friction
+      // Player moves exactly where cursor points each tick
+      p.vx=p.inputVx*spd;
+      p.vy=p.inputVy*spd;
+    }
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx,pr,GW-pr);p.y=clamp(p.y+p.vy,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
