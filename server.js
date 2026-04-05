@@ -11,7 +11,7 @@ app.use(express.static(path.join(__dirname,'public')));
 // ── Constants ─────────────────────────────────────────────────
 const GW=6000,GH=6000,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
 const ITEM_MAX=1,AOI_RANGE=3500;
-const LERP_P=0.40,LERP_B=0.35,FRIC=0.80;
+const LERP_P=0.55,LERP_B=0.40,FRIC=0.78; // snappier server response
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
 const dst2=(ax,ay,bx,by)=>(ax-bx)*(ax-bx)+(ay-by)*(ay-by);
@@ -191,7 +191,7 @@ function physics(now){
     const nr=gnear(p.x,p.y,pr+20);
     for(const fi of nr){
       const f=food[fi];
-      if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){
+      if(p.mass>=f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
       }

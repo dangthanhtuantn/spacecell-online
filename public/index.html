@@ -589,22 +589,19 @@ function loop(){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
 
-  // Client prediction: direct velocity mapping for instant response
+  // Client prediction: fully authoritative, no reconcile drag
   if(me){
-    if(predX===null){predX=me.x;predY=me.y;}
-    // Soft reconcile toward server position
-    predX+=(me.x-predX)*0.12;
-    predY+=(me.y-predY)*0.12;
-    // DIRECT velocity: cursor direction maps instantly to movement
-    // No lerp/inertia in prediction - server handles physics authentically
+    // Only snap on large error (death/teleport), never on normal play
+    if(predX===null||Math.hypot(me.x-predX,me.y-predY)>300){
+      predX=me.x;predY=me.y;
+    }
+    // Direct velocity - instant direction response
     const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
     const spd=8*speedMult(me.mass);
-    if(ml>8){
-      // Cursor active: move directly toward cursor
+    if(ml>15){
       predVx=mdx/ml*spd;
       predVy=mdy/ml*spd;
     } else {
-      // Cursor near center: stop immediately
       predVx=0;predVy=0;
     }
     const pr=mtr(me.mass);
