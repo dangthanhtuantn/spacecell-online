@@ -285,7 +285,8 @@ function joinGame(name,flag,color){
 
   // Food eaten instantly — replace eaten food with new food position
   socket.on('foodEaten',d=>{
-    if(food[d.ni]){food[d.ni]=d.nf;food[d.ni]._hidden=false;}
+    // Hide food at index - worldUpdate (600ms) will restore with new random position
+    if(food[d.ni])food[d.ni]._hidden=true;
   });
 
   socket.on('playerList',list=>{

@@ -149,13 +149,19 @@ io.on('connection', socket => {
     p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);
     if(px!==undefined&&py!==undefined){
       p._px=px;p._py=py;
-      const dx=px-p.x, dy=py-p.y, dist=Math.hypot(dx,dy);
-      // Gentle blend: max 3px correction per input packet
-      // Prevents false collision deaths while keeping p.x near predX for food eating
+      const dx=px-p.x,dy=py-p.y,dist=Math.hypot(dx,dy);
       if(dist>0&&dist<150){
-        const move=Math.min(dist*0.05, 3); // max 3px per packet
-        p.x+=dx/dist*move;
-        p.y+=dy/dist*move;
+        // Skip blend if any bot is very close (prevents false death from position jump)
+        const pr=mtr(p.mass);
+        let danger=false;
+        for(let i=0;i<bots.length;i++){
+          const br=mtr(bots[i].mass),gap=pr+br+10;
+          if(dst2(p.x,p.y,bots[i].x,bots[i].y)<gap*gap){danger=true;break;}
+        }
+        if(!danger){
+          const move=Math.min(dist*0.05,3);
+          p.x+=dx/dist*move;p.y+=dy/dist*move;
+        }
       }
     }
   });
@@ -254,15 +260,20 @@ function physicsStep(DT,now){
     for(let k=0;k<nearby.length;k++){
       const i=nearby[k]; if(eaten.has(i)) continue;
       const f=food[i], hitR=pr+f.r+20; // +20 tolerance
-      if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){ // removed 1.05 threshold
+      if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<hitR*hitR){
         p.mass=Math.min(10000,p.mass+f.mass);
         replaceFood(i); eaten.add(i);
-        io.emit('foodEaten',{ni:i,nf:food[i]}); // immediate, not queued
+        // Only send index - client hides this food slot, worldUpdate (600ms) restores properly
+        io.emit('foodEaten',{ni:i});
       }
     }
     for(let i=items.length-1;i>=0;i--){
-      const it=items[i];if(!it.pickup)continue;const hitR=pr+it.r+20;
-      if(dst2(p.x,p.y,it.x,it.y)<hitR*hitR){
+      const it=items[i];if(!it.pickup)continue;
+      const hitR=pr+it.r+15;
+      // Check at server position OR client predicted position
+      const atServer=dst2(p.x,p.y,it.x,it.y)<hitR*hitR;
+      const atPred=p._px!==undefined&&dst2(p._px,p._py,it.x,it.y)<hitR*hitR;
+      if(atServer||atPred){
         if(it.type==='DASH')p.inv.dash++;else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;else if(it.type==='GROW1')p.mass=Math.min(10000,p.mass+100);
         else if(it.type==='GROW2')p.mass=Math.min(10000,p.mass+200);else if(it.type==='GROW5')p.mass=Math.min(10000,p.mass+500);
