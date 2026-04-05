@@ -295,16 +295,9 @@ function joinGame(name,flag,color){
   });
 
   socket.on('explode',({x,y,nx,ny,r,col})=>{
-    const interp=getInterpolated();
-    let ex=x,ey=y,er=r||20,bestD2=200*200;
-    [...(interp.bots||[]),...(interp.players||[])].forEach(e=>{
-      const d2=(e.x-x)*(e.x-x)+(e.y-y)*(e.y-y);
-      if(d2<bestD2){bestD2=d2;ex=e.x;ey=e.y;er=mtr(e.mass);}
-    });
-    // Entry side = OPPOSITE of bullet direction (bullet flies nx,ny -> enters from -nx,-ny side)
-    const hitX=ex-(nx||0)*er;
-    const hitY=ey-(ny||0)*er;
-    spark(hitX,hitY,col,30);
+    // localBullets already handled client-side hit spark
+    // This handles edge cases (bot-vs-player absorption, etc.)
+    spark(x-(nx||0)*(r||20), y-(ny||0)*(r||20), col, 20);
   });
   socket.on('msg',({text,col})=>addMsg(text,col));
 
@@ -531,11 +524,27 @@ function loop(ts){
     const p=parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.92;p.vy*=0.92;p.life-=dt;p.r*=0.95;
     if(p.life<=0||p.r<0.3)parts.splice(i,1);
   }
-  // Update local predicted bullets
+  // Update local predicted bullets + client-side hit detection
+  const interpNow=getInterpolated();
   for(let i=localBullets.length-1;i>=0;i--){
     const b=localBullets[i];
     b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
-    if(b.life<=0)localBullets.splice(i,1);
+    if(b.life<=0){localBullets.splice(i,1);continue;}
+    // Check collision with interpolated bots and players
+    let hit=false;
+    const bl=Math.hypot(b.vx,b.vy)||1;
+    const bnx=b.vx/bl,bny=b.vy/bl;
+    const targets=[...(interpNow.bots||[]),...(interpNow.players||[])
+      .filter(p=>p.id!==myId)]; // skip self
+    for(const e of targets){
+      const er=mtr(e.mass);
+      const dx=b.x-e.x,dy=b.y-e.y;
+      if(dx*dx+dy*dy<(er+b.r)*(er+b.r)){
+        // Spark at entry point (opposite bullet direction)
+        spark(e.x-bnx*er, e.y-bny*er, b.col, 20);
+        localBullets.splice(i,1);hit=true;break;
+      }
+    }
   }
   render();
 }
