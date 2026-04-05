@@ -365,7 +365,7 @@ let _lastShot=0;
 setInterval(()=>{
   if(!socket||!myId||!gameActive)return;
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  socket.emit('input',{vx:ml>5?mdx/ml:0,vy:ml>5?mdy/ml:0});
+  socket.emit('input',{vx:ml>15?mdx/ml:0,vy:ml>15?mdy/ml:0});
   // Shoot
   if(Keys['KeyE']){
     const now=Date.now();
@@ -454,8 +454,8 @@ function render(){
   // Camera follows PREDICTED position for instant smooth response
   const followX=predX!==null?predX:(me?me.x:camX+SW/2);
   const followY=predY!==null?predY:(me?me.y:camY+SH/2);
-  camX+=(followX-SW/2-camX)*0.15;
-  camY+=(followY-SH/2-camY)*0.15;
+  camX+=(followX-SW/2-camX)*0.25;
+  camY+=(followY-SH/2-camY)*0.25;
   camX=clamp(camX,0,Math.max(0,GW-SW));camY=clamp(camY,0,Math.max(0,GH-SH));
 
   CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);
@@ -589,20 +589,27 @@ function loop(){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
 
-  // Advance prediction from latest server state
+  // Client prediction: direct velocity mapping for instant response
   if(me){
     if(predX===null){predX=me.x;predY=me.y;}
-    // Blend toward server position (reconciliation)
-    predX+=(me.x-predX)*0.15;
-    predY+=(me.y-predY)*0.15;
-    // Advance by input direction
+    // Soft reconcile toward server position
+    predX+=(me.x-predX)*0.12;
+    predY+=(me.y-predY)*0.12;
+    // DIRECT velocity: cursor direction maps instantly to movement
+    // No lerp/inertia in prediction - server handles physics authentically
     const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-    const spd=8*speedMult(me.mass); // matches server baseSpd
-    const lp=1-Math.pow(1-0.40,dtFrac),fr=Math.pow(0.80,dtFrac);
-    predVx+=(ml>5?mdx/ml*spd-predVx:0-predVx)*lp;predVy+=(ml>5?mdy/ml*spd-predVy:0-predVy)*lp;
-    predVx*=fr;predVy*=fr;
-    predX=Math.max(0,Math.min(GW,predX+predVx*dtFrac));
-    predY=Math.max(0,Math.min(GH,predY+predVy*dtFrac));
+    const spd=8*speedMult(me.mass);
+    if(ml>8){
+      // Cursor active: move directly toward cursor
+      predVx=mdx/ml*spd;
+      predVy=mdy/ml*spd;
+    } else {
+      // Cursor near center: stop immediately
+      predVx=0;predVy=0;
+    }
+    const pr=mtr(me.mass);
+    predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dtFrac));
+    predY=Math.max(pr,Math.min(GH-pr,predY+predVy*dtFrac));
   }
 
   // Update local bullets
