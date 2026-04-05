@@ -52,7 +52,7 @@ canvas{display:block;}
 #msgs{position:fixed;top:40px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:3px;pointer-events:none;align-items:center;z-index:50;}
 .msg{background:rgba(0,10,28,0.93);border-left:3px solid #0cf;padding:3px 12px;font-size:11px;color:#ccc;border-radius:0 4px 4px 0;transition:opacity .5s;white-space:nowrap;}
 /* Dead screen */
-#dead{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:99;cursor:default;}
+#dead{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;}ems:center;justify-content:center;gap:14px;z-index:99;cursor:default;}
 #dead h2{color:#f44;font-size:28px;letter-spacing:4px;}
 #dead p{color:#aaa;font-size:13px;}
 #dead button{background:rgba(0,180,255,0.2);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:inherit;font-size:13px;padding:10px 26px;border-radius:6px;cursor:pointer;letter-spacing:2px;}
@@ -86,16 +86,19 @@ canvas{display:block;}
 
 <div id="msgs"></div>
 
-<!-- Dead screen -->
+<!-- Death screen -->
 <div id="dead">
-  <h2>ELIMINATED</h2>
-  <p id="dm">You were absorbed!</p>
-  <!-- Quảng cáo 300x250 Death Screen — thay data-ad-client và data-ad-slot -->
-  <div style="width:300px;height:250px;background:rgba(0,10,28,0.9);border:1px solid rgba(0,180,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
-    <ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px"
-         data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX"></ins>
+  <div style="background:rgba(0,5,20,0.97);border:1px solid rgba(255,50,50,0.4);border-radius:12px;padding:32px 40px;text-align:center;max-width:360px;width:90%">
+    <h2 style="color:#f44;font-size:26px;letter-spacing:4px;margin:0 0 8px">ELIMINATED</h2>
+    <p id="dm" style="color:#aaa;font-size:13px;margin:0 0 20px">Bạn đã bị hấp thụ!</p>
+    <!-- Quảng cáo 300x250 -->
+    <div style="width:300px;height:250px;margin:0 auto 20px;background:rgba(0,10,28,0.9);border:1px solid rgba(255,80,80,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,80,80,0.3);font-size:11px;letter-spacing:1px;">
+      ADVERTISEMENT
+    </div>
+    <button id="respawnBtn" style="background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;padding:10px 32px;border-radius:6px;cursor:pointer;width:100%">
+      ▶ CHƠI LẠI
+    </button>
   </div>
-  <button id="respawnBtn">RESPAWN</button>
 </div>
 
 <!-- Lobby -->
@@ -108,6 +111,10 @@ canvas{display:block;}
     <label style="margin-top:12px">MÀU SẮC</label>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px" id="colorGrid"></div>
     <button class="playbtn" id="sb">▶ &nbsp;PLAY NOW</button>
+    <!-- Quảng cáo 300x250 -->
+    <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.8);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(0,180,255,0.3);font-size:11px;letter-spacing:1px;">
+      ADVERTISEMENT
+    </div>
   </div>
 </div>
 
@@ -277,7 +284,12 @@ function connect(){
     // Update food immediately to new position
     if(food[d.ni])food[d.ni]=d.nf;
   });
-  socket.on('died',({by})=>{addMsg('Eaten by '+by+'!','#f55');});
+  socket.on('died',({by})=>{
+    const dm=document.getElementById('dm');
+    if(dm)dm.textContent='Bị hấp thụ bởi '+by+'!';
+    const dead=document.getElementById('dead');
+    if(dead)dead.style.display='flex';
+  });
   socket.on('explode',({x,y,nx,ny,r,col})=>{
     // Spark at entry edge of entity
     spark(x-(nx||0)*(r||20),y-(ny||0)*(r||20),col,25);
@@ -505,7 +517,32 @@ function render(){
   CTX.globalAlpha=1;
   CTX.restore();
 
-  // Minimap
+  // Draw crosshair cursor (screen coords, no camera offset)
+  if(gameActive){
+    const cx=Mouse.x,cy=Mouse.y;
+    const isShoot=Keys['KeyE'];
+    const col=isShoot?'#ff4':'#0cf';
+    CTX.save();
+    CTX.strokeStyle=col;CTX.lineWidth=1.5;CTX.globalAlpha=0.85;
+    // Outer ring
+    CTX.beginPath();CTX.arc(cx,cy,10,0,Math.PI*2);CTX.stroke();
+    // Cross lines
+    CTX.beginPath();CTX.moveTo(cx-16,cy);CTX.lineTo(cx-12,cy);CTX.stroke();
+    CTX.beginPath();CTX.moveTo(cx+12,cy);CTX.lineTo(cx+16,cy);CTX.stroke();
+    CTX.beginPath();CTX.moveTo(cx,cy-16);CTX.lineTo(cx,cy-12);CTX.stroke();
+    CTX.beginPath();CTX.moveTo(cx,cy+12);CTX.lineTo(cx,cy+16);CTX.stroke();
+    // Center dot
+    CTX.fillStyle=col;CTX.globalAlpha=1;
+    CTX.beginPath();CTX.arc(cx,cy,2,0,Math.PI*2);CTX.fill();
+    // Direction line toward shoot direction (from center of screen to mouse)
+    if(me){
+      const dx=cx-SW/2,dy=cy-SH/2,dl=Math.hypot(dx,dy)||1;
+      const lineLen=Math.min(dl*0.3,40);
+      CTX.strokeStyle=col;CTX.globalAlpha=0.4;CTX.lineWidth=1;
+      CTX.beginPath();CTX.moveTo(SW/2,SH/2);CTX.lineTo(SW/2+dx/dl*lineLen,SH/2+dy/dl*lineLen);CTX.stroke();
+    }
+    CTX.restore();
+  }
   renderMinimap(interp,me);
 }
 
@@ -553,6 +590,13 @@ function loop(){
 
 // ── Start ─────────────────────────────────────────────────────
 document.getElementById('sb')?.addEventListener('click',connect);
+document.getElementById('respawnBtn')?.addEventListener('click',()=>{
+  document.getElementById('dead').style.display='none';
+  // Re-join with same name and color
+  if(socket&&socket.connected){
+    socket.emit('join',{name:myName,color:myColor,flag:myFlag});
+  }
+});
 document.querySelector('#lobby')?.addEventListener('keydown',e=>{if(e.key==='Enter')connect();});
 loop();
 
