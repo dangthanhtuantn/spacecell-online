@@ -90,7 +90,7 @@ let _id=0;const uid=()=>(++_id).toString(36);
 
 function initWorld(){
   food=Array.from({length:FOOD_COUNT},mkFood);
-  items=[];ITYPES.forEach(t=>spawnItem(t));
+  items=[];ITYPES.forEach(t=>{for(let i=0;i<ITEM_MAX;i++)spawnItem(t);});
   bots=Array.from({length:BOT_COUNT},(_,i)=>mkBot(i));
   bullets=[];gbuild();
 }
@@ -149,7 +149,7 @@ io.on('connection',sock=>{
     // BULLET item: dual stream - spread 2 side bullets
     if(p.inv.bullet>0&&now<p.bulletEnd){
       const px=-ny,py=nx; // perpendicular vector
-      const sp=8; // spread px
+      const sp=22; // spread px - wide enough to hit targets independently
       bullets.push(getBullet({id:uid(),x:p.x+px*sp+nx*(r+5),y:p.y+py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:'#ff4',owner:sock.id}));
       bullets.push(getBullet({id:uid(),x:p.x-px*sp+nx*(r+5),y:p.y-py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:'#ff4',owner:sock.id}));
     }
