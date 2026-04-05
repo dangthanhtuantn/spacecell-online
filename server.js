@@ -147,18 +147,9 @@ io.on('connection', socket => {
   socket.on('input',({vx,vy,px,py})=>{
     const p=players[socket.id];if(!p)return;
     p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);
-    // Reconcile server position toward client prediction
-    // Only blend if client prediction is plausible (within max speed range)
-    if(px!==undefined&&py!==undefined){
-      const maxDrift=200; // max allowed drift in px
-      const dx=px-p.x, dy=py-p.y;
-      const dist=Math.hypot(dx,dy);
-      if(dist<maxDrift){
-        // Gently pull server position toward client prediction
-        p.x+=dx*0.3;
-        p.y+=dy*0.3;
-      }
-    }
+    // Store client prediction for bullet spawn only (not for position blending)
+    // Blending p.x toward predX caused false collision deaths
+    if(px!==undefined){p._px=px;p._py=py;}
   });
   socket.on('dash',({nx,ny})=>{
     const p=players[socket.id];if(!p||p.inv.dash<=0||p.cdQ>0)return;
@@ -190,12 +181,13 @@ io.on('connection', socket => {
   });
   socket.on('shoot',({nx,ny,px,py})=>{
     const p=players[socket.id];if(!p||p.mass<=20)return;
-    const now=Date.now();if(now-p._lastShot<250)return; // 0.25s between shots
+    const now=Date.now();if(now-p._lastShot<250)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    const spawnX=(px!==undefined&&Math.abs(px-p.x)<200)?px:p.x;
-    const spawnY=(py!==undefined&&Math.abs(py-p.y)<200)?py:p.y;
-    // Spawn from front edge in shoot direction, 400px range (life=20, speed=20)
-    const bx=spawnX+nx*r, by=spawnY+ny*r; // start at player edge
+    // Use latest stored prediction position from input handler
+    const spx=p._px,spy=p._py;
+    const spawnX=(spx!==undefined&&Math.abs(spx-p.x)<200)?spx:p.x;
+    const spawnY=(spy!==undefined&&Math.abs(spy-p.y)<200)?spy:p.y;
+    const bx=spawnX+nx*r, by=spawnY+ny*r;
     bullets.push(acquireBullet({id:uid(),
       x:bx,y:by,vx:nx*20,vy:ny*20,
       type:'shot',r:3,life:20,col:p.color,ownerId:socket.id}));
