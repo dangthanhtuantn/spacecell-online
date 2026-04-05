@@ -82,6 +82,7 @@ canvas{display:block;}
   <div class="sk" id="skR"><div class="k">R</div><div class="n">STEALTH</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
   <div class="sk" id="skB"><div class="k">B</div><div class="n">BOMB</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
   <div class="sk" id="skF"><div class="k">F</div><div class="n">MAGNET</div><div class="cnt" id="cntF">0</div><div class="cd" id="cdF"></div></div>
+  <div class="sk" id="skG"><div class="k">E+</div><div class="n">DUAL</div><div class="cnt" id="cntG">-</div><div class="cd" id="cdG"></div></div>
 </div>
 
 <div id="msgs"></div>
@@ -270,7 +271,7 @@ function connect(){
       id:p.i,name:p.n,color:p.c,flag:p.f,
       x:p.x,y:p.y,mass:p.m,
       shielded:!!p.sh,stealthed:!!p.st,
-      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,cdF:p.cF
+      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,cdF:p.cF,bulletEnd:p.bE
     }));
     const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
     const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
@@ -326,6 +327,8 @@ function updateHUD(me){
     updSk('R',me.inv.stealth,me.cdR,false,false);
     updSk('B',me.inv.bomb,me.cdB,false,false);
     updSk('F',me.inv.magnet,me.cdF,false,false);
+  const bulletRem=me.bulletEnd?Math.max(0,me.bulletEnd-Date.now()):0;
+  updSk('G',bulletRem>0?1:0,bulletRem,false,false);
   }
   // Rank
   const interp=getInterp();
@@ -377,16 +380,12 @@ setInterval(()=>{
       if(me&&me.mass>20){
         const wx=Mouse.x+camX,wy=Mouse.y+camY;
         const dx=wx-me.x,dy=wy-me.y,l=Math.hypot(dx,dy)||1;
-        socket.emit('shoot',{nx:dx/l,ny:dy/l});
-        // Local bullet for immediate visual
-        localBullets.push({x:me.x+(dx/l)*(mtr(me.mass)+5),y:me.y+(dy/l)*(mtr(me.mass)+5),vx:dx/l*16,vy:dy/l*16,r:3,col:myColor,life:30});
+        socket.emit('shoot',{nx:dx/l,ny:dy/l}); // server handles bullet display
       }
     }
   }
 },33);
 
-// Local bullets for zero-latency visual
-const localBullets=[];
 
 // ── Drawing ───────────────────────────────────────────────────
 function drawMe(p){
@@ -486,28 +485,21 @@ function render(){
     CTX.fillText(it.label||it.type,it.x,it.y);
   });
 
-  // Draw all bullets with same style (local=own, server=others+bots)
+  // Draw ALL bullets from server (same for player and bot)
   function drawBullet(b,isBomb){
-    const r=isBomb?b.r:b.r;
     CTX.save();
-    // Glow outer
     CTX.shadowBlur=isBomb?20:10;CTX.shadowColor=b.col;
     CTX.fillStyle=b.col+'99';
-    CTX.beginPath();CTX.arc(b.x,b.y,r+3,0,Math.PI*2);CTX.fill();
-    // Core
+    CTX.beginPath();CTX.arc(b.x,b.y,b.r+3,0,Math.PI*2);CTX.fill();
     CTX.shadowBlur=isBomb?14:6;
     CTX.fillStyle=b.col;
-    CTX.beginPath();CTX.arc(b.x,b.y,r,0,Math.PI*2);CTX.fill();
-    // Bright center
+    CTX.beginPath();CTX.arc(b.x,b.y,b.r,0,Math.PI*2);CTX.fill();
     CTX.shadowBlur=0;CTX.fillStyle='#fff';
-    CTX.beginPath();CTX.arc(b.x,b.y,r*0.4,0,Math.PI*2);CTX.fill();
+    CTX.beginPath();CTX.arc(b.x,b.y,b.r*0.4,0,Math.PI*2);CTX.fill();
     CTX.restore();
   }
-  localBullets.forEach(b=>drawBullet(b,false));
-  (interp.bullets||[]).forEach(b=>{
-    if(b.col===myColor)return; // own shown via localBullets
-    drawBullet(b,b.type==='bomb');
-  });
+  // Show all bullets including own — identical behavior for player and bot
+  (interp.bullets||[]).forEach(b=>drawBullet(b,b.type==='bomb'));
 
   // Bots
   (interp.bots||[]).forEach(drawBot);
@@ -617,26 +609,7 @@ function loop(){
   // currentMe is module-level so render() can access predicted position
   currentMe=latestMe?{...latestMe,x:predX,y:predY}:null;
 
-  // Update local bullets
-  // (interp already computed above)
-  for(let i=localBullets.length-1;i>=0;i--){
-    const b=localBullets[i];
-    b.x+=b.vx;b.y+=b.vy;b.life--;
-    if(b.life<=0){localBullets.splice(i,1);continue;}
-    // Check local collision with interp bots/players
-    const bl=Math.hypot(b.vx,b.vy)||1;
-    const bnx=b.vx/bl,bny=b.vy/bl;
-    let hit=false;
-    const targets=[...(interp.bots||[]),...(interp.players||[]).filter(p=>p.id!==myId)];
-    for(const e of targets){
-      const er=mtr(e.mass),dx=b.x-e.x,dy=b.y-e.y;
-      if(dx*dx+dy*dy<(er+b.r)*(er+b.r)){
-        spark(e.x-bnx*er,e.y-bny*er,b.col,20);
-        localBullets.splice(i,1);hit=true;break;
-      }
-    }
-    if(hit)break;
-  }
+
   render();
 }
 

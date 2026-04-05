@@ -10,7 +10,7 @@ app.use(express.static(path.join(__dirname,'public')));
 
 // ── Constants ─────────────────────────────────────────────────
 const GW=6000,GH=6000,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
-const ITEM_MAX=1,AOI_RANGE=3500;
+const ITEM_MAX=6,AOI_RANGE=3500;
 const LERP_B=0.35,FRIC=0.80; // bots only - players use direct velocity
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
@@ -56,8 +56,8 @@ function mkFood(){
 }
 function eatFood(i){grem(i);food[i]=mkFood();gadd(i);}
 
-const ITYPES=['DASH','SHIELD','STEALTH','GROW1','GROW2','GROW5','MAGNET','TOXIC','BOMB'];
-const ICOLS={DASH:'#0cf',SHIELD:'#88f',STEALTH:'#ccc',GROW1:'#4f4',GROW2:'#2d2',GROW5:'#1a1',MAGNET:'#f0f',TOXIC:'#8f0',BOMB:'#f80'};
+const ITYPES=['DASH','SHIELD','STEALTH','GROW','MAGNET','TOXIC','BOMB','BULLET'];
+const ICOLS={DASH:'#0cf',SHIELD:'#88f',STEALTH:'#ccc',GROW:'#4f4',MAGNET:'#f0f',TOXIC:'#8f0',BOMB:'#f80',BULLET:'#ff4'};
 function spawnItem(t){
   if(items.filter(x=>x.type===t).length>=ITEM_MAX)return;
   items.push({id:uid(),x:rnd(200,GW-200),y:rnd(200,GH-200),type:t,r:14,col:ICOLS[t],label:t,pickup:t!=='TOXIC'});
@@ -79,7 +79,7 @@ function mkPlayer(id,name,color,flag){
   return{id,name:name||'Player',color:color||'#00cfff',flag:flag||null,
     x:rnd(300,GW-300),y:rnd(300,GH-300),mass:20,vx:0,vy:0,
     shieldEnd:Date.now()+5000,stealthEnd:0,_dashFrames:0,
-    inv:{dash:0,shield:0,stealth:0,bomb:0,magnet:0},
+    inv:{dash:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0},bulletEnd:0,
     cdQ:0,cdW:0,cdR:0,cdB:0,cdF:0,_lastShot:0,
     inputVx:0,inputVy:0};
 }
@@ -144,8 +144,15 @@ io.on('connection',sock=>{
     const p=players[sock.id];if(!p||p.mass<=20)return;
     const now=Date.now();if(now-p._lastShot<250)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    // Same as bot: vx=16, life=30, spawn just outside edge
+    // Primary bullet
     bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:p.color,owner:sock.id}));
+    // BULLET item: dual stream - spread 2 side bullets
+    if(p.inv.bullet>0&&now<p.bulletEnd){
+      const px=-ny,py=nx; // perpendicular vector
+      const sp=8; // spread px
+      bullets.push(getBullet({id:uid(),x:p.x+px*sp+nx*(r+5),y:p.y+py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:'#ff4',owner:sock.id}));
+      bullets.push(getBullet({id:uid(),x:p.x-px*sp+nx*(r+5),y:p.y-py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:'#ff4',owner:sock.id}));
+    }
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
   sock.on('disconnect',()=>{delete players[sock.id];io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
@@ -208,11 +215,10 @@ function physics(now){
         if(it.type==='DASH')p.inv.dash++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
-        else if(it.type==='GROW1')p.mass=Math.min(10000,p.mass+100);
-        else if(it.type==='GROW2')p.mass=Math.min(10000,p.mass+200);
-        else if(it.type==='GROW5')p.mass=Math.min(10000,p.mass+500);
+        else if(it.type==='GROW')p.mass=Math.min(10000,p.mass*2);  // double mass
         else if(it.type==='MAGNET')p.inv.magnet++;
         else if(it.type==='BOMB')p.inv.bomb++;
+        else if(it.type==='BULLET'){p.inv.bullet++;p.bulletEnd=Date.now()+10000;} // dual bullets 10s
         const{type,id}=it;items.splice(j,1);schedItem(type);
         io.emit('itemRemoved',id);
       }
@@ -341,7 +347,7 @@ function broadcast(now){
     for(let j=0;j<PL;j++){
       const q=PA[j];
       if(j!==i&&dst2(p.x,p.y,q.x,q.y)>=aoi2)continue;
-      vP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,cF:q.cdF});
+      vP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,cF:q.cdF,bE:q.bulletEnd});
     }
     for(let j=0;j<BL;j++){
       const b=bots[j];if(dst2(p.x,p.y,b.x,b.y)<aoi2)vB.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name});
