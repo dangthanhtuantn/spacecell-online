@@ -21,8 +21,16 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 // Speed decreases smoothly with mass (continuous curve, not discrete steps)
 // Inspired by agar.io: larger = slower, smaller = faster
 // mass=20 → 7px/tick, mass=200 → 3.7, mass=1000 → 2.3, mass=5000 → 1.5
-function speedMult(m){return Math.pow(20/Math.max(m,20),0.40);}
-function baseSpd(m){return 8*speedMult(m);}
+// Speed tiers (each tier reduces by % vs previous):
+// <1000: 100% | 1000-1999: -20% | 2000-4999: -20% | 5000-9999: -10% | 10000+: -10%
+function speedMult(m){
+  if(m>=10000)return 0.5184; // 100*0.8*0.8*0.9*0.9
+  if(m>=5000) return 0.576;  // 100*0.8*0.8*0.9
+  if(m>=2000) return 0.640;  // 100*0.8*0.8
+  if(m>=1000) return 0.800;  // 100*0.8
+  return 1.000;              // 100%
+}
+function baseSpd(m){return 8*speedMult(m);} // 8px/tick base at mass<1000
 
 // ── Spatial grid ──────────────────────────────────────────────
 const CELL=500;
