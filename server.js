@@ -289,13 +289,18 @@ function physicsStep(DT,now){
 
   for(let i=0;i<pLen;i++){
     const p=pArr[i],pr=mtr(p.mass),pr2=pr*pr;
+    const px=p._px!==undefined?p._px:p.x, py=p._py!==undefined?p._py:p.y;
     for(let j=0;j<pLen;j++){
       if(i===j)continue;const q=pArr[j];
       if(now<q.shieldEnd||now<q.stealthEnd)continue;
-      if(p.mass>q.mass*1.1&&dst2(p.x,p.y,q.x,q.y)<pr2){
-        p.mass=Math.min(10000,p.mass+q.mass*0.7);qEmit('explode',{x:q.x,y:q.y,col:q.color});
-        qEmit('msg',{text:p.name+' absorbed '+q.name+'!',col:'#0ff'});qEmitTo(q.id,'died',{by:p.name});
+      const qx=q._px!==undefined?q._px:q.x, qy=q._py!==undefined?q._py:q.y;
+      if(p.mass>q.mass*1.1&&dst2(px,py,qx,qy)<pr2){
+        p.mass=Math.min(10000,p.mass+q.mass*0.7);
+        qEmit('explode',{x:qx,y:qy,col:q.color});
+        qEmit('msg',{text:p.name+' absorbed '+q.name+'!',col:'#0ff'});
+        qEmitTo(q.id,'died',{by:p.name});
         q.mass=20;q.x=rnd(300,GW-300);q.y=rnd(300,GH-300);q.shieldEnd=now+5000;
+        q._px=q.x;q._py=q.y;
       }
     }
   }
@@ -354,9 +359,21 @@ function physicsStep(DT,now){
     for(let k=0;k<bnear.length;k++){const i=bnear[k],f=food[i],hr=br+f.r;if(bot.mass>f.mass*1.1&&dst2(bot.x,bot.y,f.x,f.y)<hr*hr){bot.mass=Math.min(10000,bot.mass+f.mass);replaceFood(i);}}
     for(let pi=0;pi<pLen;pi++){
       const p=pArr[pi];if(now<p.shieldEnd)continue;
-      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,p.x,p.y)<br*br){bot.mass=Math.min(10000,bot.mass+p.mass*0.7);qEmit('explode',{x:p.x,y:p.y,col:p.color});qEmitTo(p.id,'died',{by:bot.name});p.mass=20;p.x=rnd(300,GW-300);p.y=rnd(300,GH-300);p.shieldEnd=now+5000;}
+      // Use client predicted position if available (reduces visual desync)
+      const cx=p._px!==undefined?p._px:p.x, cy=p._py!==undefined?p._py:p.y;
+      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,cx,cy)<br*br){
+        bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
+        qEmit('explode',{x:cx,y:cy,col:p.color});
+        qEmitTo(p.id,'died',{by:bot.name});
+        p.mass=20;p.x=rnd(300,GW-300);p.y=rnd(300,GH-300);p.shieldEnd=now+5000;
+        p._px=p.x;p._py=p.y; // reset prediction
+      }
       const prd=mtr(p.mass);
-      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<prd*prd){p.mass=Math.min(10000,p.mass+bot.mass*0.7);qEmit('explode',{x:bot.x,y:bot.y,col:bot.col});bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);}
+      if(p.mass>bot.mass*1.1&&dst2(cx,cy,bot.x,bot.y)<prd*prd){
+        p.mass=Math.min(10000,p.mass+bot.mass*0.7);
+        qEmit('explode',{x:bot.x,y:bot.y,col:bot.col});
+        bot.mass=rnd(20,60);bot.x=rnd(100,GW-100);bot.y=rnd(100,GH-100);
+      }
     }
     if(bot.st<=0&&bot.mass>20){bot.st=7;for(let pi=0;pi<pLen;pi++){const p=pArr[pi];if(now<p.stealthEnd)continue;const dd2=dst2(bot.x,bot.y,p.x,p.y);if(dd2>1&&dd2<250000){const dd=Math.sqrt(dd2),nx=(p.x-bot.x)/dd,ny=(p.y-bot.y)/dd;bullets.push(acquireBullet({id:uid(),x:bot.x+nx*(br+8),y:bot.y+ny*(br+8),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,ownerId:bot.id}));bot.mass=Math.max(5,bot.mass-1);}}}
     for(let ii=0;ii<items.length;ii++){if(items[ii].type==='TOXIC'&&dst2(bot.x,bot.y,items[ii].x,items[ii].y)<10000)bot.mass=Math.max(5,bot.mass*(1-0.05*DT/60));}
