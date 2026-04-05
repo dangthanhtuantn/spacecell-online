@@ -60,7 +60,7 @@ const ITYPES=['DASH','SHIELD','STEALTH','GROW','MAGNET','TOXIC','BOMB','BULLET']
 const ICOLS={DASH:'#0cf',SHIELD:'#88f',STEALTH:'#ccc',GROW:'#4f4',MAGNET:'#f0f',TOXIC:'#8f0',BOMB:'#f80',BULLET:'#ff4'};
 function spawnItem(t){
   if(items.filter(x=>x.type===t).length>=ITEM_MAX)return;
-  items.push({id:uid(),x:rnd(200,GW-200),y:rnd(200,GH-200),type:t,r:14,col:ICOLS[t],label:t,pickup:t!=='TOXIC'});
+  items.push({id:uid(),x:rnd(200,GW-200),y:rnd(200,GH-200),type:t,r:28,col:ICOLS[t],label:t,pickup:t!=='TOXIC'});
   io.emit('itemAdded',items[items.length-1]);
 }
 function schedItem(t){setTimeout(()=>spawnItem(t),15000);}
@@ -117,8 +117,15 @@ io.on('connection',sock=>{
   });
 
   sock.on('dash',({nx,ny})=>{
-    const p=players[sock.id];if(!p||p.inv.dash<=0||p.cdQ>0)return;
-    p.inv.dash--;p.cdQ=2000;p.vx=nx*40;p.vy=ny*40;p._dashFrames=12;
+    const p=players[sock.id];if(!p||p.inv.dash<=0)return;
+    p.inv.dash--;
+    // Teleport 200px in move direction, keep current velocity
+    const pr=mtr(p.mass);
+    p.x=Math.max(pr,Math.min(GW-pr,p.x+nx*200));
+    p.y=Math.max(pr,Math.min(GH-pr,p.y+ny*200));
+    // Boost speed 2x briefly
+    p.vx=nx*baseSpd(p.mass)*2;
+    p.vy=ny*baseSpd(p.mass)*2;
   });
   sock.on('shield',()=>{
     const p=players[sock.id];if(!p||p.inv.shield<=0||p.cdW>0)return;
@@ -146,8 +153,9 @@ io.on('connection',sock=>{
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
     // Primary bullet
     bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:p.color,owner:sock.id}));
-    // BULLET item: dual stream - spread 2 side bullets
-    if(p.inv.bullet>0&&now<p.bulletEnd){
+    // BULLET item: activate when shooting if have stack (consume 1 per use, 10s timer)
+    if(p.inv.bullet>0&&now>=p.bulletEnd){p.inv.bullet--;p.bulletEnd=now+10000;}
+    if(now<p.bulletEnd){
       const px=-ny,py=nx; // perpendicular vector
       const sp=22; // spread px - wide enough to hit targets independently
       bullets.push(getBullet({id:uid(),x:p.x+px*sp+nx*(r+5),y:p.y+py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:'#ff4',owner:sock.id}));
@@ -189,13 +197,9 @@ function physics(now){
     if(p.cdQ>0)p.cdQ-=TICK_MS;if(p.cdW>0)p.cdW-=TICK_MS;
     if(p.cdR>0)p.cdR-=TICK_MS;if(p.cdB>0)p.cdB-=TICK_MS;if(p.cdF>0)p.cdF-=TICK_MS;
     const spd=baseSpd(p.mass);
-    if(p._dashFrames>0){p._dashFrames--;p.vx*=0.7;p.vy*=0.7;}
-    else{
-      // Direct velocity: instant response, no lerp/friction
-      // Player moves exactly where cursor points each tick
-      p.vx=p.inputVx*spd;
-      p.vy=p.inputVy*spd;
-    }
+    // Direct velocity: instant response (dash teleports, no dashFrames needed)
+    p.vx=p.inputVx*spd;
+    p.vy=p.inputVy*spd;
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx,pr,GW-pr);p.y=clamp(p.y+p.vy,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
@@ -218,7 +222,7 @@ function physics(now){
         else if(it.type==='GROW')p.mass=Math.min(10000,p.mass*2);  // double mass
         else if(it.type==='MAGNET')p.inv.magnet++;
         else if(it.type==='BOMB')p.inv.bomb++;
-        else if(it.type==='BULLET'){p.inv.bullet++;p.bulletEnd=Date.now()+10000;} // dual bullets 10s
+        else if(it.type==='BULLET')p.inv.bullet++; // activate on shoot (E key)
         const{type,id}=it;items.splice(j,1);schedItem(type);
         io.emit('itemRemoved',id);
       }

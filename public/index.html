@@ -321,7 +321,7 @@ function updateHUD(me){
   const hm=document.getElementById('hm');if(hm)hm.textContent=Math.floor(me.mass)+' M';
   const hs=document.getElementById('hs');if(hs)hs.textContent=Math.round(speedMult(me.mass)*100)+'%';
   if(me.inv){
-    updSk('Q',me.inv.dash,me.cdQ,false,false);
+    updSk('Q',me.inv.dash,0,false,false); // Dash: no cooldown
     updSk('W',me.inv.shield,me.cdW,false,false);
     updSk('E',me.mass>20?1:0,0,true,false);
     updSk('R',me.inv.stealth,me.cdR,false,false);
@@ -357,7 +357,13 @@ function handleKey(code){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  if(code==='KeyQ'){if(!me||!me.inv||me.inv.dash<=0||me.cdQ>0)return;socket.emit('dash',{nx:mdx/ml,ny:mdy/ml});}
+  if(code==='KeyQ'){
+    // Use currentMe for accurate inv check (not stale interp)
+    const cme=currentMe;
+    if(!cme||!cme.inv||cme.inv.dash<=0)return;
+    // Dash in movement direction (toward cursor)
+    socket.emit('dash',{nx:ml>15?mdx/ml:0,ny:ml>15?mdy/ml:0});
+  }
   if(code==='KeyW')socket.emit('shield');
   if(code==='KeyR')socket.emit('stealth');
   if(code==='KeyB'){const wx=Mouse.x+camX,wy=Mouse.y+camY;const dx=wx-(me?me.x:camX+SW/2),dy=wy-(me?me.y:camY+SH/2);const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
