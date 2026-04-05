@@ -589,24 +589,28 @@ function loop(){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
 
-  // Client prediction: fully authoritative, no reconcile drag
+  // Client prediction: direct velocity + tiny reconcile to prevent drift snap
   if(me){
-    // Only snap on large error (death/teleport), never on normal play
-    if(predX===null||Math.hypot(me.x-predX,me.y-predY)>300){
-      predX=me.x;predY=me.y;
-    }
+    if(predX===null){predX=me.x;predY=me.y;}
     // Direct velocity - instant direction response
     const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
     const spd=8*speedMult(me.mass);
-    if(ml>15){
-      predVx=mdx/ml*spd;
-      predVy=mdy/ml*spd;
-    } else {
-      predVx=0;predVy=0;
-    }
+    predVx=ml>15?mdx/ml*spd:0;
+    predVy=ml>15?mdy/ml*spd:0;
     const pr=mtr(me.mass);
     predX=Math.max(pr,Math.min(GW-pr,predX+predVx*dtFrac));
     predY=Math.max(pr,Math.min(GH-pr,predY+predVy*dtFrac));
+    // Tiny reconcile (0.03/frame) to bleed drift without causing visible lag
+    // Prevents predX drifting >300px from server which triggers snap
+    const err=Math.hypot(me.x-predX,me.y-predY);
+    if(err>200){
+      // Large error only (death/wall): snap immediately
+      predX=me.x;predY=me.y;predVx=0;predVy=0;
+    } else {
+      // Normal: invisible micro-correction
+      predX+=(me.x-predX)*0.03;
+      predY+=(me.y-predY)*0.03;
+    }
   }
 
   // Update local bullets
