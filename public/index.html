@@ -123,7 +123,7 @@ canvas{display:block;}
 <script>
 // ── Config ────────────────────────────────────────────────────
 const TICK_MS=33;
-const INTERP_DELAY=100;
+const INTERP_DELAY=150;
 
 // ── Color picker init ─────────────────────────────────────────
 const COLORS=['#00cfff','#ff4466','#44ff88','#ffaa00','#aa44ff','#ff44aa','#00ffcc','#ff8800','#4488ff','#ffff44','#ff6644','#88ff44'];
@@ -274,10 +274,7 @@ function connect(){
     if(me)updateHUD(me);
   });
 
-  socket.on('worldUpdate',d=>{
-    if(d.food&&d.food.length)food=d.food;
-    if(d.items&&d.items.length)items=d.items;
-  });
+  // worldUpdate removed - food synced via init + foodEaten, items via itemAdded/itemRemoved
   socket.on('itemAdded',it=>{items.push(it);});
   socket.on('itemRemoved',id=>{const i=items.findIndex(x=>x.id===id);if(i!==-1)items.splice(i,1);});
   socket.on('foodEaten',d=>{
@@ -298,7 +295,7 @@ function connect(){
   socket.on('playerLeft',id=>{});
   socket.on('playerList',list=>{
     const lb=document.getElementById('lbr');if(!lb)return;
-    lb.innerHTML=list.slice(0,8).map((e,i)=>`<div class="le${e.id===myId?' me':''}">${i+1}. ${e.name} ${e.mass}</div>`).join('');
+    lb.innerHTML=list.slice(0,8).map((e,i)=>'<div class="le'+(e.id===myId?' me':'')+'">'+(i+1)+'. '+e.name+' '+e.mass+'</div>').join('');
   });
   socket.on('pong',t=>{
     latency=Date.now()-pingTime;
@@ -448,12 +445,12 @@ function render(){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
 
-  // Camera: smoothly follow self interpolated position
-  if(me){
-    const tx=me.x-SW/2,ty=me.y-SH/2;
-    camX+=(tx-camX)*0.12;camY+=(ty-camY)*0.12;
-  }
-  camX=clamp(camX,0,GW-SW);camY=clamp(camY,0,GH-SH);
+  // Camera follows PREDICTED position for instant smooth response
+  const followX=predX!==null?predX:(me?me.x:camX+SW/2);
+  const followY=predY!==null?predY:(me?me.y:camY+SH/2);
+  camX+=(followX-SW/2-camX)*0.15;
+  camY+=(followY-SH/2-camY)*0.15;
+  camX=clamp(camX,0,Math.max(0,GW-SW));camY=clamp(camY,0,Math.max(0,GH-SH));
 
   CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);
   CTX.save();CTX.translate(-camX,-camY);
@@ -503,8 +500,11 @@ function render(){
   // Other players
   (interp.players||[]).forEach(p=>{if(p.id!==myId)drawOther(p);});
 
-  // Self — always drawn from interpolated server state (no prediction drift!)
-  if(me)drawMe(me);
+  // Self — drawn at PREDICTED position for smooth feel (no server lag)
+  if(me&&predX!==null){
+    const predMe={...me,x:predX,y:predY};
+    drawMe(predMe);
+  } else if(me) drawMe(me);
 
   // Particles
   for(let i=parts.length-1;i>=0;i--){
@@ -519,7 +519,8 @@ function render(){
 
   // Draw cursor: line from player screen pos to mouse, aim dot at mouse
   if(gameActive&&me){
-    const px=me.x-camX, py=me.y-camY; // player screen position
+    const px=(predX!==null?predX:me.x)-camX;
+    const py=(predY!==null?predY:me.y)-camY;
     const mx=Mouse.x, my=Mouse.y;      // mouse screen position
     const dx=mx-px, dy=my-py, dl=Math.hypot(dx,dy)||1;
     const isShoot=Keys['KeyE'];
@@ -569,10 +570,37 @@ function renderMinimap(interp,me){
 }
 
 // ── Game loop ─────────────────────────────────────────────────
+// Client prediction for own player — keeps self smooth between server ticks
+let predX=null,predY=null,predVx=0,predVy=0,lastLoopT=Date.now();
+
 function loop(){
   requestAnimationFrame(loop);
-  // Update local bullets
+  const nowT=Date.now();
+  const dtMs=Math.min(nowT-lastLoopT,50);lastLoopT=nowT;
+  const dtFrac=dtMs/TICK_MS; // fraction of a server tick
+
+  // Get current interpolated state
   const interp=getInterp();
+  const me=interp.players.find(p=>p.id===myId);
+
+  // Advance prediction from latest server state
+  if(me){
+    if(predX===null){predX=me.x;predY=me.y;}
+    // Blend toward server position (reconciliation)
+    predX+=(me.x-predX)*0.15;
+    predY+=(me.y-predY)*0.15;
+    // Advance by input direction
+    const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
+    const spd=6*(me.mass>=500?0.9:me.mass>=200?0.95:1);
+    const lp=1-Math.pow(1-0.25,dtFrac),fr=Math.pow(0.85,dtFrac);
+    predVx+=(ml>5?mdx/ml*spd-predVx:0-predVx)*lp;predVy+=(ml>5?mdy/ml*spd-predVy:0-predVy)*lp;
+    predVx*=fr;predVy*=fr;
+    predX=Math.max(0,Math.min(GW,predX+predVx*dtFrac));
+    predY=Math.max(0,Math.min(GH,predY+predVy*dtFrac));
+  }
+
+  // Update local bullets
+  // (interp already computed above)
   for(let i=localBullets.length-1;i>=0;i--){
     const b=localBullets[i];
     b.x+=b.vx;b.y+=b.vy;b.life--;

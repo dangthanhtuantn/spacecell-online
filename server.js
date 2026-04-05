@@ -10,7 +10,7 @@ app.use(express.static(path.join(__dirname,'public')));
 
 // ── Constants ─────────────────────────────────────────────────
 const GW=6000,GH=6000,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
-const ITEM_MAX=1,WORLD_UPDATE_MS=5000,AOI_RANGE=3500;
+const ITEM_MAX=1,AOI_RANGE=3500;
 const LERP_P=0.25,LERP_B=0.18,FRIC=0.85;
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
@@ -341,8 +341,10 @@ function broadcast(now){
 }
 
 setTimeout(tick,TICK_MS);
-setInterval(()=>io.emit('worldUpdate',{food,items}),WORLD_UPDATE_MS);
-setInterval(()=>io.emit('playerList',pList()),2000);
+// worldUpdate removed - was sending 87KB every 5s causing event loop spike
+// Food is synced via init + foodEaten events instead
+// Items synced via itemAdded + itemRemoved events
+setInterval(()=>io.emit('playerList',pList()),3000);
 
 initWorld();
 const PORT=process.env.PORT||3000;
