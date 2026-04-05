@@ -517,30 +517,36 @@ function render(){
   CTX.globalAlpha=1;
   CTX.restore();
 
-  // Draw crosshair cursor (screen coords, no camera offset)
-  if(gameActive){
-    const cx=Mouse.x,cy=Mouse.y;
+  // Draw cursor: line from player screen pos to mouse, aim dot at mouse
+  if(gameActive&&me){
+    const px=me.x-camX, py=me.y-camY; // player screen position
+    const mx=Mouse.x, my=Mouse.y;      // mouse screen position
+    const dx=mx-px, dy=my-py, dl=Math.hypot(dx,dy)||1;
     const isShoot=Keys['KeyE'];
-    const col=isShoot?'#ff4':'#0cf';
+    const col=isShoot?'rgba(255,220,0,0.9)':'rgba(0,200,255,0.8)';
+    const colFade=isShoot?'rgba(255,220,0,0.15)':'rgba(0,200,255,0.12)';
+    const pr=mtr(me.mass); // player radius
+
     CTX.save();
-    CTX.strokeStyle=col;CTX.lineWidth=1.5;CTX.globalAlpha=0.85;
-    // Outer ring
-    CTX.beginPath();CTX.arc(cx,cy,10,0,Math.PI*2);CTX.stroke();
-    // Cross lines
-    CTX.beginPath();CTX.moveTo(cx-16,cy);CTX.lineTo(cx-12,cy);CTX.stroke();
-    CTX.beginPath();CTX.moveTo(cx+12,cy);CTX.lineTo(cx+16,cy);CTX.stroke();
-    CTX.beginPath();CTX.moveTo(cx,cy-16);CTX.lineTo(cx,cy-12);CTX.stroke();
-    CTX.beginPath();CTX.moveTo(cx,cy+12);CTX.lineTo(cx,cy+16);CTX.stroke();
+
+    // Dashed line from player edge to mouse
+    const startX=px+dx/dl*pr, startY=py+dy/dl*pr;
+    CTX.setLineDash([6,5]);
+    CTX.strokeStyle=colFade;CTX.lineWidth=1.5;
+    CTX.beginPath();CTX.moveTo(startX,startY);CTX.lineTo(mx,my);CTX.stroke();
+    CTX.setLineDash([]);
+
+    // Aim crosshair at mouse position
+    const r=10;
+    CTX.strokeStyle=col;CTX.lineWidth=1.5;CTX.globalAlpha=0.95;
+    CTX.beginPath();CTX.arc(mx,my,r,0,Math.PI*2);CTX.stroke();
+    // 4 tick marks outside ring
+    [[0,-(r+5),0,-(r+9)],[0,(r+5),0,(r+9)],[-(r+5),0,-(r+9),0],[(r+5),0,(r+9),0]].forEach(([x1,y1,x2,y2])=>{
+      CTX.beginPath();CTX.moveTo(mx+x1,my+y1);CTX.lineTo(mx+x2,my+y2);CTX.stroke();
+    });
     // Center dot
-    CTX.fillStyle=col;CTX.globalAlpha=1;
-    CTX.beginPath();CTX.arc(cx,cy,2,0,Math.PI*2);CTX.fill();
-    // Direction line toward shoot direction (from center of screen to mouse)
-    if(me){
-      const dx=cx-SW/2,dy=cy-SH/2,dl=Math.hypot(dx,dy)||1;
-      const lineLen=Math.min(dl*0.3,40);
-      CTX.strokeStyle=col;CTX.globalAlpha=0.4;CTX.lineWidth=1;
-      CTX.beginPath();CTX.moveTo(SW/2,SH/2);CTX.lineTo(SW/2+dx/dl*lineLen,SH/2+dy/dl*lineLen);CTX.stroke();
-    }
+    CTX.fillStyle=col;CTX.beginPath();CTX.arc(mx,my,2.5,0,Math.PI*2);CTX.fill();
+
     CTX.restore();
   }
   renderMinimap(interp,me);
