@@ -57,8 +57,10 @@ function nearbyFood(x, y, radius) {
 
 // Replace food[i] in-place + update grid locally (no full rebuild)
 function replaceFood(i) {
+  // Mark as eaten offscreen, actual replacement happens when worldUpdate broadcasts
+  // This prevents food from appearing at new random position before client hides old one
   gridRemove(i);
-  food[i] = mkFood();
+  food[i] = {x:-9999, y:-9999, mass:0, r:1, col:'#000', _eaten:true};
   gridAdd(i);
 }
 
@@ -269,7 +271,7 @@ function physicsStep(DT,now){
     }
     for(let i=items.length-1;i>=0;i--){
       const it=items[i];if(!it.pickup)continue;
-      const hitR=pr+it.r+15;
+      const hitR=pr+it.r+35; // large radius to cover server/client position drift
       // Check at server position OR client predicted position
       const atServer=dst2(p.x,p.y,it.x,it.y)<hitR*hitR;
       const atPred=p._px!==undefined&&dst2(p._px,p._py,it.x,it.y)<hitR*hitR;
@@ -396,7 +398,17 @@ function broadcastState(now){
 setTimeout(tick,TICK_MS);
 
 
-setInterval(()=>{io.emit('worldUpdate',{food,items});},WORLD_UPDATE_MS);
+setInterval(()=>{
+  // Regenerate any eaten food slots with new random positions before broadcasting
+  for(let i=0;i<food.length;i++){
+    if(food[i]._eaten){
+      gridRemove(i);
+      food[i]=mkFood();
+      gridAdd(i);
+    }
+  }
+  io.emit('worldUpdate',{food,items});
+},WORLD_UPDATE_MS);
 setInterval(()=>{io.emit('playerList',playerList());},2000);
 
 initWorld();

@@ -273,7 +273,7 @@ function joinGame(name,flag,color){
 
   // Food and items update every 500ms
   socket.on('worldUpdate',d=>{
-    if(d.food&&d.food.length){food=d.food;} // new array has no _hidden flags
+    if(d.food&&d.food.length)food=d.food; // new array, all _hidden cleared
     if(d.items&&d.items.length)items=d.items;
   });
 
