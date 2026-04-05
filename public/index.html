@@ -156,7 +156,7 @@ window.addEventListener('resize',()=>{SW=window.innerWidth;SH=window.innerHeight
 // ── State ─────────────────────────────────────────────────────
 const mtr=m=>Math.sqrt(m)*1.5+3;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-function speedMult(m){if(m>=5000)return 0.6;if(m>=2000)return 0.72;if(m>=1000)return 0.81;if(m>=500)return 0.9;return 1;}
+function speedMult(m){return Math.pow(20/Math.max(m,20),0.28);}
 
 let socket=null,myId=null,myColor='#00cfff',myName='Player',myFlag=null;
 let GW=6000,GH=6000;
@@ -591,7 +591,7 @@ function loop(){
     predY+=(me.y-predY)*0.15;
     // Advance by input direction
     const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-    const spd=6*(me.mass>=500?0.9:me.mass>=200?0.95:1);
+    const spd=7*speedMult(me.mass); // match server baseSpd formula exactly
     const lp=1-Math.pow(1-0.25,dtFrac),fr=Math.pow(0.85,dtFrac);
     predVx+=(ml>5?mdx/ml*spd-predVx:0-predVx)*lp;predVy+=(ml>5?mdy/ml*spd-predVy:0-predVy)*lp;
     predVx*=fr;predVy*=fr;

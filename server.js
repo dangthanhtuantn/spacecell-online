@@ -18,11 +18,11 @@ const dst2=(ax,ay,bx,by)=>(ax-bx)*(ax-bx)+(ay-by)*(ay-by);
 const mtr=m=>Math.sqrt(m)*1.5+3;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 
-function speedMult(m){
-  if(m>=5000)return 0.6;if(m>=2000)return 0.72;
-  if(m>=1000)return 0.81;if(m>=500)return 0.9;return 1;
-}
-function baseSpd(m){return 6*speedMult(m);}
+// Speed decreases smoothly with mass (continuous curve, not discrete steps)
+// Inspired by agar.io: larger = slower, smaller = faster
+// mass=20 → 7px/tick, mass=200 → 3.7, mass=1000 → 2.3, mass=5000 → 1.5
+function speedMult(m){return Math.pow(20/Math.max(m,20),0.28);}
+function baseSpd(m){return 7*speedMult(m);}
 
 // ── Spatial grid ──────────────────────────────────────────────
 const CELL=500;
