@@ -103,23 +103,11 @@ canvas{display:block;}
   <div class="lbox">
     <h1>SPACECELL</h1>
     <div class="sub">ONLINE MULTIPLAYER</div>
-    <label>YOUR NAME</label>
-    <input type="text" id="pname" maxlength="16" placeholder="Enter name..." value="Player">
-    <div class="lsec">
-      <label>APPEARANCE</label>
-      <div class="tabs">
-        <div class="tab on" id="tab0" onclick="switchTab(0)">COLOR</div>
-        <div class="tab" id="tab1" onclick="switchTab(1)">FLAG</div>
-      </div>
-      <div id="panel0"><div class="colors" id="colorGrid"></div></div>
-      <div id="panel1" style="display:none"><div class="fgrid" id="flagGrid"></div></div>
-    </div>
-    <button class="playbtn" onclick="startFromLobby()">▶ &nbsp;PLAY NOW</button>
-    <!-- Quảng cáo 300x250 Lobby — thay data-ad-client và data-ad-slot -->
-    <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.7);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
-      <ins class="adsbygoogle" style="display:inline-block;width:300px;height:250px"
-           data-ad-client="ca-pub-XXXXXXXXXXXXXXXXX" data-ad-slot="YYYYYYYYYY"></ins>
-    </div>
+    <label>TÊN NGƯỜI CHƠI</label>
+    <input type="text" id="ni" maxlength="16" placeholder="Nhập tên..." value="Player">
+    <label style="margin-top:12px">MÀU SẮC</label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px" id="colorGrid"></div>
+    <button class="playbtn" id="sb">▶ &nbsp;PLAY NOW</button>
   </div>
 </div>
 
@@ -128,7 +116,26 @@ canvas{display:block;}
 <script>
 // ── Config ────────────────────────────────────────────────────
 const TICK_MS=33;
-const INTERP_DELAY=100; // ms behind latest snapshot - enough for 3 ticks buffer
+const INTERP_DELAY=100;
+
+// ── Color picker init ─────────────────────────────────────────
+const COLORS=['#00cfff','#ff4466','#44ff88','#ffaa00','#aa44ff','#ff44aa','#00ffcc','#ff8800','#4488ff','#ffff44','#ff6644','#88ff44'];
+let selectedColor=COLORS[0];
+(function initColorGrid(){
+  const grid=document.getElementById('colorGrid');
+  if(!grid)return;
+  COLORS.forEach(col=>{
+    const el=document.createElement('div');
+    el.style.cssText=`width:32px;height:32px;border-radius:50%;background:${col};cursor:pointer;border:3px solid transparent;transition:border-color 0.15s`;
+    if(col===selectedColor)el.style.borderColor='#fff';
+    el.onclick=()=>{
+      selectedColor=col;
+      grid.querySelectorAll('div').forEach(d=>d.style.borderColor='transparent');
+      el.style.borderColor='#fff';
+    };
+    grid.appendChild(el);
+  });
+})();
 
 // ── Canvas ────────────────────────────────────────────────────
 const CVS=document.getElementById('gc');
@@ -227,9 +234,8 @@ function initStars(){
 // ── Networking ────────────────────────────────────────────────
 function connect(){
   const name=document.getElementById('ni').value.trim()||'Player';
-  const color=document.getElementById('ci').value||'#00cfff';
-  const flag=document.getElementById('fi').value||'';
-  myName=name;myColor=color;myFlag=flag||null;
+  const color=selectedColor||'#00cfff';
+  myName=name;myColor=color;myFlag=null;
   socket=io();
 
   socket.on('init',d=>{
