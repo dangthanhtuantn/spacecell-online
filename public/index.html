@@ -276,6 +276,7 @@ function connect(){
     const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
     pushSnap({t:Date.now(),players,bots,bullets});
     // Update HUD from self
+    // HUD uses latest server data for accurate inv/cd display
     const meHud=players.find(p=>p.id===myId);
     if(meHud)updateHUD(meHud);
   });
@@ -449,12 +450,7 @@ function drawBot(b){
 function render(){
   if(!gameActive){CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);return;}
   const interp=getInterp();
-
-  // Self: always use LATEST snapshot (no interpolation delay)
-  // Eliminates edge-pull, lag, stutter for own character
-  const me=snaps[snapHead].players.find(p=>p.id===myId);
-
-  // Camera follows LATEST position - no lerp needed, no lag
+  const me=currentMe; // predicted position from loop()
   if(me){
     camX=me.x-SW/2;
     camY=me.y-SH/2;
@@ -509,7 +505,7 @@ function render(){
   // Other players
   (interp.players||[]).forEach(p=>{if(p.id!==myId)drawOther(p);});
 
-  // Self — drawn at server interpolated position (direct velocity = no lag)
+  // Self — drawn at PREDICTED position (matches server, no lag)
   if(me)drawMe(me);
 
   // Particles
@@ -525,7 +521,7 @@ function render(){
 
   // Draw cursor: line from player screen pos to mouse, aim dot at mouse
   if(gameActive&&me){
-    const px=me.x-camX;
+    const px=me.x-camX; // me.x = predX
     const py=me.y-camY;
     const mx=Mouse.x, my=Mouse.y;      // mouse screen position
     const dx=mx-px, dy=my-py, dl=Math.hypot(dx,dy)||1;
@@ -576,17 +572,40 @@ function renderMinimap(interp,me){
 }
 
 // ── Game loop ─────────────────────────────────────────────────
-// No client prediction - server uses direct velocity so me.x is already accurate
-// Camera lerp gives smooth feel without any prediction artifacts
-let lastLoopT=Date.now();
+// Client prediction matching server physics EXACTLY
+// Server: p.vx = inputVx*spd; p.x += p.vx; (direct, no lerp/friction)
+// Client: predVx = inputVx*spd; predX += predVx; (identical)
+// -> predX === server p.x -> no drift -> no reconcile -> no edge pull
+let predX=null,predY=null,lastLoopT=Date.now(),currentMe=null;
 
 function loop(){
   requestAnimationFrame(loop);
-  const nowT=Date.now();lastLoopT=nowT;
+  const nowT=Date.now();
+  const dtMs=Math.min(nowT-lastLoopT,50);lastLoopT=nowT;
+  const dtFrac=dtMs/TICK_MS;
 
-  // Get current interpolated state
+  // Get interpolated state for others (bots/players)
   const interp=getInterp();
-  const me=interp.players.find(p=>p.id===myId);
+  // Self: from latest snapshot for HUD/skill updates
+  const latestMe=snaps[snapHead].players.find(p=>p.id===myId);
+
+  // Client prediction: EXACT same physics as server
+  if(latestMe){
+    if(predX===null){predX=latestMe.x;predY=latestMe.y;}
+    const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
+    const spd=8*speedMult(latestMe.mass);
+    const inputVx=ml>15?mdx/ml:0, inputVy=ml>15?mdy/ml:0;
+    const predVx=inputVx*spd, predVy=inputVy*spd;
+    const pr=mtr(latestMe.mass);
+    predX=Math.max(pr,Math.min(GW-pr, predX+predVx*dtFrac));
+    predY=Math.max(pr,Math.min(GH-pr, predY+predVy*dtFrac));
+    // Snap only on large error (death/respawn) - drift stays <10px normally
+    const err=Math.hypot(latestMe.x-predX,latestMe.y-predY);
+    if(err>150){predX=latestMe.x;predY=latestMe.y;}
+  }
+
+  // currentMe is module-level so render() can access predicted position
+  currentMe=latestMe?{...latestMe,x:predX,y:predY}:null;
 
   // Update local bullets
   // (interp already computed above)
