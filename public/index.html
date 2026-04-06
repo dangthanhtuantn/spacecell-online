@@ -615,31 +615,18 @@ function loop(){
     const spd=8*speedMult(latestMe.mass);
     const inputVx=ml>15?mdx/ml:0, inputVy=ml>15?mdy/ml:0;
     const pr=mtr(latestMe.mass);
-    // Dash: run same physics as server (vx decay per tick)
+    // During dash: server handles physics, client follows server pos directly
+    // (client prediction of dash velocity causes map drift due to dtFrac scaling)
     let pvx,pvy;
-    if(nowT<dashEndT){
-      // Decay dashVx by 0.82 per server tick, scaled to frame time
-      const decay=Math.pow(0.82,dtFrac);
-      dashVx*=decay;dashVy*=decay;
-      pvx=dashVx;pvy=dashVy;
-      // After dash: soft reconcile (1-step) to fix any drift
-    } else if(nowT<dashEndT+100){
-      // 100ms grace: soft blend back to server position
-      predX+=(latestMe.x-predX)*0.3;
-      predY+=(latestMe.y-predY)*0.3;
-      pvx=0;pvy=0;
+    if(nowT<dashEndT+200){
+      predX=latestMe.x;
+      predY=latestMe.y;
     } else {
       pvx=inputVx*spd;pvy=inputVy*spd;
-      // Snap only on death/respawn (very large error)
+      predX=Math.max(pr,Math.min(GW-pr,predX+pvx*dtFrac));
+      predY=Math.max(pr,Math.min(GH-pr,predY+pvy*dtFrac));
       const err=Math.hypot(latestMe.x-predX,latestMe.y-predY);
       if(err>200){predX=latestMe.x;predY=latestMe.y;}
-    }
-    if(nowT<dashEndT){
-      predX=Math.max(pr,Math.min(GW-pr, predX+pvx*dtFrac));
-      predY=Math.max(pr,Math.min(GH-pr, predY+pvy*dtFrac));
-    } else if(nowT>=dashEndT+100){
-      predX=Math.max(pr,Math.min(GW-pr, predX+pvx*dtFrac));
-      predY=Math.max(pr,Math.min(GH-pr, predY+pvy*dtFrac));
     }
   }
 
