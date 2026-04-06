@@ -78,7 +78,7 @@ canvas{display:block;}
 <div id="inv">
   <div class="sk" id="skQ"><div class="k">Q</div><div class="n">DASH</div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
   <div class="sk" id="skW"><div class="k">W</div><div class="n">SHIELD</div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
-  <div class="sk" id="skE"><div class="k">E</div><div class="n">SHOOT</div><div class="cnt" id="cntE">hold</div><div class="cd" id="cdE"></div></div>
+  <div class="sk" id="skE"><div class="k">E</div><div class="n">BULLET</div><div class="cnt" id="cntE">0</div><div class="cd" id="cdE"></div></div>
   <div class="sk" id="skR"><div class="k">R</div><div class="n">STEALTH</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
   <div class="sk" id="skB"><div class="k">B</div><div class="n">BOMB</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
   <div class="sk" id="skF"><div class="k">F</div><div class="n">MAGNET</div><div class="cnt" id="cntF">0</div><div class="cd" id="cdF"></div></div>
@@ -323,7 +323,9 @@ function updateHUD(me){
   if(me.inv){
     updSk('Q',me.inv.dash,0,false,false);
     updSk('W',me.inv.shield,me.cdW,false,false);
-    updSk('E',me.mass>20?1:0,0,true,false);
+    // E shows bullet stack (shoot via left click now)
+  const bStk=me.inv&&me.inv.bullet||0;
+  updSk('E',bStk,0,false,false);
     updSk('R',me.inv.stealth,me.cdR,false,false);
     updSk('B',me.inv.bomb,me.cdB,false,false);
     updSk('F',me.inv.magnet,me.cdF,false,false);
@@ -351,6 +353,9 @@ function updSk(k,count,cd,isFire,isToggle){
 window.addEventListener('keydown',e=>{if(!Keys[e.code]){Keys[e.code]=true;handleKey(e.code);}});
 window.addEventListener('keyup',e=>{Keys[e.code]=false;});
 window.addEventListener('mousemove',e=>{Mouse.x=e.clientX;Mouse.y=e.clientY;});
+let mouseDown=false;
+window.addEventListener('mousedown',e=>{if(e.button===0&&gameActive)mouseDown=true;});
+window.addEventListener('mouseup',e=>{if(e.button===0)mouseDown=false;});
 
 function handleKey(code){
   if(!socket||!myId||!gameActive)return;
@@ -364,7 +369,7 @@ function handleKey(code){
     const nx=ml>15?mdx/ml:0, ny=ml>15?mdy/ml:0;
     socket.emit('dash',{nx,ny});
     // Mirror server dash in client prediction
-    dashVx=nx*82;dashVy=ny*82;dashTicks=12; // matches server: ~403px from edge
+    dashVx=nx*82;dashVy=ny*82;dashEndT=nowT+396; // 12 server ticks * 33ms = 396ms
   }
   if(code==='KeyW')socket.emit('shield');
   if(code==='KeyR')socket.emit('stealth');
@@ -378,17 +383,16 @@ setInterval(()=>{
   if(!socket||!myId||!gameActive)return;
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
   socket.emit('input',{vx:ml>15?mdx/ml:0,vy:ml>15?mdy/ml:0});
-  // Shoot
-  if(Keys['KeyE']){
+  // Shoot on mouse left button hold
+  if(mouseDown){
     const now=Date.now();
     if(now-_lastShot>=250){
       _lastShot=now;
-      const interp=getInterp();
-      const me=interp.players.find(p=>p.id===myId);
-      if(me&&me.mass>20){
+      const me2=currentMe;
+      if(me2&&me2.mass>20){
         const wx=Mouse.x+camX,wy=Mouse.y+camY;
-        const dx=wx-me.x,dy=wy-me.y,l=Math.hypot(dx,dy)||1;
-        socket.emit('shoot',{nx:dx/l,ny:dy/l}); // server handles bullet display
+        const dx=wx-me2.x,dy=wy-me2.y,l=Math.hypot(dx,dy)||1;
+        socket.emit('shoot',{nx:dx/l,ny:dy/l});
       }
     }
   }
@@ -536,7 +540,7 @@ function render(){
     const py=me.y-camY;
     const mx=Mouse.x, my=Mouse.y;      // mouse screen position
     const dx=mx-px, dy=my-py, dl=Math.hypot(dx,dy)||1;
-    const isShoot=Keys['KeyE'];
+    const isShoot=mouseDown;
     const col=isShoot?'rgba(255,220,0,0.9)':'rgba(0,200,255,0.8)';
     const colFade=isShoot?'rgba(255,220,0,0.15)':'rgba(0,200,255,0.12)';
     const pr=mtr(me.mass); // player radius
@@ -588,7 +592,7 @@ function renderMinimap(interp,me){
 // Client: predVx = inputVx*spd; predX += predVx; (identical)
 // -> predX === server p.x -> no drift -> no reconcile -> no edge pull
 let predX=null,predY=null,lastLoopT=Date.now(),currentMe=null;
-let dashVx=0,dashVy=0,dashTicks=0;
+let dashVx=0,dashVy=0,dashEndT=0; // time-based dash, not frame-based
 
 function loop(){
   requestAnimationFrame(loop);
@@ -608,10 +612,12 @@ function loop(){
     const spd=8*speedMult(latestMe.mass);
     const inputVx=ml>15?mdx/ml:0, inputVy=ml>15?mdy/ml:0;
     const pr=mtr(latestMe.mass);
-    // Apply dash momentum if active, otherwise direct velocity
+    // Apply dash momentum if within dash duration window
     let pvx,pvy;
-    if(dashTicks>0){
-      dashTicks--;dashVx*=0.82;dashVy*=0.82;
+    if(nowT<dashEndT){
+      // Decay velocity proportional to time elapsed (matches server decay per tick)
+      const ticksElapsed=dtMs/TICK_MS;
+      dashVx*=Math.pow(0.82,ticksElapsed);dashVy*=Math.pow(0.82,ticksElapsed);
       pvx=dashVx;pvy=dashVy;
     } else {
       pvx=inputVx*spd;pvy=inputVy*spd;
