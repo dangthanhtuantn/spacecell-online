@@ -364,7 +364,7 @@ function handleKey(code){
     const nx=ml>15?mdx/ml:0, ny=ml>15?mdy/ml:0;
     socket.emit('dash',{nx,ny});
     // Mirror server dash in client prediction
-    dashVx=nx*40;dashVy=ny*40;dashTicks=8;
+    dashVx=nx*48;dashVy=ny*48;dashTicks=8; // matches server: ~202px from edge
   }
   if(code==='KeyW')socket.emit('shield');
   if(code==='KeyR')socket.emit('stealth');

@@ -121,10 +121,10 @@ io.on('connection',sock=>{
     p.inv.dash--;
     // Smooth dash: high velocity burst decays naturally each tick
     // 200px target: vx=40px/tick, decays ~5 ticks = smooth slide
-    const dashSpd=40;
+    const dashSpd=48; // vx=48, 8 ticks, decay=0.82 -> ~202px from edge
     p.vx=nx*dashSpd;
     p.vy=ny*dashSpd;
-    p._dashing=8; // ticks to maintain dash momentum
+    p._dashing=8;
   });
   sock.on('shield',()=>{
     const p=players[sock.id];if(!p||p.inv.shield<=0||p.cdW>0)return;
