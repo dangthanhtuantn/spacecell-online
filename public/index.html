@@ -390,9 +390,10 @@ setInterval(()=>{
       _lastShot=now;
       const me2=currentMe;
       if(me2&&me2.mass>20){
-        const wx=Mouse.x+camX,wy=Mouse.y+camY;
-        const dx=wx-me2.x,dy=wy-me2.y,l=Math.hypot(dx,dy)||1;
-        socket.emit('shoot',{nx:dx/l,ny:dy/l});
+        // Direction = screen center to cursor (camera always centers on player)
+        const dx=Mouse.x-SW/2, dy=Mouse.y-SH/2, l=Math.hypot(dx,dy)||1;
+        const nx=l>1?dx/l:0, ny=l>1?dy/l:0;
+        socket.emit('shoot',{nx,ny});
       }
     }
   }
@@ -612,21 +613,22 @@ function loop(){
     const spd=8*speedMult(latestMe.mass);
     const inputVx=ml>15?mdx/ml:0, inputVy=ml>15?mdy/ml:0;
     const pr=mtr(latestMe.mass);
-    // Apply dash momentum if within dash duration window
+    // During dash: server is authoritative (no client prediction)
+    // This avoids double-move from mismatched timing
     let pvx,pvy;
-    if(nowT<dashEndT){
-      // Decay velocity proportional to time elapsed (matches server decay per tick)
-      const ticksElapsed=dtMs/TICK_MS;
-      dashVx*=Math.pow(0.82,ticksElapsed);dashVy*=Math.pow(0.82,ticksElapsed);
-      pvx=dashVx;pvy=dashVy;
+    if(nowT<dashEndT+200){
+      // Follow server position smoothly during+just after dash
+      predX+=(latestMe.x-predX)*Math.min(1,dtMs*0.05);
+      predY+=(latestMe.y-predY)*Math.min(1,dtMs*0.05);
     } else {
+      // Normal prediction
       pvx=inputVx*spd;pvy=inputVy*spd;
+      predX=Math.max(pr,Math.min(GW-pr, predX+pvx*dtFrac));
+      predY=Math.max(pr,Math.min(GH-pr, predY+pvy*dtFrac));
+      // Snap only on very large error (death/teleport)
+      const err=Math.hypot(latestMe.x-predX,latestMe.y-predY);
+      if(err>200){predX=latestMe.x;predY=latestMe.y;}
     }
-    predX=Math.max(pr,Math.min(GW-pr, predX+pvx*dtFrac));
-    predY=Math.max(pr,Math.min(GH-pr, predY+pvy*dtFrac));
-    // Snap only on large error (death/respawn) - drift stays <10px normally
-    const err=Math.hypot(latestMe.x-predX,latestMe.y-predY);
-    if(err>150){predX=latestMe.x;predY=latestMe.y;}
   }
 
   // currentMe is module-level so render() can access predicted position
