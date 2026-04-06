@@ -137,7 +137,7 @@ io.on('connection',sock=>{
   sock.on('bomb',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.inv.bomb<=0||p.cdB>0)return;
     p.inv.bomb--;p.cdB=1500;const r=mtr(p.mass);
-    bullets.push(getBullet({id:uid(),x:p.x+nx*r,y:p.y+ny*r,vx:nx*20,vy:ny*20,type:'bomb',r:14,life:15,col:'#f80',owner:sock.id}));
+    bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'bomb',r:14,life:32,col:'#f80',owner:sock.id}));
   });
   sock.on('magnet',()=>{
     const p=players[sock.id];if(!p||p.inv.magnet<=0||p.cdF>0)return;
