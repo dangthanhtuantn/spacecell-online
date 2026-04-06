@@ -223,7 +223,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<(pr+14)*(pr+14)){ // need mass>=100 to pick up item
+      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<(pr+it.r)*(pr+it.r)){ // eat on visual touch
         if(it.type==='DASH')p.inv.dash++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
