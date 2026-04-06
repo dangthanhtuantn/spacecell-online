@@ -146,19 +146,22 @@ io.on('connection',sock=>{
     near.forEach(i=>{if(dst2(p.x,p.y,food[i].x,food[i].y)<rad2){p.mass=Math.min(10000,p.mass+food[i].mass);eatFood(i);n++;}});
     sock.emit('msg',{text:'MAGNET: +'+n+' food',col:'#f0f'});
   });
-  sock.on('shoot',({nx,ny})=>{
+  sock.on('shoot',({nx,ny,px,py})=>{
     const p=players[sock.id];if(!p||p.mass<=20)return;
     const now=Date.now();if(now-p._lastShot<250)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    // Primary bullet
-    bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:p.color,owner:sock.id}));
+    // Use client predicted position if close to server pos (< 200px)
+    const sx=(px!==undefined&&Math.hypot(px-p.x,py-p.y)<200)?px:p.x;
+    const sy=(py!==undefined&&Math.hypot(px-p.x,py-p.y)<200)?py:p.y;
+    // Primary bullet - from front edge facing cursor
+    bullets.push(getBullet({id:uid(),x:sx+nx*(r+5),y:sy+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:p.color,owner:sock.id}));
     // BULLET item: activate when shooting if have stack (consume 1 per use, 10s timer)
     if(p.inv.bullet>0&&now>=p.bulletEnd){p.inv.bullet--;p.bulletEnd=now+10000;}
     if(now<p.bulletEnd){
-      const px=-ny,py=nx; // perpendicular vector
-      const sp=22; // spread px - wide enough to hit targets independently
-      bullets.push(getBullet({id:uid(),x:p.x+px*sp+nx*(r+5),y:p.y+py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
-      bullets.push(getBullet({id:uid(),x:p.x-px*sp+nx*(r+5),y:p.y-py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
+      const perp_x=-ny,perp_y=nx; // perpendicular vector
+      const sp=22;
+      bullets.push(getBullet({id:uid(),x:sx+perp_x*sp+nx*(r+5),y:sy+perp_y*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
+      bullets.push(getBullet({id:uid(),x:sx-perp_x*sp+nx*(r+5),y:sy-perp_y*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
     }
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
