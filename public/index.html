@@ -482,6 +482,19 @@ function render(){
   const gc0=Math.floor(camX/500)*500,gr0=Math.floor(camY/500)*500;
   for(let gx=gc0;gx<camX+SW+500;gx+=500){CTX.beginPath();CTX.moveTo(gx,0);CTX.lineTo(gx,GH);CTX.stroke();}
   for(let gy=gr0;gy<camY+SH+500;gy+=500){CTX.beginPath();CTX.moveTo(0,gy);CTX.lineTo(GW,gy);CTX.stroke();}
+  // Play boundary: visible 6000x6000 zone (500..6500)
+  const BMIN=500,BMAX=6500;
+  CTX.strokeStyle='rgba(255,80,80,0.7)';CTX.lineWidth=3;
+  CTX.setLineDash([20,10]);
+  CTX.strokeRect(BMIN,BMIN,BMAX-BMIN,BMAX-BMIN);
+  CTX.setLineDash([]);
+  // Dim outside area
+  CTX.fillStyle='rgba(0,0,0,0.4)';
+  CTX.fillRect(0,0,GW,BMIN);
+  CTX.fillRect(0,BMAX,GW,GH-BMAX);
+  CTX.fillRect(0,BMIN,BMIN,BMAX-BMIN);
+  CTX.fillRect(BMAX,BMIN,GW-BMAX,BMAX-BMIN);
+
 
   // Food
   food.forEach(f=>{
@@ -619,8 +632,9 @@ function loop(){
     // (client prediction of dash velocity causes map drift due to dtFrac scaling)
     let pvx,pvy;
     if(nowT<dashEndT+200){
-      predX=latestMe.x;
-      predY=latestMe.y;
+      // Fast lerp toward server pos during dash - smooth even between state updates
+      predX+=(latestMe.x-predX)*0.35;
+      predY+=(latestMe.y-predY)*0.35;
     } else {
       pvx=inputVx*spd;pvy=inputVy*spd;
       predX=Math.max(pr,Math.min(GW-pr,predX+pvx*dtFrac));
