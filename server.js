@@ -121,10 +121,10 @@ io.on('connection',sock=>{
     p.inv.dash--;
     // Smooth dash: high velocity burst decays naturally each tick
     // 200px target: vx=40px/tick, decays ~5 ticks = smooth slide
-    const dashSpd=48; // vx=48, 8 ticks, decay=0.82 -> ~202px from edge
+    const dashSpd=82; // vx=82, 12 ticks, decay=0.82 -> ~403px from edge
     p.vx=nx*dashSpd;
     p.vy=ny*dashSpd;
-    p._dashing=8;
+    p._dashing=12;
   });
   sock.on('shield',()=>{
     const p=players[sock.id];if(!p||p.inv.shield<=0||p.cdW>0)return;
@@ -220,7 +220,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(dst2(p.x,p.y,it.x,it.y)<(pr+it.r)*(pr+it.r)){
+      if(dst2(p.x,p.y,it.x,it.y)<(pr+14)*(pr+14)){ // hitbox r=14, visual r=28
         if(it.type==='DASH')p.inv.dash++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
@@ -321,7 +321,7 @@ function physics(now){
         respawnPlayer(p,bot.name);
       }
       const pr=mtr(p.mass);
-      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<pr*pr){
+      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<(pr+mtr(bot.mass))*(pr+mtr(bot.mass))){
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col});
         bot.mass=20;bot.x=rnd(300,GW-300);bot.y=rnd(300,GH-300);
