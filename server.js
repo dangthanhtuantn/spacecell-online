@@ -232,6 +232,7 @@ function physics(now){
         else if(it.type==='MAGNET')p.inv.magnet++;
         else if(it.type==='BOMB')p.inv.bomb++;
         else if(it.type==='BULLET')p.inv.bullet++; // activate on shoot (E key)
+        io.emit('explode',{x:it.x,y:it.y,col:it.col,big:1,r:it.r});
         const{type,id}=it;items.splice(j,1);schedItem(type);
         io.emit('itemRemoved',id);
       }
@@ -325,9 +326,10 @@ function physics(now){
         respawnPlayer(p,bot.name);
       }
       const pr=mtr(p.mass);
-      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<(pr+mtr(bot.mass))*(pr+mtr(bot.mass))){
+      if(p.mass>bot.mass*1.1&&(()=>{const br=mtr(bot.mass);const gap=pr-br;return gap>0&&dst2(p.x,p.y,bot.x,bot.y)<gap*gap;})()){
+
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
-        qe('explode',{x:bot.x,y:bot.y,col:bot.col});
+        qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
         bot.mass=20;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
       }
     }
