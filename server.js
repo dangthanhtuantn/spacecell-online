@@ -9,7 +9,8 @@ const io=new Server(server,{cors:{origin:'*'}});
 app.use(express.static(path.join(__dirname,'public')));
 
 // ── Constants ─────────────────────────────────────────────────
-const GW=6000,GH=6000,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
+const GW=7000,GH=7000,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
+const INNER=500; // buffer from edge where entities spawn
 const ITEM_MAX=6,AOI_RANGE=5000;
 const LERP_B=0.35,FRIC=0.80; // bots only - players use direct velocity
 
@@ -51,8 +52,8 @@ function gnear(x,y,rad){
 const FSIZES=[{mass:5,r:3,w:30},{mass:10,r:4,w:25},{mass:20,r:5,w:20},{mass:50,r:7,w:15},{mass:100,r:10,w:10}];
 function mkFood(){
   const roll=Math.random()*100;let acc=0;
-  for(const ft of FSIZES){acc+=ft.w;if(roll<acc)return{x:rnd(30,GW-30),y:rnd(30,GH-30),mass:ft.mass,r:ft.r,col:`hsl(${0|rnd(0,360)},80%,65%)`};}
-  return{x:rnd(30,GW-30),y:rnd(30,GH-30),mass:5,r:3,col:'#aaa'};
+  for(const ft of FSIZES){acc+=ft.w;if(roll<acc)return{x:rnd(INNER+30,GW-INNER-30),y:rnd(INNER+30,GH-INNER-30),mass:ft.mass,r:ft.r,col:`hsl(${0|rnd(0,360)},80%,65%)`};}
+  return{x:rnd(INNER+30,GW-INNER-30),y:rnd(INNER+30,GH-INNER-30),mass:5,r:3,col:'#aaa'};
 }
 function eatFood(i){grem(i);food[i]=mkFood();gadd(i);}
 
@@ -60,7 +61,7 @@ const ITYPES=['DASH','SHIELD','STEALTH','GROW','MAGNET','TOXIC','BOMB','BULLET']
 const ICOLS={DASH:'#0cf',SHIELD:'#88f',STEALTH:'#ccc',GROW:'#4f4',MAGNET:'#f0f',TOXIC:'#8f0',BOMB:'#f80',BULLET:'#ff4'};
 function spawnItem(t){
   if(items.filter(x=>x.type===t).length>=ITEM_MAX)return;
-  items.push({id:uid(),x:rnd(200,GW-200),y:rnd(200,GH-200),type:t,r:28,col:ICOLS[t],label:t,pickup:t!=='TOXIC'});
+  items.push({id:uid(),x:rnd(INNER+200,GW-INNER-200),y:rnd(INNER+200,GH-INNER-200),type:t,r:28,col:ICOLS[t],label:t,pickup:t!=='TOXIC'});
   io.emit('itemAdded',items[items.length-1]);
 }
 function schedItem(t){setTimeout(()=>spawnItem(t),15000);}
@@ -69,7 +70,7 @@ function schedItem(t){setTimeout(()=>spawnItem(t),15000);}
 const BNAMES=['Orion','Lyra','Nebula','Vega','Pulsar','Quasar','Sirius','Nova','Titan','Andromeda','Zeta','Rigel','Spica','Altair','Deneb'];
 const BCOLS=['#f55','#f90','#ff4','#4f4','#4cf','#f4f','#fa4','#5fa','#f5a','#af5','#5af','#ff8','#f64','#6f4','#46f'];
 function mkBot(i){
-  return{id:'b'+i,x:rnd(300,GW-300),y:rnd(300,GH-300),mass:20,vx:0,vy:0,_dashing:0,
+  return{id:'b'+i,x:rnd(INNER+300,GW-INNER-300),y:rnd(INNER+300,GH-INNER-300),mass:20,vx:0,vy:0,_dashing:0,
     col:BCOLS[i%15],name:BNAMES[i%15]+(i>=15?'_'+(i/15|0):''),
     atx:rnd(0,GW),aty:rnd(0,GH),at:rnd(0,1500),st:rnd(0,7)};
 }
@@ -77,7 +78,7 @@ function mkBot(i){
 // ── Players ───────────────────────────────────────────────────
 function mkPlayer(id,name,color,flag){
   return{id,name:name||'Player',color:color||'#00cfff',flag:flag||null,
-    x:rnd(300,GW-300),y:rnd(300,GH-300),mass:20,vx:0,vy:0,
+    x:rnd(INNER+300,GW-INNER-300),y:rnd(INNER+300,GH-INNER-300),mass:20,vx:0,vy:0,
     shieldEnd:Date.now()+5000,stealthEnd:0,_dashFrames:0,
     inv:{dash:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0},bulletEnd:0,
     cdQ:0,cdW:0,cdR:0,cdB:0,cdF:0,_lastShot:0,
@@ -177,7 +178,7 @@ function qet(id,ev,d){pending.push({ev,d,to:id});}
 
 function respawnPlayer(p,by){
   qet(p.id,'died',{by});
-  p.mass=20;p.x=rnd(300,GW-300);p.y=rnd(300,GH-300);
+  p.mass=20;p.x=rnd(INNER+300,GW-INNER-300);p.y=rnd(INNER+300,GH-INNER-300);
   p.vx=0;p.vy=0;p.shieldEnd=Date.now()+5000;
 }
 
@@ -277,7 +278,7 @@ function physics(now){
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
         b.active=false;bullets.splice(i,1);hit=true;
-        if(bot.mass<20){bot.mass=20;bot.x=rnd(300,GW-300);bot.y=rnd(300,GH-300);}
+        if(bot.mass<20){bot.mass=20;bot.x=rnd(INNER+300,GW-INNER-300);bot.y=rnd(INNER+300,GH-INNER-300);}
       }
     }
   }
@@ -327,7 +328,7 @@ function physics(now){
       if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<(pr+mtr(bot.mass))*(pr+mtr(bot.mass))){
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col});
-        bot.mass=20;bot.x=rnd(300,GW-300);bot.y=rnd(300,GH-300);
+        bot.mass=20;bot.x=rnd(INNER+300,GW-INNER-300);bot.y=rnd(INNER+300,GH-INNER-300);
       }
     }
     // Bot shoot
@@ -343,7 +344,7 @@ function physics(now){
         }
       }
     }
-    if(bot.mass<20){bot.mass=20;bot.x=rnd(300,GW-300);bot.y=rnd(300,GH-300);}
+    if(bot.mass<20){bot.mass=20;bot.x=rnd(INNER+300,GW-INNER-300);bot.y=rnd(INNER+300,GH-INNER-300);}
   }
 
   // Flush events
