@@ -76,13 +76,12 @@ canvas{display:block;}
 
 <!-- Skill bar -->
 <div id="inv">
-  <div class="sk" id="skQ"><div class="k">Q</div><div class="n">DASH</div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
-  <div class="sk" id="skW"><div class="k">W</div><div class="n">SHIELD</div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
-  <div class="sk" id="skE"><div class="k">E</div><div class="n">BULLET</div><div class="cnt" id="cntE">0</div><div class="cd" id="cdE"></div></div>
-  <div class="sk" id="skR"><div class="k">R</div><div class="n">STEALTH</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
+  <div class="sk" id="skQ"><div class="k">S</div><div class="n">SPEED</div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
+  <div class="sk" id="skW"><div class="k">E</div><div class="n">SHIELD</div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
+  <div class="sk" id="skE"><div class="k">🖱</div><div class="n">SHOOT</div><div class="cnt" id="cntE">∞</div><div class="cd" id="cdE"></div></div>
+  <div class="sk" id="skR"><div class="k">T</div><div class="n">STEALTH</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
   <div class="sk" id="skB"><div class="k">B</div><div class="n">BOMB</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
-  <div class="sk" id="skF"><div class="k">F</div><div class="n">MAGNET</div><div class="cnt" id="cntF">0</div><div class="cd" id="cdF"></div></div>
-  <div class="sk" id="skG"><div class="k">E+</div><div class="n">DUAL</div><div class="cnt" id="cntG">-</div><div class="cd" id="cdG"></div></div>
+  <div class="sk" id="skF"><div class="k">F</div><div class="n">MAGNET</div><div class="cnt" id="cntF">-</div><div class="cd" id="cdF"></div></div>
 </div>
 
 <div id="msgs"></div>
@@ -278,7 +277,7 @@ function connect(){
       id:p.i,name:p.n,color:p.c,flag:p.f,
       x:p.x,y:p.y,mass:p.m,
       shielded:!!p.sh,stealthed:!!p.st,
-      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,cdF:p.cF,bulletEnd:p.bE
+      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,speedEnd:p.sE,magnetEnd:p.mE,shieldEnd:p.shE,stealthEnd:p.stE
     }));
     const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
     const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
@@ -333,17 +332,17 @@ function updateHUD(me){
   const hm=document.getElementById('hm');if(hm)hm.textContent=Math.floor(me.mass)+' M';
   const hs=document.getElementById('hs');if(hs)hs.textContent=Math.round(speedMult(me.mass)*100)+'%';
   if(me.inv){
-    updSk('Q',me.inv.dash,0,false,false);
-    updSk('W',me.inv.shield,me.cdW,false,false);
-    // E shows bullet stack (shoot via left click now)
-  const bStk=me.inv&&me.inv.bullet||0;
-  updSk('E',bStk,0,false,false);
-    updSk('R',me.inv.stealth,me.cdR,false,false);
-    updSk('B',me.inv.bomb,me.cdB,false,false);
-    updSk('F',me.inv.magnet,me.cdF,false,false);
-  const bulletRem=me.bulletEnd?Math.max(0,me.bulletEnd-Date.now()):0;
-  // Show stack count when not active, show timer when active
-  updSk('G',me.inv&&me.inv.bullet>0?me.inv.bullet:(bulletRem>0?1:0),bulletRem,false,false);
+    const nh=Date.now();
+    const speedRem=me.speedEnd?Math.max(0,me.speedEnd-nh):0;
+    updSk('Q',speedRem>0?1:(me.inv.speed||0),speedRem,false,false); // S=SPEED
+    const shRem=me.shieldEnd?Math.max(0,me.shieldEnd-nh):0;
+    updSk('W',shRem>0?1:(me.inv.shield||0),shRem,false,false);     // E=SHIELD
+    updSk('E',1,0,true,false);                                       // mouse=SHOOT
+    const stRem=me.stealthEnd?Math.max(0,me.stealthEnd-nh):0;
+    updSk('R',stRem>0?1:(me.inv.stealth||0),stRem,false,false);    // T=STEALTH
+    updSk('B',me.inv.bomb||0,me.cdB,false,false);                   // B=BOMB
+    const magRem=me.magnetEnd?Math.max(0,me.magnetEnd-nh):0;
+    updSk('F',magRem>0?1:(me.inv.magnet||0),magRem,false,false);   // auto=MAGNET
   }
   // Rank
   const interp=getInterp();
@@ -375,18 +374,11 @@ function handleKey(code){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  if(code==='KeyQ'){
-    const cme=currentMe;
-    if(!cme||!cme.inv||cme.inv.dash<=0)return;
-    const nx=ml>15?mdx/ml:0, ny=ml>15?mdy/ml:0;
-    socket.emit('dash',{nx,ny});
-    // Mirror server dash in client prediction
-    dashVx=nx*82;dashVy=ny*82;dashEndT=nowT+396; // 12 server ticks * 33ms = 396ms
-  }
-  if(code==='KeyW')socket.emit('shield');
-  if(code==='KeyR')socket.emit('stealth');
+  if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.speed)return;socket.emit('speed');}
+  if(code==='KeyE'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
+  if(code==='KeyT'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
   if(code==='KeyB'){const wx=Mouse.x+camX,wy=Mouse.y+camY;const dx=wx-(me?me.x:camX+SW/2),dy=wy-(me?me.y:camY+SH/2);const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
-  if(code==='KeyF')socket.emit('magnet');
+  // F (magnet auto-activates on pickup)
 }
 
 // Send input every tick
