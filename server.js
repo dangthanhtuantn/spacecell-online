@@ -57,8 +57,8 @@ function mkFood(){
 }
 function eatFood(i){grem(i);food[i]=mkFood();gadd(i);}
 
-const ITYPES=['SPEED','SHIELD','STEALTH','GROW','MAGNET','TOXIC','BOMB'];
-const ICOLS={SPEED:'#0ff',SHIELD:'#88f',STEALTH:'#ccc',GROW:'#4f4',MAGNET:'#f0f',TOXIC:'#8f0',BOMB:'#f80'};
+const ITYPES=['SPEED','SHIELD','STEALTH','GROW','MAGNET','TOXIC','BOMB','BULLET'];
+const ICOLS={SPEED:'#0ff',SHIELD:'#88f',STEALTH:'#ccc',GROW:'#4f4',MAGNET:'#f0f',TOXIC:'#8f0',BOMB:'#f80',BULLET:'#ff4'};
 function spawnItem(t){
   if(items.filter(x=>x.type===t).length>=ITEM_MAX)return;
   items.push({id:uid(),x:rnd(BMIN+200,BMAX-200),y:rnd(BMIN+200,BMAX-200),type:t,r:28,col:ICOLS[t],label:t,pickup:t!=='TOXIC'});
@@ -80,7 +80,7 @@ function mkPlayer(id,name,color,flag){
   return{id,name:name||'Player',color:color||'#00cfff',flag:flag||null,
     x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass:100,vx:0,vy:0,
     shieldEnd:Date.now()+5000,stealthEnd:0,_dashing:0,
-    inv:{speed:0,shield:0,stealth:0,bomb:0,magnet:0},speedEnd:0,magnetEnd:0,
+    inv:{speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0},speedEnd:0,magnetEnd:0,bulletEnd:0,
     cdQ:0,cdW:0,cdR:0,cdB:0,_lastShot:0,
     inputVx:0,inputVy:0};
 }
@@ -134,10 +134,6 @@ io.on('connection',sock=>{
     p.inv.bomb--;p.cdB=1500;const r=mtr(p.mass);
     bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'bomb',r:14,life:32,col:'#f80',owner:sock.id}));
   });
-  sock.on('speed',()=>{
-    const p=players[sock.id];if(!p||!p.inv.speed||p.inv.speed<=0)return;
-    p.inv.speed--;p.speedEnd=Date.now()+3000; // 3s double speed
-  });
   // Magnet auto-activates on pickup (no manual key)
   sock.on('shoot',({nx,ny,px,py})=>{
     const p=players[sock.id];if(!p||p.mass<=20)return;
@@ -148,6 +144,12 @@ io.on('connection',sock=>{
     const sy=(py!==undefined&&Math.hypot(px-p.x,py-p.y)<200)?py:p.y;
     // Primary bullet - from front edge facing cursor
     bullets.push(getBullet({id:uid(),x:sx+nx*(r+5),y:sy+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:p.color,owner:sock.id}));
+    if(p.inv.bullet>0&&now>=p.bulletEnd){p.inv.bullet--;p.bulletEnd=now+10000;}
+    if(now<p.bulletEnd){
+      const bpx=-ny,bpy=nx,bsp=22;
+      bullets.push(getBullet({id:uid(),x:sx+bpx*bsp+nx*(r+5),y:sy+bpy*bsp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
+      bullets.push(getBullet({id:uid(),x:sx-bpx*bsp+nx*(r+5),y:sy-bpy*bsp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
+    }
 
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
@@ -225,6 +227,7 @@ function physics(now){
         else if(it.type==='GROW')p.mass=Math.min(10000,p.mass*2);
         else if(it.type==='MAGNET'){p.inv.magnet++;p.magnetEnd=Date.now()+5000;} // auto-activate 5s
         else if(it.type==='BOMB')p.inv.bomb++;
+        else if(it.type==='BULLET')p.inv.bullet++;
         io.emit('explode',{x:it.x,y:it.y,col:it.col,big:1,r:it.r});
         const{type,id}=it;items.splice(j,1);schedItem(type);
         io.emit('itemRemoved',id);
@@ -361,7 +364,7 @@ function broadcast(now){
     for(let j=0;j<PL;j++){
       const q=PA[j];
       if(j!==i&&dst2(p.x,p.y,q.x,q.y)>=aoi2)continue;
-      vP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,sE:q.speedEnd,mE:q.magnetEnd,shE:q.shieldEnd,stE:q.stealthEnd});
+      vP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,sE:q.speedEnd,mE:q.magnetEnd,shE:q.shieldEnd,stE:q.stealthEnd,bE:q.bulletEnd});
     }
     for(let j=0;j<BL;j++){
       const b=bots[j];if(dst2(p.x,p.y,b.x,b.y)<aoi2)vB.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name});

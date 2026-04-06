@@ -82,6 +82,7 @@ canvas{display:block;}
   <div class="sk" id="skR"><div class="k">T</div><div class="n">STEALTH</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
   <div class="sk" id="skB"><div class="k">B</div><div class="n">BOMB</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
   <div class="sk" id="skF"><div class="k">F</div><div class="n">MAGNET</div><div class="cnt" id="cntF">-</div><div class="cd" id="cdF"></div></div>
+  <div class="sk" id="skG"><div class="k">🖱</div><div class="n">BULLET</div><div class="cnt" id="cntG">0</div><div class="cd" id="cdG"></div></div>
 </div>
 
 <div id="msgs"></div>
@@ -277,7 +278,7 @@ function connect(){
       id:p.i,name:p.n,color:p.c,flag:p.f,
       x:p.x,y:p.y,mass:p.m,
       shielded:!!p.sh,stealthed:!!p.st,
-      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,speedEnd:p.sE,magnetEnd:p.mE,shieldEnd:p.shE,stealthEnd:p.stE
+      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,speedEnd:p.sE,magnetEnd:p.mE,shieldEnd:p.shE,stealthEnd:p.stE,bulletEnd:p.bE
     }));
     const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
     const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
@@ -342,7 +343,9 @@ function updateHUD(me){
     updSk('R',stRem>0?1:(me.inv.stealth||0),stRem,false,false);    // T=STEALTH
     updSk('B',me.inv.bomb||0,me.cdB,false,false);                   // B=BOMB
     const magRem=me.magnetEnd?Math.max(0,me.magnetEnd-nh):0;
-    updSk('F',magRem>0?1:(me.inv.magnet||0),magRem,false,false);   // auto=MAGNET
+    updSk('F',magRem>0?'M':' ',magRem,false,false); // MAGNET auto, timer only
+    const bulRem=me.bulletEnd?Math.max(0,me.bulletEnd-nh):0;
+    updSk('G',bulRem>0?1:(me.inv&&me.inv.bullet||0),bulRem,false,false); // BULLET
   }
   // Rank
   const interp=getInterp();
