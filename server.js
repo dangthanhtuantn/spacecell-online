@@ -48,7 +48,7 @@ function gnear(x,y,rad){
 }
 
 // ── Food & Items ──────────────────────────────────────────────
-const FSIZES=[{mass:5,r:3,w:50},{mass:10,r:4,w:25},{mass:20,r:5,w:15},{mass:50,r:7,w:5},{mass:100,r:10,w:5}];
+const FSIZES=[{mass:5,r:3,w:30},{mass:10,r:4,w:25},{mass:20,r:5,w:20},{mass:50,r:7,w:15},{mass:100,r:10,w:10}];
 function mkFood(){
   const roll=Math.random()*100;let acc=0;
   for(const ft of FSIZES){acc+=ft.w;if(roll<acc)return{x:rnd(30,GW-30),y:rnd(30,GH-30),mass:ft.mass,r:ft.r,col:`hsl(${0|rnd(0,360)},80%,65%)`};}
@@ -223,7 +223,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(dst2(p.x,p.y,it.x,it.y)<(pr+14)*(pr+14)){ // hitbox r=14, visual r=28
+      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<(pr+14)*(pr+14)){ // need mass>=100 to pick up item
         if(it.type==='DASH')p.inv.dash++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
