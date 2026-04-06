@@ -482,18 +482,9 @@ function render(){
   const gc0=Math.floor(camX/500)*500,gr0=Math.floor(camY/500)*500;
   for(let gx=gc0;gx<camX+SW+500;gx+=500){CTX.beginPath();CTX.moveTo(gx,0);CTX.lineTo(gx,GH);CTX.stroke();}
   for(let gy=gr0;gy<camY+SH+500;gy+=500){CTX.beginPath();CTX.moveTo(0,gy);CTX.lineTo(GW,gy);CTX.stroke();}
-  // Play boundary: visible 6000x6000 zone (500..6500)
-  const BMIN=500,BMAX=6500;
-  CTX.strokeStyle='rgba(255,80,80,0.7)';CTX.lineWidth=3;
-  CTX.setLineDash([20,10]);
-  CTX.strokeRect(BMIN,BMIN,BMAX-BMIN,BMAX-BMIN);
-  CTX.setLineDash([]);
-  // Dim outside area
-  CTX.fillStyle='rgba(0,0,0,0.4)';
-  CTX.fillRect(0,0,GW,BMIN);
-  CTX.fillRect(0,BMAX,GW,GH-BMAX);
-  CTX.fillRect(0,BMIN,BMIN,BMAX-BMIN);
-  CTX.fillRect(BMAX,BMIN,GW-BMAX,BMAX-BMIN);
+  // Map boundary: draw visible edge at GW/GH
+  CTX.strokeStyle='rgba(255,80,80,0.8)';CTX.lineWidth=4;
+  CTX.strokeRect(0,0,GW,GH);
 
 
   // Food
