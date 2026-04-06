@@ -10,7 +10,7 @@ app.use(express.static(path.join(__dirname,'public')));
 
 // ── Constants ─────────────────────────────────────────────────
 const GW=6000,GH=6000,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
-const ITEM_MAX=6,AOI_RANGE=3500;
+const ITEM_MAX=6,AOI_RANGE=5000;
 const LERP_B=0.35,FRIC=0.80; // bots only - players use direct velocity
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
@@ -69,7 +69,7 @@ function schedItem(t){setTimeout(()=>spawnItem(t),15000);}
 const BNAMES=['Orion','Lyra','Nebula','Vega','Pulsar','Quasar','Sirius','Nova','Titan','Andromeda','Zeta','Rigel','Spica','Altair','Deneb'];
 const BCOLS=['#f55','#f90','#ff4','#4f4','#4cf','#f4f','#fa4','#5fa','#f5a','#af5','#5af','#ff8','#f64','#6f4','#46f'];
 function mkBot(i){
-  return{id:'b'+i,x:rnd(300,GW-300),y:rnd(300,GH-300),mass:20,vx:0,vy:0,
+  return{id:'b'+i,x:rnd(300,GW-300),y:rnd(300,GH-300),mass:20,vx:0,vy:0,_dashing:0,
     col:BCOLS[i%15],name:BNAMES[i%15]+(i>=15?'_'+(i/15|0):''),
     atx:rnd(0,GW),aty:rnd(0,GH),at:rnd(0,1500),st:rnd(0,7)};
 }
@@ -119,13 +119,12 @@ io.on('connection',sock=>{
   sock.on('dash',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.inv.dash<=0)return;
     p.inv.dash--;
-    // Teleport 200px in move direction, keep current velocity
-    const pr=mtr(p.mass);
-    p.x=Math.max(pr,Math.min(GW-pr,p.x+nx*200));
-    p.y=Math.max(pr,Math.min(GH-pr,p.y+ny*200));
-    // Boost speed 2x briefly
-    p.vx=nx*baseSpd(p.mass)*2;
-    p.vy=ny*baseSpd(p.mass)*2;
+    // Smooth dash: high velocity burst decays naturally each tick
+    // 200px target: vx=40px/tick, decays ~5 ticks = smooth slide
+    const dashSpd=40;
+    p.vx=nx*dashSpd;
+    p.vy=ny*dashSpd;
+    p._dashing=8; // ticks to maintain dash momentum
   });
   sock.on('shield',()=>{
     const p=players[sock.id];if(!p||p.inv.shield<=0||p.cdW>0)return;
@@ -152,14 +151,14 @@ io.on('connection',sock=>{
     const now=Date.now();if(now-p._lastShot<250)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
     // Primary bullet
-    bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:p.color,owner:sock.id}));
+    bullets.push(getBullet({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:p.color,owner:sock.id}));
     // BULLET item: activate when shooting if have stack (consume 1 per use, 10s timer)
     if(p.inv.bullet>0&&now>=p.bulletEnd){p.inv.bullet--;p.bulletEnd=now+10000;}
     if(now<p.bulletEnd){
       const px=-ny,py=nx; // perpendicular vector
       const sp=22; // spread px - wide enough to hit targets independently
-      bullets.push(getBullet({id:uid(),x:p.x+px*sp+nx*(r+5),y:p.y+py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:'#ff4',owner:sock.id}));
-      bullets.push(getBullet({id:uid(),x:p.x-px*sp+nx*(r+5),y:p.y-py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:'#ff4',owner:sock.id}));
+      bullets.push(getBullet({id:uid(),x:p.x+px*sp+nx*(r+5),y:p.y+py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
+      bullets.push(getBullet({id:uid(),x:p.x-px*sp+nx*(r+5),y:p.y-py*sp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
     }
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
@@ -197,9 +196,15 @@ function physics(now){
     if(p.cdQ>0)p.cdQ-=TICK_MS;if(p.cdW>0)p.cdW-=TICK_MS;
     if(p.cdR>0)p.cdR-=TICK_MS;if(p.cdB>0)p.cdB-=TICK_MS;if(p.cdF>0)p.cdF-=TICK_MS;
     const spd=baseSpd(p.mass);
-    // Direct velocity: instant response (dash teleports, no dashFrames needed)
-    p.vx=p.inputVx*spd;
-    p.vy=p.inputVy*spd;
+    // Direct velocity (or dash momentum if dashing)
+    if(p._dashing>0){
+      p._dashing--;
+      // Preserve dash velocity, decay naturally
+      p.vx*=0.82;p.vy*=0.82;
+    } else {
+      p.vx=p.inputVx*spd;
+      p.vy=p.inputVy*spd;
+    }
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx,pr,GW-pr);p.y=clamp(p.y+p.vy,pr,GH-pr);
     p.mass=clamp(p.mass,10,10000);
@@ -330,7 +335,7 @@ function physics(now){
         const d2=dst2(bot.x,bot.y,p.x,p.y);
         if(d2>1&&d2<200000){
           const d=Math.sqrt(d2),nx=(p.x-bot.x)/d,ny=(p.y-bot.y)/d;
-          bullets.push(getBullet({id:uid(),x:bot.x+nx*(br+5),y:bot.y+ny*(br+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:30,col:bot.col,owner:bot.id}));
+          bullets.push(getBullet({id:uid(),x:bot.x+nx*(br+5),y:bot.y+ny*(br+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:bot.col,owner:bot.id}));
           bot.mass=Math.max(5,bot.mass-1);
         }
       }
