@@ -213,10 +213,14 @@ function physics(now){
         p.x=clamp(p.x+p.vx,BMIN+pr,BMAX-pr);p.y=clamp(p.y+p.vy,BMIN+pr,BMAX-pr);
     p.mass=clamp(p.mass,10,10000);
     // Eat food — use exact server position, no drift hacks needed
-    const nr=gnear(p.x,p.y,pr+20);
+    const nr=gnear(p.x,p.y,pr+15); // search radius = player edge +15
     for(const fi of nr){
       const f=food[fi];
-      if(p.mass>=f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){
+      // Eat food: food circle must be inside player circle (cover logic)
+      // dist < pr - f.r  (food fully inside player)
+      // For tiny food (f.r<=3): dist < pr (food center inside player)
+      if(p.mass>=f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr-f.r)*(pr-f.r)){
+
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
       }
@@ -224,7 +228,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<(pr+it.r)*(pr+it.r)){ // eat on visual touch
+      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<pr*pr){ // item center inside player
         if(it.type==='DASH')p.inv.dash++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
@@ -326,7 +330,7 @@ function physics(now){
         respawnPlayer(p,bot.name);
       }
       const pr=mtr(p.mass);
-      if(p.mass>bot.mass*1.1&&(()=>{const br=mtr(bot.mass);const gap=pr-br;return gap>0&&dst2(p.x,p.y,bot.x,bot.y)<gap*gap;})()){
+      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<pr*pr){
 
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
