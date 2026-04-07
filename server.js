@@ -70,7 +70,7 @@ function schedItem(t){setTimeout(()=>spawnItem(t),15000);}
 const BNAMES=['Orion','Lyra','Nebula','Vega','Pulsar','Quasar','Sirius','Nova','Titan','Andromeda','Zeta','Rigel','Spica','Altair','Deneb'];
 const BCOLS=['#f55','#f90','#ff4','#4f4','#4cf','#f4f','#fa4','#5fa','#f5a','#af5','#5af','#ff8','#f64','#6f4','#46f'];
 function mkBot(i){
-  return{id:'b'+i,x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass:100,vx:0,vy:0,_dashing:0,
+  return{id:'b'+i,x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass:Math.floor(rnd(100,1000)),vx:0,vy:0,_dashing:0,
     col:BCOLS[i%15],name:BNAMES[i%15]+(i>=15?'_'+(i/15|0):''),
     atx:rnd(0,GW),aty:rnd(0,GH),at:rnd(0,1500),st:rnd(0,7)};
 }
@@ -205,13 +205,13 @@ function physics(now){
     // Stealth: player is invisible and cannot eat
     if(now2<p.stealthEnd){} else {
     // Eat food — use exact server position, no drift hacks needed
-    const nr=gnear(p.x,p.y,pr+5); // search radius = player edge +5
+    const nr=gnear(p.x,p.y,pr+12); // search radius covers max food radius
     for(const fi of nr){
       const f=food[fi];
       // Eat food: food circle must be inside player circle (cover logic)
       // dist < pr - f.r  (food fully inside player)
       // For tiny food (f.r<=3): dist < pr (food center inside player)
-      if(p.mass>=f.mass&&dst2(p.x,p.y,f.x,f.y)<pr*pr){ // food center inside player
+      if(p.mass>=f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){ // visual touch
 
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
@@ -282,7 +282,7 @@ function physics(now){
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
         b.active=false;bullets.splice(i,1);hit=true;
-        if(bot.mass<20){bot.mass=20;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
+        if(bot.mass<20){bot.mass=Math.floor(rnd(100,1000));bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
       }
     }
   }
@@ -315,11 +315,7 @@ function physics(now){
     bot.vx+=(dx/dl*spd-bot.vx)*lB;bot.vy+=(dy/dl*spd-bot.vy)*lB;bot.vx*=fr;bot.vy*=fr;
     const br=mtr(bot.mass);
     bot.x=clamp(bot.x+bot.vx,BMIN+br,BMAX-br);bot.y=clamp(bot.y+bot.vy,BMIN+br,BMAX-br);
-    // Bot eat food
-    gnear(bot.x,bot.y,br+10).forEach(fi=>{
-      const f=food[fi];
-      if(bot.mass>=f.mass&&dst2(bot.x,bot.y,f.x,f.y)<(br+f.r)*(br+f.r)){bot.mass=Math.min(10000,bot.mass+f.mass);eatFood(fi);}
-    });
+    // Bot does not eat food
     // Bot vs player
     for(let j=0;j<PL;j++){
       const p=PA[j];if(now<p.shieldEnd)continue;
@@ -333,7 +329,7 @@ function physics(now){
 
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
-        bot.mass=20;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
+        bot.mass=Math.floor(rnd(100,1000));bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
       }
     }
     // Bot shoot
@@ -349,7 +345,7 @@ function physics(now){
         }
       }
     }
-    if(bot.mass<20){bot.mass=20;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
+    if(bot.mass<20){bot.mass=Math.floor(rnd(100,1000));bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
   }
 
   // Flush events
