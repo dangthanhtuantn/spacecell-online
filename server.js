@@ -292,23 +292,37 @@ function physics(now){
     const bot=bots[i];
     bot.at-=TICK_MS;bot.st--;
     if(bot.at<=0){
-      bot.at=rnd(400,1200);
-      let best=null,bs=-Infinity,fx=0,fy=0,flee=false;
+      bot.at=rnd(1500,4000); // re-evaluate every 1.5-4s
+      let fx=0,fy=0,flee=false,attackTarget=null,attackScore=-Infinity;
+
       for(let j=0;j<PL;j++){
         const p=PA[j];if(now<p.stealthEnd)continue;
         const d2=dst2(bot.x,bot.y,p.x,p.y);
-        if(p.mass>bot.mass*1.1&&d2<90000){const d=Math.sqrt(d2)||1;fx+=(bot.x-p.x)/d;fy+=(bot.y-p.y)/d;flee=true;}
-      }
-      if(flee){const fl=Math.hypot(fx,fy)||1;bot.atx=clamp(bot.x+fx/fl*500,BMIN+100,BMAX-100);bot.aty=clamp(bot.y+fy/fl*500,BMIN+100,BMAX-100);}
-      else{
-        const nf=gnear(bot.x,bot.y,600);
-        nf.forEach(fi=>{const f=food[fi];if(bot.mass>f.mass){const s=f.mass/(Math.hypot(bot.x-f.x,bot.y-f.y)+1);if(s>bs){bs=s;best=f;}}});
-        for(let j=0;j<PL;j++){
-          const p=PA[j];if(now<p.stealthEnd||bot.mass<=p.mass*1.1)continue;
-          const d2=dst2(bot.x,bot.y,p.x,p.y);
-          if(d2<200000){const s=600/(Math.sqrt(d2)+1);if(s>bs){bs=s;best=p;}}
+        const d=Math.sqrt(d2)||1;
+        if(p.mass>bot.mass*1.1){
+          // Flee from larger players (up to 1500px radius)
+          if(d<1500){fx+=(bot.x-p.x)/d;fy+=(bot.y-p.y)/d;flee=true;}
+        } else if(bot.mass>p.mass*1.1){
+          // Attack smaller players (up to 3000px radius)
+          if(d<3000){
+            const score=1000/d*(bot.mass/Math.max(p.mass,1));
+            if(score>attackScore){attackScore=score;attackTarget=p;}
+          }
         }
-        bot.atx=best?best.x:rnd(100,GW-100);bot.aty=best?best.y:rnd(100,GH-100);
+      }
+
+      if(flee){
+        // Run away from danger
+        const fl=Math.hypot(fx,fy)||1;
+        bot.atx=clamp(bot.x+fx/fl*1000,BMIN+100,BMAX-100);
+        bot.aty=clamp(bot.y+fy/fl*1000,BMIN+100,BMAX-100);
+      } else if(attackTarget){
+        // Chase smaller player
+        bot.atx=attackTarget.x;bot.aty=attackTarget.y;
+      } else {
+        // Free wander: random direction in large step
+        bot.atx=clamp(bot.x+rnd(-1200,1200),BMIN+100,BMAX-100);
+        bot.aty=clamp(bot.y+rnd(-1200,1200),BMIN+100,BMAX-100);
       }
     }
     const dx=bot.atx-bot.x,dy=bot.aty-bot.y,dl=Math.hypot(dx,dy)||1,spd=baseSpd(bot.mass);
