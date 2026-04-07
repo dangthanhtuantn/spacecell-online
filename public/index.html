@@ -301,6 +301,8 @@ function connect(){
     if(dm)dm.textContent='Bị hấp thụ bởi '+by+'!';
     const dead=document.getElementById('dead');
     if(dead)dead.style.display='flex';
+    // Hard reset prediction on death so it snaps to new spawn, not old position
+    predX=null;predY=null;
   });
   socket.on('explode',({x,y,nx,ny,r,col,big})=>{
     if(big){
@@ -665,8 +667,10 @@ function loop(){
       pvx=inputVx*spd;pvy=inputVy*spd;
       predX=Math.max(600+pr,Math.min(6600-pr,predX+pvx*dtFrac));
       predY=Math.max(600+pr,Math.min(6600-pr,predY+pvy*dtFrac));
-      const err=Math.hypot(latestMe.x-predX,latestMe.y-predY);
-      if(err>200){predX=latestMe.x;predY=latestMe.y;}
+      // Soft reconcile: gently blend toward server (no hard snap = no jitter)
+      // Hard snap only happens on death via the 'died' event handler
+      predX+=(latestMe.x-predX)*0.05;
+      predY+=(latestMe.y-predY)*0.05;
     }
   }
 
