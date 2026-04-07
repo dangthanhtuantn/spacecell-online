@@ -205,13 +205,13 @@ function physics(now){
     // Stealth: player is invisible and cannot eat
     if(now2<p.stealthEnd){} else {
     // Eat food — use exact server position, no drift hacks needed
-    const nr=gnear(p.x,p.y,pr+15); // search radius = player edge +15
+    const nr=gnear(p.x,p.y,pr+5); // search radius = player edge +5
     for(const fi of nr){
       const f=food[fi];
       // Eat food: food circle must be inside player circle (cover logic)
       // dist < pr - f.r  (food fully inside player)
       // For tiny food (f.r<=3): dist < pr (food center inside player)
-      if(p.mass>=f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr-f.r)*(pr-f.r)){
+      if(p.mass>=f.mass&&dst2(p.x,p.y,f.x,f.y)<pr*pr){ // food center inside player
 
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
@@ -220,7 +220,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<pr*pr){ // item center inside player
+      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<pr*pr){ // cover = eat
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
