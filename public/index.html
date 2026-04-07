@@ -667,10 +667,6 @@ function loop(){
       pvx=inputVx*spd;pvy=inputVy*spd;
       predX=Math.max(600+pr,Math.min(6600-pr,predX+pvx*dtFrac));
       predY=Math.max(600+pr,Math.min(6600-pr,predY+pvy*dtFrac));
-      // Soft reconcile: gently blend toward server (no hard snap = no jitter)
-      // Hard snap only happens on death via the 'died' event handler
-      predX+=(latestMe.x-predX)*0.05;
-      predY+=(latestMe.y-predY)*0.05;
     }
   }
 
