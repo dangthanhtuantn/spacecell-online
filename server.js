@@ -9,7 +9,7 @@ const io=new Server(server,{cors:{origin:'*'}});
 app.use(express.static(path.join(__dirname,'public')));
 
 // ── Constants ─────────────────────────────────────────────────
-const GW=7200,GH=7200,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20;
+const GW=7200,GH=7200,TICK_MS=33,FOOD_COUNT=1200,BOT_COUNT=20; // 2+4+8+4+2=20 bots
 const BMIN=600,BMAX=6600; // 6000x6000 play zone centered in 7200x7200 map
 const ITEM_MAX=6,AOI_RANGE=5000;
 const LERP_B=0.35,FRIC=0.80; // bots only - players use direct velocity
@@ -69,8 +69,8 @@ function schedItem(t){setTimeout(()=>spawnItem(t),15000);}
 // ── Bots ──────────────────────────────────────────────────────
 const BNAMES=['Orion','Lyra','Nebula','Vega','Pulsar','Quasar','Sirius','Nova','Titan','Andromeda','Zeta','Rigel','Spica','Altair','Deneb'];
 const BCOLS=['#f55','#f90','#ff4','#4f4','#4cf','#f4f','#fa4','#5fa','#f5a','#af5','#5af','#ff8','#f64','#6f4','#46f'];
-function mkBot(i){
-  return{id:'b'+i,x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass:Math.floor(rnd(100,1000)),vx:0,vy:0,_dashing:0,
+function mkBot(i,mass=500){
+  return{id:'b'+i,x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass,_initMass:mass,vx:0,vy:0,_dashing:0,
     col:BCOLS[i%15],name:BNAMES[i%15]+(i>=15?'_'+(i/15|0):''),
     atx:rnd(0,GW),aty:rnd(0,GH),at:rnd(0,1500),st:rnd(0,7)};
 }
@@ -92,7 +92,15 @@ let _id=0;const uid=()=>(++_id).toString(36);
 function initWorld(){
   food=Array.from({length:FOOD_COUNT},mkFood);
   items=[];ITYPES.forEach(t=>{for(let i=0;i<ITEM_MAX;i++)spawnItem(t);});
-  bots=Array.from({length:BOT_COUNT},(_,i)=>mkBot(i));
+  // Bots: 2×500, 4×1000, 8×2000, 4×5000, 2×10000
+const botConfig=[
+  ...Array(2).fill(500),
+  ...Array(4).fill(1000),
+  ...Array(8).fill(2000),
+  ...Array(4).fill(5000),
+  ...Array(2).fill(10000),
+];
+bots=botConfig.map((mass,i)=>mkBot(i,mass));
   bullets=[];gbuild();
 }
 
@@ -274,18 +282,21 @@ function physics(now){
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});
         b.active=false;bullets.splice(i,1);hit=true;
-        if(p.mass<20)respawnPlayer(p,'bullet');
+        if(p.mass<=100){qe('explode',{x:p.x,y:p.y,col:p.color,big:1,r:mtr(p.mass)});respawnPlayer(p,'bullet');}
       }
     }
     if(hit)continue;
     for(let j=0;j<BL&&!hit;j++){
       const bot=bots[j];if(bot.id===b.owner)continue;
       if(dst2(b.x,b.y,bot.x,bot.y)<(b.r+mtr(bot.mass))*(b.r+mtr(bot.mass))){
-        b.type==='bomb'?bot.mass=Math.max(5,bot.mass*0.7):bot.mass=Math.max(5,bot.mass-(b.dmg||5));
+        b.type==='bomb'?bot.mass=Math.max(1,bot.mass*0.7):bot.mass=Math.max(1,bot.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
         b.active=false;bullets.splice(i,1);hit=true;
-        if(bot.mass<20){bot.mass=Math.floor(rnd(100,1000));bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
+        if(bot.mass<=100){
+          qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
+          bot.mass=bot._initMass||500;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
+        }
       }
     }
   }
@@ -346,7 +357,7 @@ function physics(now){
 
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
-        bot.mass=Math.floor(rnd(100,1000));bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
+        bot.mass=bot._initMass||500;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
       }
     }
     // Bot shoot
@@ -362,7 +373,7 @@ function physics(now){
         }
       }
     }
-    if(bot.mass<20){bot.mass=Math.floor(rnd(100,1000));bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
+    if(bot.mass<20){bot.mass=bot._initMass||500;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
   }
 
   // Flush events
