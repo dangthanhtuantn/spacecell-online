@@ -266,10 +266,16 @@ function connect(){
     const initSnap={t:Date.now(),players:[],bots:d.bots||[],bullets:[]};
     for(let i=0;i<SNAP_N;i++)snaps[i]={...initSnap};
     snapHead=0;snapCount=1;
+    // Full client state reset (covers both first join and respawn)
+    predX=null;predY=null;currentMe=null;
+    dashEndT=0;dashVx=0;dashVy=0;
+    mouseDown=false;
+    Object.keys(Keys).forEach(k=>delete Keys[k]);
+    camX=GW/2-window.innerWidth/2;camY=GH/2-window.innerHeight/2;
     initStars();
     gameActive=true;
     document.getElementById('lobby').style.display='none';
-    addMsg('Welcome '+name+'! Q=Dash W=Shield E=Shoot R=Stealth B=Bomb F=Magnet','#0ff');
+    document.getElementById('dead').style.display='none';
   });
 
   socket.on('state',s=>{
@@ -682,10 +688,9 @@ function loop(){
 // ── Start ─────────────────────────────────────────────────────
 document.getElementById('sb')?.addEventListener('click',connect);
 document.getElementById('respawnBtn')?.addEventListener('click',()=>{
-  document.getElementById('dead').style.display='none';
-  // Re-join with same name and color
   if(socket&&socket.connected){
     socket.emit('join',{name:myName,color:myColor,flag:myFlag});
+    // dead screen hidden by init handler after server confirms new player
   }
 });
 document.querySelector('#lobby')?.addEventListener('keydown',e=>{if(e.key==='Enter')connect();});
