@@ -220,7 +220,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<pr*pr){ // cover = eat
+      if(p.mass>=100&&dst2(p.x,p.y,it.x,it.y)<(pr+it.r)*(pr+it.r)){ // overlap = eat
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
@@ -249,7 +249,8 @@ function physics(now){
     for(let j=0;j<PL;j++){
       if(i===j)continue;const q=PA[j];
       if(now<q.shieldEnd||now<q.stealthEnd)continue;
-      if(p.mass>q.mass*1.1&&dst2(p.x,p.y,q.x,q.y)<pr2){
+      if(p.mass>q.mass*1.1&&(()=>{const qr=mtr(q.mass);return dst2(p.x,p.y,q.x,q.y)<(pr+qr)*(pr+qr);})()){
+
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
         qe('explode',{x:q.x,y:q.y,col:q.color});
         qe('msg',{text:p.name+' ate '+q.name+'!',col:'#0ff'});
@@ -322,13 +323,15 @@ function physics(now){
     // Bot vs player
     for(let j=0;j<PL;j++){
       const p=PA[j];if(now<p.shieldEnd)continue;
-      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,p.x,p.y)<br*br){
+      if(bot.mass>p.mass*1.1&&dst2(bot.x,bot.y,p.x,p.y)<(br+pr)*(br+pr)){
+
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
         qe('explode',{x:p.x,y:p.y,col:p.color});
         respawnPlayer(p,bot.name);
       }
       const pr=mtr(p.mass);
-      if(p.mass>bot.mass*1.1&&dst2(p.x,p.y,bot.x,bot.y)<pr*pr){
+      if(p.mass>bot.mass*1.1&&(()=>{const br=mtr(bot.mass);const touch=pr+br;return dst2(p.x,p.y,bot.x,bot.y)<touch*touch;})()){
+
 
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
