@@ -176,8 +176,16 @@ function qet(id,ev,d){pending.push({ev,d,to:id});}
 
 function respawnPlayer(p,by){
   qet(p.id,'died',{by});
-  p.mass=100;p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
-  p.vx=0;p.vy=0;p.shieldEnd=Date.now()+5000;
+  // Full reset - same as mkPlayer but preserve identity
+  p.mass=100;
+  p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
+  p.vx=0;p.vy=0;
+  p.shieldEnd=Date.now()+5000;
+  p.stealthEnd=0;p._dashing=0;
+  p.inv={speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0};
+  p.speedEnd=0;p.magnetEnd=0;p.bulletEnd=0;
+  p.cdQ=0;p.cdW=0;p.cdR=0;p.cdB=0;p._lastShot=0;
+  p.inputVx=0;p.inputVy=0;
 }
 
 function tick(){
