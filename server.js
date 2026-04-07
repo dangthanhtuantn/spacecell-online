@@ -137,20 +137,23 @@ io.on('connection',sock=>{
   // Magnet auto-activates on pickup (no manual key)
   sock.on('shoot',({nx,ny,px,py})=>{
     const p=players[sock.id];if(!p||p.mass<=20)return;
-    const now=Date.now();if(now-p._lastShot<250)return;
+    const now=Date.now();
+    const bulletActive=now<p.bulletEnd;
+    const cooldown=bulletActive?125:250; // 8/s in bullet mode, 4/s normal
+    if(now-p._lastShot<cooldown)return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    // Use client predicted position if close to server pos (< 200px)
     const sx=(px!==undefined&&Math.hypot(px-p.x,py-p.y)<200)?px:p.x;
     const sy=(py!==undefined&&Math.hypot(px-p.x,py-p.y)<200)?py:p.y;
-    // Primary bullet - from front edge facing cursor
-    bullets.push(getBullet({id:uid(),x:sx+nx*(r+5),y:sy+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:p.color,owner:sock.id}));
+    const dmg=bulletActive?10:5; // damage per bullet
+    // Primary bullet
+    bullets.push(getBullet({id:uid(),x:sx+nx*(r+5),y:sy+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:p.color,owner:sock.id,dmg}));
+    // Activate bullet item on first shot
     if(p.inv.bullet>0&&now>=p.bulletEnd){p.inv.bullet--;p.bulletEnd=now+10000;}
-    if(now<p.bulletEnd){
+    if(bulletActive){
       const bpx=-ny,bpy=nx,bsp=22;
-      bullets.push(getBullet({id:uid(),x:sx+bpx*bsp+nx*(r+5),y:sy+bpy*bsp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
-      bullets.push(getBullet({id:uid(),x:sx-bpx*bsp+nx*(r+5),y:sy-bpy*bsp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id}));
+      bullets.push(getBullet({id:uid(),x:sx+bpx*bsp+nx*(r+5),y:sy+bpy*bsp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id,dmg}));
+      bullets.push(getBullet({id:uid(),x:sx-bpx*bsp+nx*(r+5),y:sy-bpy*bsp+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id,dmg}));
     }
-
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
   sock.on('disconnect',()=>{delete players[sock.id];io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
@@ -267,7 +270,7 @@ function physics(now){
     for(let j=0;j<PL&&!hit;j++){
       const p=PA[j];if(p.id===b.owner||now<p.shieldEnd)continue;
       if(dst2(b.x,b.y,p.x,p.y)<(b.r+mtr(p.mass))*(b.r+mtr(p.mass))){
-        b.type==='bomb'?p.mass=Math.max(15,p.mass*0.7):p.mass=Math.max(15,p.mass-5);
+        b.type==='bomb'?p.mass=Math.max(15,p.mass*0.7):p.mass=Math.max(15,p.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});
         b.active=false;bullets.splice(i,1);hit=true;
@@ -278,7 +281,7 @@ function physics(now){
     for(let j=0;j<BL&&!hit;j++){
       const bot=bots[j];if(bot.id===b.owner)continue;
       if(dst2(b.x,b.y,bot.x,bot.y)<(b.r+mtr(bot.mass))*(b.r+mtr(bot.mass))){
-        b.type==='bomb'?bot.mass=Math.max(5,bot.mass*0.7):bot.mass=Math.max(5,bot.mass-5);
+        b.type==='bomb'?bot.mass=Math.max(5,bot.mass*0.7):bot.mass=Math.max(5,bot.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
         b.active=false;bullets.splice(i,1);hit=true;

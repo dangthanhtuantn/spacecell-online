@@ -401,7 +401,9 @@ setInterval(()=>{
   // Shoot on mouse left button hold
   if(mouseDown){
     const now=Date.now();
-    if(now-_lastShot>=250){
+    const bulletOn=currentMe&&currentMe.bulletEnd&&now<currentMe.bulletEnd;
+    const cd=bulletOn?125:250; // 8/s bullet mode, 4/s normal
+    if(now-_lastShot>=cd){
       _lastShot=now;
       const me2=currentMe;
       if(me2&&me2.mass>20){
