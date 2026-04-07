@@ -377,7 +377,13 @@ function handleKey(code){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.speed)return;socket.emit('speed');}
+  if(code==='KeyS'){
+    const cme=currentMe;
+    if(!cme||!cme.inv||!(cme.inv.speed>0))return;
+    socket.emit('speed');
+    // Immediately apply speed boost in prediction (don't wait for server round-trip)
+    if(cme)cme.speedEnd=Date.now()+3000;
+  }
   if(code==='KeyE'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
   if(code==='KeyT'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
   if(code==='KeyB'){const wx=Mouse.x+camX,wy=Mouse.y+camY;const dx=wx-(me?me.x:camX+SW/2),dy=wy-(me?me.y:camY+SH/2);const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
@@ -644,7 +650,8 @@ function loop(){
   if(latestMe){
     if(predX===null){predX=latestMe.x;predY=latestMe.y;}
     const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-    const spd=8*speedMult(latestMe.mass);
+    const speedMod2=(latestMe.speedEnd&&Date.now()<latestMe.speedEnd)?2:1;
+    const spd=8*speedMult(latestMe.mass)*speedMod2;
     const inputVx=ml>15?mdx/ml:0, inputVy=ml>15?mdy/ml:0;
     const pr=mtr(latestMe.mass);
     // During dash: server handles physics, client follows server pos directly
