@@ -176,7 +176,7 @@ function qet(id,ev,d){pending.push({ev,d,to:id});}
 
 function respawnPlayer(p,by){
   qet(p.id,'died',{by});
-  p.mass=20;p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
+  p.mass=100;p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
   p.vx=0;p.vy=0;p.shieldEnd=Date.now()+5000;
 }
 
@@ -260,7 +260,7 @@ function physics(now){
     for(let j=0;j<PL;j++){
       if(i===j)continue;const q=PA[j];
       if(now<q.shieldEnd||now<q.stealthEnd)continue;
-      if(p.mass>q.mass*1.1&&(()=>{const qr=mtr(q.mass);const gap=pr-qr;return gap>0&&dst2(p.x,p.y,q.x,q.y)<=gap*gap;})()){
+      if(p.mass>q.mass&&(()=>{const qr=mtr(q.mass);const gap=pr-qr;return gap>0&&dst2(p.x,p.y,q.x,q.y)<=gap*gap;})()){
 
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
         qe('explode',{x:q.x,y:q.y,col:q.color});
@@ -348,12 +348,12 @@ function physics(now){
     for(let j=0;j<PL;j++){
       const p=PA[j];if(now<p.shieldEnd)continue;
       const pr=mtr(p.mass); // define pr FIRST
-      if(bot.mass>p.mass*1.1&&(()=>{const gap=br-pr;return gap>0&&dst2(bot.x,bot.y,p.x,p.y)<=gap*gap;})()){
+      if(bot.mass>p.mass&&(()=>{const gap=br-pr;return gap>0&&dst2(bot.x,bot.y,p.x,p.y)<=gap*gap;})()){
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
         qe('explode',{x:p.x,y:p.y,col:p.color});
         respawnPlayer(p,bot.name);
       }
-      if(p.mass>bot.mass*1.1&&(()=>{const gap=pr-br;return gap>0&&dst2(p.x,p.y,bot.x,bot.y)<=gap*gap;})()){
+      if(p.mass>bot.mass&&(()=>{const gap=pr-br;return gap>0&&dst2(p.x,p.y,bot.x,bot.y)<=gap*gap;})()){
 
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
