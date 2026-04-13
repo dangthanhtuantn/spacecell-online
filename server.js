@@ -208,10 +208,22 @@ function physics(now){
         f.y+=(p.y-f.y)/d*pull*(f.r+1);
       }
     }
+    // Hút item về phía player
+    for(let j=0;j<items.length;j++){
+      const it=items[j];if(!it.pickup)continue;
+      const d2=dst2(p.x,p.y,it.x,it.y);
+      const pullR=(pr+it.r)*2;
+      if(d2<pullR*pullR&&d2>0){
+        const d=Math.sqrt(d2);
+        const pull=0.12*(1-d/pullR);
+        it.x+=(p.x-it.x)/d*pull*it.r;
+        it.y+=(p.y-it.y)/d*pull*it.r;
+      }
+    }
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(eats(pr,it.r,dst2(p.x,p.y,it.x,it.y))){
+      if(dst2(p.x,p.y,it.x,it.y)<(pr+it.r)*(pr+it.r)){
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;

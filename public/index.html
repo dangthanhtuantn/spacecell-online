@@ -240,7 +240,7 @@ function addChatMsg(name,text,col){
   const d=document.getElementById('chatMsgs');
   if(!d)return;
   // Max 6 lines: remove oldest
-  while(d.children.length>=6)d.removeChild(d.firstChild);
+  while(d.children.length>=5)d.removeChild(d.firstChild);
   const el=document.createElement('div');
   el.style.cssText='color:'+(col||'#ccc')+';word-break:break-word;line-height:1.4;padding:1px 0';
   el.innerHTML='<span style="font-weight:bold;color:'+(col||'#4cf')+'">'+name+':</span> <span style="color:#ddd">'+text.replace(/</g,'&lt;')+'</span>';
