@@ -230,7 +230,10 @@ function physics(now){
       // Eat food: food circle must be inside player circle (cover logic)
       // dist < pr - f.r  (food fully inside player)
       // For tiny food (f.r<=3): dist < pr (food center inside player)
-      if((()=>{const gap=Math.abs(pr-f.r);return dst2(p.x,p.y,f.x,f.y)<=gap*gap;})()&&p.mass>f.mass){
+      if(p.mass>f.mass&&(()=>{
+        const d=Math.sqrt(dst2(p.x,p.y,f.x,f.y));
+        return d+f.r<=pr; // food fully inside player
+      })())  {
 
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
@@ -239,7 +242,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if((()=>{const gap=Math.abs(pr-it.r);return dst2(p.x,p.y,it.x,it.y)<=gap*gap;})()&&p.mass>=100){
+      if((()=>{const d=Math.sqrt(dst2(p.x,p.y,it.x,it.y));return d+it.r<=pr;})()){ // item fully inside player
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
@@ -268,7 +271,11 @@ function physics(now){
     for(let j=0;j<PL;j++){
       if(i===j)continue;const q=PA[j];
       if(now<q.shieldEnd||now<q.stealthEnd)continue;
-      if((()=>{const qr=mtr(q.mass);const gap=Math.abs(pr-qr);return dst2(p.x,p.y,q.x,q.y)<=gap*gap;})()&&p.mass>q.mass){
+      if(p.mass>q.mass&&(()=>{
+        const qr=mtr(q.mass);
+        const d=Math.sqrt(dst2(p.x,p.y,q.x,q.y));
+        return d+qr<=pr; // q fully inside p
+      })()){
 
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
         qe('explode',{x:q.x,y:q.y,col:q.color});
@@ -356,12 +363,18 @@ function physics(now){
     for(let j=0;j<PL;j++){
       const p=PA[j];if(now<p.shieldEnd)continue;
       const pr=mtr(p.mass); // define pr FIRST
-      if((()=>{const gap=Math.abs(br-pr);return dst2(bot.x,bot.y,p.x,p.y)<=gap*gap;})()&&bot.mass>p.mass){
+      if(bot.mass>p.mass&&(()=>{
+        const d=Math.sqrt(dst2(bot.x,bot.y,p.x,p.y));
+        return d+pr<=br; // player fully inside bot
+      })())  {
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
         qe('explode',{x:p.x,y:p.y,col:p.color});
         respawnPlayer(p,bot.name);
       }
-      if((()=>{const gap=Math.abs(pr-br);return dst2(p.x,p.y,bot.x,bot.y)<=gap*gap;})()&&p.mass>bot.mass){
+      if(p.mass>bot.mass&&(()=>{
+        const d=Math.sqrt(dst2(p.x,p.y,bot.x,bot.y));
+        return d+br<=pr; // bot fully inside player
+      })())  {
 
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
