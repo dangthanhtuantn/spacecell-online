@@ -243,7 +243,7 @@ function physics(now){
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
-        else if(it.type==='GROW')p.mass=Math.min(10000,p.mass*2);
+        else if(it.type==='GROW')p.mass=Math.min(10000,p.mass*1.1);
         else if(it.type==='MAGNET'){p.inv.magnet++;p.magnetEnd=Date.now()+5000;} // auto-activate 5s
         else if(it.type==='BOMB')p.inv.bomb++;
         else if(it.type==='BULLET')p.inv.bullet++;
@@ -256,7 +256,7 @@ function physics(now){
     items.forEach(it=>{if(it.type==='TOXIC'&&dst2(p.x,p.y,it.x,it.y)<15000)p.mass=Math.max(10,p.mass*0.999);});
     // Magnet auto-pull food
     if(Date.now()<p.magnetEnd){
-      const rad=mtr(p.mass)+400,rad2=rad*rad,near=gnear(p.x,p.y,rad);
+      const rad=mtr(p.mass)+133,rad2=rad*rad,near=gnear(p.x,p.y,rad); // 400/3
       near.forEach(i=>{if(dst2(p.x,p.y,food[i].x,food[i].y)<rad2&&food[i].mass<p.mass){p.mass=Math.min(10000,p.mass+food[i].mass);eatFood(i);io.emit('foodEaten',{ni:i,nf:food[i]});}});
     }
     } // end stealth check
@@ -300,7 +300,7 @@ function physics(now){
     }
     if(hit)continue;
     for(let j=0;j<BL&&!hit;j++){
-      const bot=bots[j];if(bot.id===b.owner)continue;
+      const bot=bots[j];if(bot.id===b.owner||bot._deadUntil)continue;
       if(dst2(b.x,b.y,bot.x,bot.y)<(b.r+mtr(bot.mass))*(b.r+mtr(bot.mass))){
         b.type==='bomb'?bot.mass=Math.max(1,bot.mass*0.7):bot.mass=Math.max(1,bot.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
@@ -356,27 +356,33 @@ function physics(now){
     bot.vx+=(dx/dl*spd-bot.vx)*lB;bot.vy+=(dy/dl*spd-bot.vy)*lB;bot.vx*=fr;bot.vy*=fr;
     const br=mtr(bot.mass);
     bot.x=clamp(bot.x+bot.vx,BMIN+br,BMAX-br);bot.y=clamp(bot.y+bot.vy,BMIN+br,BMAX-br);
+    // Bot dead/respawn logic
+    if(bot._deadUntil){
+      if(Date.now()>=bot._deadUntil){
+        bot._deadUntil=null;
+        bot.mass=bot._initMass||500;
+        bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
+        bot.vx=0;bot.vy=0;
+      } else {
+        continue; // skip dead bot
+      }
+    }
     // Bot does not eat food
     // Bot vs player
     for(let j=0;j<PL;j++){
       const p=PA[j];if(now<p.shieldEnd)continue;
       const pr=mtr(p.mass); // define pr FIRST
-      if(bot.mass>p.mass&&(()=>{
-        const d=Math.sqrt(dst2(bot.x,bot.y,p.x,p.y));
-        return d+pr<=br; // player fully inside bot
-      })())  {
+      if(bot.mass>p.mass&&!bot._deadUntil&&dst2(bot.x,bot.y,p.x,p.y)<(br+pr)*(br+pr)){
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
         qe('explode',{x:p.x,y:p.y,col:p.color});
         respawnPlayer(p,bot.name);
       }
-      if(p.mass>bot.mass&&(()=>{
-        const d=Math.sqrt(dst2(p.x,p.y,bot.x,bot.y));
-        return d+br<=pr; // bot fully inside player
-      })())  {
-
+      if(p.mass>bot.mass&&dst2(p.x,p.y,bot.x,bot.y)<(pr+br)*(pr+br)){
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
-        bot.mass=bot._initMass||500;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);
+        // Delayed respawn: mark dead, respawn after 1.5s
+        bot._deadUntil=Date.now()+1500;
+        bot.mass=1;bot.vx=0;bot.vy=0;
       }
     }
     // Bot shoot
@@ -413,7 +419,8 @@ function broadcast(now){
       vP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,sE:q.speedEnd,mE:q.magnetEnd,shE:q.shieldEnd,stE:q.stealthEnd,bE:q.bulletEnd});
     }
     for(let j=0;j<BL;j++){
-      const b=bots[j];if(dst2(p.x,p.y,b.x,b.y)<aoi2)vB.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name});
+      const b=bots[j];if(b._deadUntil)continue; // hide dead bots
+      if(dst2(p.x,p.y,b.x,b.y)<aoi2)vB.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name});
     }
     for(let j=0;j<bullets.length;j++){
       const b=bullets[j];if(dst2(p.x,p.y,b.x,b.y)<aoi2)vU.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),r:b.r,c:b.col,t:b.type==='bomb'?1:0});
