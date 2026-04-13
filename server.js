@@ -144,7 +144,7 @@ io.on('connection',sock=>{
   });
   // Magnet auto-activates on pickup (no manual key)
   sock.on('shoot',({nx,ny,px,py})=>{
-    const p=players[sock.id];if(!p||p.mass<=20)return;
+    const p=players[sock.id];if(!p||p.mass<=10)return;
     const now=Date.now();
     const bulletActive=now<p.bulletEnd;
     const cooldown=bulletActive?125:250; // 8/s in bullet mode, 4/s normal
@@ -224,16 +224,13 @@ function physics(now){
     // Stealth: player is invisible and cannot eat
     if(now2<p.stealthEnd){} else {
     // Eat food — use exact server position, no drift hacks needed
-    const nr=gnear(p.x,p.y,pr+12); // search radius covers max food radius
+    const nr=gnear(p.x,p.y,pr+15); // search radius: player edge + max food r
     for(const fi of nr){
       const f=food[fi];
       // Eat food: food circle must be inside player circle (cover logic)
       // dist < pr - f.r  (food fully inside player)
       // For tiny food (f.r<=3): dist < pr (food center inside player)
-      if(p.mass>f.mass&&(()=>{
-        const d=Math.sqrt(dst2(p.x,p.y,f.x,f.y));
-        return d+f.r<=pr; // food fully inside player
-      })())  {
+      if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){
 
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
@@ -267,10 +264,11 @@ function physics(now){
 
   // PvP (stealthed players cannot eat others and cannot be seen)
   for(let i=0;i<PL;i++){
-    const p=PA[i],pr=mtr(p.mass),pr2=pr*pr;
+    const p=PA[i],pr=mtr(p.mass);
     for(let j=0;j<PL;j++){
       if(i===j)continue;const q=PA[j];
       if(now<q.shieldEnd||now<q.stealthEnd)continue;
+      if(now<p.stealthEnd)continue; // stealthed player cannot eat
       if(p.mass>q.mass&&(()=>{
         const qr=mtr(q.mass);
         const d=Math.sqrt(dst2(p.x,p.y,q.x,q.y));
@@ -394,7 +392,7 @@ function physics(now){
         }
       }
     }
-    if(bot.mass<20){bot.mass=bot._initMass||500;bot.x=rnd(BMIN+300,BMAX-300);bot.y=rnd(BMIN+300,BMAX-300);}
+    // Bot respawn handled in bullet damage section
   }
 
   // Flush events
@@ -410,6 +408,8 @@ function broadcast(now){
     for(let j=0;j<PL;j++){
       const q=PA[j];
       if(j!==i&&dst2(p.x,p.y,q.x,q.y)>=aoi2)continue;
+      // Stealthed players only visible to themselves
+      if(j!==i&&now<q.stealthEnd)continue;
       vP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,sE:q.speedEnd,mE:q.magnetEnd,shE:q.shieldEnd,stE:q.stealthEnd,bE:q.bulletEnd});
     }
     for(let j=0;j<BL;j++){

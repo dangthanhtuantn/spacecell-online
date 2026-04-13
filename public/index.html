@@ -450,7 +450,7 @@ function drawMe(p){
 
 function drawOther(p){
   const r=mtr(p.mass);
-  CTX.globalAlpha=p.stealthed?0.15:1;
+  if(p.stealthed)return; // other players invisible in stealth
   if(p.shielded){CTX.strokeStyle='#88f';CTX.lineWidth=3;CTX.beginPath();CTX.arc(p.x,p.y,r+3,0,Math.PI*2);CTX.stroke();}
   if(p.flag){
     CTX.fillStyle=p.color+'88';CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
