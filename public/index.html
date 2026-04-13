@@ -341,6 +341,7 @@ function connect(){
     }
   });
   socket.on('msg',({text,col})=>addMsg(text,col));
+  socket.on('chat',({name,text,col})=>addChatMsg(name,text,col));
   socket.on('playerLeft',id=>{});
   socket.on('playerList',list=>{
     const lb=document.getElementById('lbr');if(!lb)return;
@@ -433,7 +434,7 @@ setInterval(()=>{
     if(now-_lastShot>=cd){
       _lastShot=now;
       const me2=currentMe;
-      if(me2&&me2.mass>20){
+      if(me2&&me2.mass>100){
         // Use pure cursor direction from screen center
         const dx=Mouse.x-SW/2, dy=Mouse.y-SH/2, l=Math.hypot(dx,dy)||1;
         if(l<5)return; // don't shoot if cursor at center

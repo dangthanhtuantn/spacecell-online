@@ -113,7 +113,7 @@ io.on('connection',sock=>{
     bullets.push({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'bomb',r:14,life:32,col:'#f80',owner:sock.id,dmg:0});
   });
   sock.on('shoot',({nx,ny,px,py})=>{
-    const p=players[sock.id];if(!p||p.mass<=10)return;
+    const p=players[sock.id];if(!p||p.mass<=100)return;
     const now=Date.now();
     const bulletActive=now<p.bulletEnd;
     if(now-p._lastShot<(bulletActive?125:250))return;
@@ -247,7 +247,7 @@ function physics(now){
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});
         bullets.splice(i,1);hit=true;
-        if(p.mass<=100){qe('explode',{x:p.x,y:p.y,col:p.color,big:1});respawnPlayer(p,'bullet');}
+        if(p.mass<100){qe('explode',{x:p.x,y:p.y,col:p.color,big:1});respawnPlayer(p,'bullet');}
       }
     }
     if(hit)continue;
