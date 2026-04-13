@@ -103,6 +103,16 @@ canvas{display:block;}
 </div>
 
 <!-- Lobby -->
+<!-- Chat box -->
+<div id="chatBox" style="display:none;position:fixed;bottom:10px;left:10px;width:280px;z-index:100;font-size:13px">
+  <div id="chatMsgs" style="background:rgba(0,0,0,0.55);border:1px solid rgba(0,180,255,0.25);border-radius:6px 6px 0 0;padding:6px 8px;height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
+  <div style="display:flex;gap:0">
+    <input id="chatInput" maxlength="60" placeholder="Nhắn tin..." style="flex:1;background:rgba(0,0,0,0.7);border:1px solid rgba(0,180,255,0.3);border-right:none;border-top:none;border-radius:0 0 0 6px;color:#fff;padding:5px 8px;font-size:12px;outline:none">
+    <button id="chatSend" style="background:rgba(0,180,255,0.2);border:1px solid rgba(0,180,255,0.3);border-top:none;border-radius:0 0 6px 0;color:#4cf;padding:5px 10px;cursor:pointer;font-size:12px">GỬI</button>
+  </div>
+</div>
+<!-- Spectate overlay label -->
+<div id="spectateLabel" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#ff0;padding:6px 16px;border-radius:20px;font-size:13px;z-index:50;pointer-events:none">👁 CHẾ ĐỘ XEM</div>
 <div id="lobby">
   <div class="lbox">
     <h1>SPACECELL</h1>
@@ -112,6 +122,7 @@ canvas{display:block;}
     <label style="margin-top:12px">MÀU SẮC</label>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px" id="colorGrid"></div>
     <button class="playbtn" id="sb">▶ &nbsp;PLAY NOW</button>
+    <button class="playbtn" id="spectateBtn" style="background:rgba(255,200,0,0.12);border-color:rgba(255,200,0,0.5);margin-top:8px">👁 &nbsp;XEM NGƯỜI CHƠI</button>
     <!-- Quảng cáo 300x250 -->
     <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.8);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(0,180,255,0.3);font-size:11px;letter-spacing:1px;">
       ADVERTISEMENT
@@ -169,6 +180,7 @@ let socket=null,myId=null,myColor='#00cfff',myName='Player',myFlag=null;
 let GW=6000,GH=6000;
 let food=[],items=[];
 let gameActive=false;
+let spectating=false; // spectate mode: watch without playing
 let camX=0,camY=0;
 let pingTime=0,latency=0;
 const parts=[];
@@ -223,6 +235,14 @@ function getInterp(){
 }
 
 // ── Messages ──────────────────────────────────────────────────
+function addChatMsg(name,text,col){
+  const d=document.getElementById('chatMsgs');
+  if(!d)return;
+  const el=document.createElement('div');
+  el.style.cssText='color:'+( col||'#ccc')+';word-break:break-word;line-height:1.3';
+  el.innerHTML='<span style="color:'+( col||'#4cf')+'">'+name+':</span> <span style="color:#ddd">'+text.replace(/</g,'&lt;')+'</span>';
+  d.appendChild(el);d.scrollTop=d.scrollHeight;
+}
 function addMsg(text,col){
   const d=document.getElementById('msgs');
   if(!d)return;
@@ -276,6 +296,7 @@ function connect(){
     gameActive=true;
     document.getElementById('lobby').style.display='none';
     document.getElementById('dead').style.display='none';
+    document.getElementById('chatBox').style.display='block';
   });
 
   socket.on('state',s=>{
@@ -680,6 +701,17 @@ function loop(){
 
   // currentMe is module-level so render() can access predicted position
   currentMe=latestMe?{...latestMe,x:predX,y:predY}:null;
+  // Spectate: follow biggest player, allow mouse pan
+  if(spectating){
+    const interp=getInterp();
+    const all=[...(interp.players||[]),...(interp.bots||[])].sort((a,b)=>b.mass-a.mass);
+    if(all.length>0){
+      const target=all[0];
+      camX+=(target.x-window.innerWidth/2-camX)*0.05;
+      camY+=(target.y-window.innerHeight/2-camY)*0.05;
+    }
+    currentMe=null;
+  }
 
 
   render();
@@ -687,6 +719,18 @@ function loop(){
 
 // ── Start ─────────────────────────────────────────────────────
 document.getElementById('sb')?.addEventListener('click',connect);
+// Chat send
+function sendChat(){
+  const input=document.getElementById('chatInput');
+  if(!input)return;
+  const text=input.value.trim();
+  if(!text||!socket)return;
+  socket.emit('chat',{text});
+  input.value='';
+}
+document.getElementById('chatSend')?.addEventListener('click',sendChat);
+document.getElementById('chatInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();sendChat();}});
+
 document.getElementById('respawnBtn')?.addEventListener('click',()=>{
   if(socket&&socket.connected){
     socket.emit('join',{name:myName,color:myColor,flag:myFlag});
@@ -694,6 +738,45 @@ document.getElementById('respawnBtn')?.addEventListener('click',()=>{
   }
 });
 document.querySelector('#lobby')?.addEventListener('keydown',e=>{if(e.key==='Enter')connect();});
+document.getElementById('spectateBtn')?.addEventListener('click',()=>{
+  spectating=true;
+  const color=selectedColor||'#00cfff';
+  myName='Viewer';myColor=color;myFlag=null;
+  socket=io();
+  // Connect but don't emit 'join' - just receive state
+  socket.on('connect',()=>{
+    socket.on('state',s=>{
+      const players=(s.p||[]).map(p=>({
+        id:p.i,name:p.n,color:p.c,flag:p.f,
+        x:p.x,y:p.y,mass:p.m,
+        shielded:!!p.sh,stealthed:!!p.st,
+        inv:p.inv,speedEnd:p.sE,magnetEnd:p.mE,shieldEnd:p.shE,stealthEnd:p.stE,bulletEnd:p.bE
+      }));
+      const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
+      const bullets=(s.u||[]).map(u=>({id:u.i,x:u.x,y:u.y,r:u.r,col:u.c,isBomb:!!u.t}));
+      pushSnap({t:s.t,players,bots,bullets});
+    });
+    socket.on('foodEaten',({ni,nf})=>{food[ni]=nf;});
+    socket.on('itemAdded',it=>{items.push(it);});
+    socket.on('itemRemoved',id=>{const ix=items.findIndex(x=>x.id===id);if(ix>=0)items.splice(ix,1);});
+    socket.on('msg',({text,col})=>addMsg(text,col));
+    socket.on('chat',({name,text,col})=>addChatMsg(name,text,col));
+    socket.emit('spectate'); // request world data
+  });
+  socket.on('init',d=>{
+    GW=d.worldW;GH=d.worldH;myId=null;
+    food=d.food||[];items=d.items||[];
+    const initSnap={t:Date.now(),players:[],bots:d.bots||[],bullets:[]};
+    for(let i=0;i<SNAP_N;i++)snaps[i]={...initSnap};
+    snapHead=0;snapCount=1;
+    predX=null;predY=null;currentMe=null;
+    camX=GW/2-window.innerWidth/2;camY=GH/2-window.innerHeight/2;
+    initStars();gameActive=true;
+    document.getElementById('lobby').style.display='none';
+    document.getElementById('chatBox').style.display='block';
+    document.getElementById('spectateLabel').style.display='block';
+  });
+});
 loop();
 
 </script>

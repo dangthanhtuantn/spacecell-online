@@ -43,7 +43,7 @@ function gnear(x,y,rad){
 }
 
 // ── Food & Items ──────────────────────────────────────────────
-const FSIZES=[{mass:5,r:3,w:30},{mass:10,r:4,w:25},{mass:20,r:5,w:20},{mass:50,r:7,w:15},{mass:100,r:10,w:10}];
+const FSIZES=[{mass:1,r:3,w:30},{mass:2,r:4,w:25},{mass:3,r:5,w:20},{mass:5,r:7,w:15},{mass:10,r:10,w:10}];
 function mkFood(){
   const roll=Math.random()*100;let acc=0;
   for(const ft of FSIZES){acc+=ft.w;if(roll<acc)return{x:rnd(BMIN+30,BMAX-30),y:rnd(BMIN+30,BMAX-30),mass:ft.mass,r:ft.r,col:`hsl(${0|rnd(0,360)},80%,65%)`};}
@@ -128,6 +128,15 @@ io.on('connection',sock=>{
       bullets.push({id:uid(),x:sx+bpx*22+nx*(r+5),y:sy+bpy*22+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id,dmg});
       bullets.push({id:uid(),x:sx-bpx*22+nx*(r+5),y:sy-bpy*22+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id,dmg});
     }
+  });
+  sock.on('chat',({text})=>{
+    const p=players[sock.id];if(!p||!text)return;
+    const clean=String(text).substring(0,60).replace(/[<>]/g,'');
+    io.emit('chat',{name:p.name,text:clean,col:p.color});
+  });
+  sock.on('spectate',()=>{
+    // Send world data to spectator without creating a player
+    sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
   sock.on('disconnect',()=>{delete players[sock.id];io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
