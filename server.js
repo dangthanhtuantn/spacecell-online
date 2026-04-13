@@ -230,7 +230,7 @@ function physics(now){
       // Eat food: food circle must be inside player circle (cover logic)
       // dist < pr - f.r  (food fully inside player)
       // For tiny food (f.r<=3): dist < pr (food center inside player)
-      if(p.mass>f.mass&&dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){
+      if(pr>f.r&&(()=>{const g=pr-f.r;return dst2(p.x,p.y,f.x,f.y)<=g*g;})()){
 
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
@@ -239,7 +239,7 @@ function physics(now){
     // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if((()=>{const d=Math.sqrt(dst2(p.x,p.y,it.x,it.y));return d+it.r<=pr;})()){ // item fully inside player
+      if(pr>it.r&&(()=>{const g=pr-it.r;return dst2(p.x,p.y,it.x,it.y)<=g*g;})()){
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
@@ -269,11 +269,7 @@ function physics(now){
       if(i===j)continue;const q=PA[j];
       if(now<q.shieldEnd||now<q.stealthEnd)continue;
       if(now<p.stealthEnd)continue; // stealthed player cannot eat
-      if(p.mass>q.mass&&(()=>{
-        const qr=mtr(q.mass);
-        const d=Math.sqrt(dst2(p.x,p.y,q.x,q.y));
-        return d+qr<=pr; // q fully inside p
-      })()){
+      if((()=>{const qr=mtr(q.mass);if(pr<=qr)return false;const g=pr-qr;return dst2(p.x,p.y,q.x,q.y)<=g*g;})()){
 
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
         qe('explode',{x:q.x,y:q.y,col:q.color});
@@ -372,12 +368,12 @@ function physics(now){
     for(let j=0;j<PL;j++){
       const p=PA[j];if(now<p.shieldEnd)continue;
       const pr=mtr(p.mass); // define pr FIRST
-      if(bot.mass>p.mass&&!bot._deadUntil&&dst2(bot.x,bot.y,p.x,p.y)<(br+pr)*(br+pr)){
+      if(!bot._deadUntil&&(()=>{if(br<=pr)return false;const g=br-pr;return dst2(bot.x,bot.y,p.x,p.y)<=g*g;})())  {
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
         qe('explode',{x:p.x,y:p.y,col:p.color});
         respawnPlayer(p,bot.name);
       }
-      if(p.mass>bot.mass&&dst2(p.x,p.y,bot.x,bot.y)<(pr+br)*(pr+br)){
+      if((()=>{if(pr<=br)return false;const g=pr-br;return dst2(p.x,p.y,bot.x,bot.y)<=g*g;})())  {
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:mtr(bot.mass)});
         // Delayed respawn: mark dead, respawn after 1.5s
