@@ -235,13 +235,16 @@ function getInterp(){
 }
 
 // ── Messages ──────────────────────────────────────────────────
+const _chatLastSent={};
 function addChatMsg(name,text,col){
   const d=document.getElementById('chatMsgs');
   if(!d)return;
+  // Max 6 lines: remove oldest
+  while(d.children.length>=6)d.removeChild(d.firstChild);
   const el=document.createElement('div');
-  el.style.cssText='color:'+( col||'#ccc')+';word-break:break-word;line-height:1.3';
-  el.innerHTML='<span style="color:'+( col||'#4cf')+'">'+name+':</span> <span style="color:#ddd">'+text.replace(/</g,'&lt;')+'</span>';
-  d.appendChild(el);d.scrollTop=d.scrollHeight;
+  el.style.cssText='color:'+(col||'#ccc')+';word-break:break-word;line-height:1.4;padding:1px 0';
+  el.innerHTML='<span style="font-weight:bold;color:'+(col||'#4cf')+'">'+name+':</span> <span style="color:#ddd">'+text.replace(/</g,'&lt;')+'</span>';
+  d.appendChild(el);
 }
 function addMsg(text,col){
   const d=document.getElementById('msgs');
@@ -721,11 +724,19 @@ function loop(){
 // ── Start ─────────────────────────────────────────────────────
 document.getElementById('sb')?.addEventListener('click',connect);
 // Chat send
+let _lastChatTime=0;
 function sendChat(){
   const input=document.getElementById('chatInput');
   if(!input)return;
   const text=input.value.trim();
   if(!text||!socket)return;
+  const now=Date.now();
+  if(now-_lastChatTime<2000){
+    input.placeholder='Chờ '+(Math.ceil((2000-(now-_lastChatTime))/1000))+'s...';
+    setTimeout(()=>input.placeholder='Nhắn tin...',2000-(now-_lastChatTime));
+    return;
+  }
+  _lastChatTime=now;
   socket.emit('chat',{text});
   input.value='';
 }

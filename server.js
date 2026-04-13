@@ -129,8 +129,11 @@ io.on('connection',sock=>{
       bullets.push({id:uid(),x:sx-bpx*22+nx*(r+5),y:sy-bpy*22+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id,dmg});
     }
   });
+  let _chatCd=0;
   sock.on('chat',({text})=>{
     const p=players[sock.id];if(!p||!text)return;
+    const now=Date.now();if(now-_chatCd<2000)return;
+    _chatCd=now;
     const clean=String(text).substring(0,60).replace(/[<>]/g,'');
     io.emit('chat',{name:p.name,text:clean,col:p.color});
   });
@@ -188,9 +191,21 @@ function physics(now){
     // Eat food
     for(const fi of gnear(p.x,p.y,pr+15)){
       const f=food[fi];
-      if(eats(pr,f.r,dst2(p.x,p.y,f.x,f.y))){
+      if(dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
+      }
+    }
+    // Hút thức ăn: food trong vùng pr*2.5 trượt nhẹ về phía player
+    for(const fi of gnear(p.x,p.y,pr*2.5+15)){
+      const f=food[fi];
+      const d2=dst2(p.x,p.y,f.x,f.y);
+      const pullR=pr*2.5+f.r;
+      if(d2<pullR*pullR&&d2>0){
+        const d=Math.sqrt(d2);
+        const pull=0.18*(1-d/pullR); // lực hút tăng khi gần hơn
+        f.x+=(p.x-f.x)/d*pull*(f.r+1);
+        f.y+=(p.y-f.y)/d*pull*(f.r+1);
       }
     }
     // Eat items
