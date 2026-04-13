@@ -414,8 +414,7 @@ function handleKey(code){
     const cme=currentMe;
     if(!cme||!cme.inv||!(cme.inv.speed>0))return;
     socket.emit('speed');
-    // Immediately apply speed boost in prediction (don't wait for server round-trip)
-    if(cme)cme.speedEnd=Date.now()+3000;
+    // Let server confirm speedEnd (no client-side prediction to avoid bullet offset)
   }
   if(code==='KeyE'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
   if(code==='KeyT'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
