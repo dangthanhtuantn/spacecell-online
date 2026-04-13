@@ -443,7 +443,7 @@ setInterval(()=>{
         if(l<5)return; // don't shoot if cursor at center
         const nx=dx/l, ny=dy/l;
         // Send predicted position so server spawns bullet from visual location
-        socket.emit('shoot',{nx,ny,px:me2.x,py:me2.y});
+        socket.emit('shoot',{nx,ny});
       }
     }
   }

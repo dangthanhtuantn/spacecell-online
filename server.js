@@ -110,23 +110,21 @@ io.on('connection',sock=>{
   sock.on('bomb',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.inv.bomb<=0||p.cdB>0)return;
     p.inv.bomb--;p.cdB=1500;const r=mtr(p.mass);
-    bullets.push({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'bomb',r:14,life:32,col:'#f80',owner:sock.id,dmg:0});
+    bullets.push({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'bomb',r:14,life:64,col:'#f80',owner:sock.id,dmg:0});
   });
-  sock.on('shoot',({nx,ny,px,py})=>{
+  sock.on('shoot',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.mass<=100)return;
     const now=Date.now();
     const bulletActive=now<p.bulletEnd;
     if(now-p._lastShot<(bulletActive?125:250))return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
-    const sx=(px!==undefined&&Math.hypot(px-p.x,py-p.y)<200)?px:p.x;
-    const sy=(py!==undefined&&Math.hypot(px-p.x,py-p.y)<200)?py:p.y;
-    const dmg=bulletActive?10:5;
-    bullets.push({id:uid(),x:sx+nx*(r+5),y:sy+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:p.color,owner:sock.id,dmg});
+    const dmg=bulletActive?30:10;
+    bullets.push({id:uid(),x:p.x+nx*(r+5),y:p.y+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:64,col:p.color,owner:sock.id,dmg});
     if(p.inv.bullet>0&&now>=p.bulletEnd){p.inv.bullet--;p.bulletEnd=now+10000;}
     if(bulletActive){
       const bpx=-ny,bpy=nx;
-      bullets.push({id:uid(),x:sx+bpx*22+nx*(r+5),y:sy+bpy*22+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id,dmg});
-      bullets.push({id:uid(),x:sx-bpx*22+nx*(r+5),y:sy-bpy*22+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:32,col:'#ff4',owner:sock.id,dmg});
+      bullets.push({id:uid(),x:p.x+bpx*22+nx*(r+5),y:p.y+bpy*22+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:64,col:'#ff4',owner:sock.id,dmg});
+      bullets.push({id:uid(),x:p.x-bpx*22+nx*(r+5),y:p.y-bpy*22+ny*(r+5),vx:nx*16,vy:ny*16,type:'shot',r:3,life:64,col:'#ff4',owner:sock.id,dmg});
     }
   });
   let _chatCd=0;
@@ -270,7 +268,7 @@ function physics(now){
     for(let j=0;j<PL&&!hit;j++){
       const p=PA[j];if(p.id===b.owner||now<p.shieldEnd)continue;
       if(dst2(b.x,b.y,p.x,p.y)<(b.r+mtr(p.mass))*(b.r+mtr(p.mass))){
-        p.mass=b.type==='bomb'?Math.max(15,p.mass*0.7):Math.max(15,p.mass-(b.dmg||5));
+        p.mass=b.type==='bomb'?Math.max(15,p.mass*0.5):Math.max(15,p.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});
         bullets.splice(i,1);hit=true;
@@ -281,7 +279,7 @@ function physics(now){
     for(let j=0;j<BL&&!hit;j++){
       const bot=bots[j];if(bot.id===b.owner||bot._deadUntil)continue;
       if(dst2(b.x,b.y,bot.x,bot.y)<(b.r+mtr(bot.mass))*(b.r+mtr(bot.mass))){
-        bot.mass=b.type==='bomb'?Math.max(1,bot.mass*0.7):Math.max(1,bot.mass-(b.dmg||5));
+        bot.mass=b.type==='bomb'?Math.max(1,bot.mass*0.5):Math.max(1,bot.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
         bullets.splice(i,1);hit=true;
