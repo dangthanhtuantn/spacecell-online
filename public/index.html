@@ -441,8 +441,18 @@ setInterval(()=>{
         const dx=Mouse.x-SW/2, dy=Mouse.y-SH/2, l=Math.hypot(dx,dy)||1;
         if(l<5)return; // don't shoot if cursor at center
         const nx=dx/l, ny=dy/l;
-        // Direction = cursor relative to screen center (player always at screen center)
+        // Direction = cursor relative to screen center
         socket.emit('shoot',{nx,ny});
+        // Spawn local bullet immediately at predX for visual correctness
+        if(predX!==null){
+          const bulletOn2=currentMe&&currentMe.bulletEnd&&Date.now()<currentMe.bulletEnd;
+          const lcol=bulletOn2?'#ff4':(currentMe?currentMe.color:'#4cf');
+          localBullets.push({x:predX,y:predY,vx:nx*16,vy:ny*16,r:3,col:lcol,life:15,local:true});
+          if(bulletOn2){
+            localBullets.push({x:predX,y:predY,vx:(nx+(-ny)*0.15)*16,vy:(ny+nx*0.15)*16,r:3,col:'#ff4',life:15,local:true});
+            localBullets.push({x:predX,y:predY,vx:(nx-(-ny)*0.15)*16,vy:(ny-nx*0.15)*16,r:3,col:'#ff4',life:15,local:true});
+          }
+        }
       }
     }
   }
@@ -577,6 +587,7 @@ function render(){
   }
   // Show all bullets including own — identical behavior for player and bot
   (interp.bullets||[]).forEach(b=>drawBullet(b,b.type==='bomb'));
+  localBullets.forEach(b=>drawBullet(b,false));
 
   // Bots
   (interp.bots||[]).forEach(drawBot);
@@ -667,6 +678,7 @@ function renderMinimap(interp,me){
 // Client: predVx = inputVx*spd; predX += predVx; (identical)
 // -> predX === server p.x -> no drift -> no reconcile -> no edge pull
 let predX=null,predY=null,lastLoopT=Date.now(),currentMe=null;
+let localBullets=[]; // client-predicted bullets before server confirms
 let dashVx=0,dashVy=0,dashEndT=0; // time-based dash, not frame-based
 
 function loop(){
@@ -717,6 +729,9 @@ function loop(){
   }
 
 
+  // Update local bullets
+  localBullets.forEach(b=>{b.x+=b.vx*dtFrac;b.y+=b.vy*dtFrac;b.life-=dtFrac;});
+  localBullets=localBullets.filter(b=>b.life>0);
   render();
 }
 
