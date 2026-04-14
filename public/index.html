@@ -300,6 +300,7 @@ function connect(){
   socket=io();
 
   socket.on('init',d=>{
+    const wasFirstJoin=!myId; // check BEFORE myId is reassigned
     myId=d.id;GW=d.worldW;GH=d.worldH;
     food=d.food||[];items=d.items||[];
     // Init snapshots with initial bots
@@ -307,13 +308,13 @@ function connect(){
     for(let i=0;i<SNAP_N;i++)snaps[i]={...initSnap};
     snapHead=0;snapCount=1;
     // Full client state reset (covers both first join and respawn)
-    const wasFirstJoin=!myId;
     predX=null;predY=null;currentMe=null;
     dashEndT=0;dashVx=0;dashVy=0;
     mouseDown=false;
     Object.keys(Keys).forEach(k=>delete Keys[k]);
-    // Only reset camera on first join, not on respawn
-    if(wasFirstJoin){camX=GW/2-window.innerWidth/2;camY=GH/2-window.innerHeight/2;}
+    // Always reset camera to center on join/respawn - player spawns at random location
+    // Camera will follow player as soon as first state arrives (~33ms)
+    camX=GW/2-window.innerWidth/2;camY=GH/2-window.innerHeight/2;
     initStars();
     gameActive=true;
     document.getElementById('lobby').style.display='none';
