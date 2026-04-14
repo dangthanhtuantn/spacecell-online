@@ -393,7 +393,7 @@ function broadcast(now){
       if(dst2(p.x,p.y,b.x,b.y)<aoi2)vB.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name});
     }
     for(let j=0;j<bullets.length;j++){
-      const b=bullets[j];if(dst2(p.x,p.y,b.x,b.y)<aoi2)vU.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),r:b.r,c:b.col,t:b.type==='bomb'?1:0});
+      const b=bullets[j];if(dst2(p.x,p.y,b.x,b.y)<aoi2)vU.push({i:b.id,x:Math.round(b.x),y:Math.round(b.y),r:b.r,c:b.col,t:b.type==='bomb'?1:0,o:b.owner});
     }
     sock.emit('state',{t:now,p:vP,b:vB,u:vU});
   }

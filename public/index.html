@@ -311,7 +311,7 @@ function connect(){
       inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,speedEnd:p.sE,magnetEnd:p.mE,shieldEnd:p.shE,stealthEnd:p.stE,bulletEnd:p.bE
     }));
     const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
-    const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot'}));
+    const bullets=(s.u||[]).map(b=>({id:b.i,x:b.x,y:b.y,r:b.r,col:b.c,type:b.t?'bomb':'shot',owner:b.o}));
     pushSnap({t:Date.now(),players,bots,bullets});
     // Update HUD from self
     // HUD uses latest server data for accurate inv/cd display
@@ -443,16 +443,7 @@ setInterval(()=>{
         const nx=dx/l, ny=dy/l;
         // Direction = cursor relative to screen center
         socket.emit('shoot',{nx,ny});
-        // Spawn local bullet immediately at predX for visual correctness
-        if(predX!==null){
-          const bulletOn2=currentMe&&currentMe.bulletEnd&&Date.now()<currentMe.bulletEnd;
-          const lcol=bulletOn2?'#ff4':(currentMe?currentMe.color:'#4cf');
-          localBullets.push({x:predX,y:predY,vx:nx*16,vy:ny*16,r:3,col:lcol,life:15,local:true});
-          if(bulletOn2){
-            localBullets.push({x:predX,y:predY,vx:(nx+(-ny)*0.15)*16,vy:(ny+nx*0.15)*16,r:3,col:'#ff4',life:15,local:true});
-            localBullets.push({x:predX,y:predY,vx:(nx-(-ny)*0.15)*16,vy:(ny-nx*0.15)*16,r:3,col:'#ff4',life:15,local:true});
-          }
-        }
+
       }
     }
   }
@@ -586,8 +577,15 @@ function render(){
     CTX.restore();
   }
   // Show all bullets including own — identical behavior for player and bot
-  (interp.bullets||[]).forEach(b=>drawBullet(b,b.type==='bomb'));
-  localBullets.forEach(b=>drawBullet(b,false));
+  (interp.bullets||[]).forEach(b=>{
+    // Own bullets: render from predicted position to avoid offset
+    if(b.owner===myId&&predX!==null){
+      const shifted={...b,x:b.x+(predX-( currentMe?currentMe.x:b.x)),y:b.y+(predY-(currentMe?currentMe.y:b.y))};
+      drawBullet(shifted,b.type==='bomb');
+    } else {
+      drawBullet(b,b.type==='bomb');
+    }
+  });
 
   // Bots
   (interp.bots||[]).forEach(drawBot);
@@ -678,7 +676,6 @@ function renderMinimap(interp,me){
 // Client: predVx = inputVx*spd; predX += predVx; (identical)
 // -> predX === server p.x -> no drift -> no reconcile -> no edge pull
 let predX=null,predY=null,lastLoopT=Date.now(),currentMe=null;
-let localBullets=[]; // client-predicted bullets before server confirms
 let dashVx=0,dashVy=0,dashEndT=0; // time-based dash, not frame-based
 
 function loop(){
@@ -729,9 +726,6 @@ function loop(){
   }
 
 
-  // Update local bullets
-  localBullets.forEach(b=>{b.x+=b.vx*dtFrac;b.y+=b.vy*dtFrac;b.life-=dtFrac;});
-  localBullets=localBullets.filter(b=>b.life>0);
   render();
 }
 
