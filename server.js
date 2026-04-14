@@ -81,7 +81,7 @@ function mkPlayer(id,name,color,flag){
 }
 
 // ── State ─────────────────────────────────────────────────────
-let players={},bots=[],food=[],items=[],bullets=[];
+let players={},bots=[],food=[],items=[],bullets=[],spectators=new Set();
 let _id=0;const uid=()=>(++_id).toString(36);
 
 function initWorld(){
@@ -141,11 +141,11 @@ io.on('connection',sock=>{
   });
   sock.on('spectate',({name,col}={})=>{
     _spectatorName=name||'Viewer';_spectatorCol=col||'#aaa';
-    // Send world data to spectator without creating a player
+    spectators.add(sock.id);
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
   });
   sock.on('ping',()=>sock.emit('pong',Date.now()));
-  sock.on('disconnect',()=>{delete players[sock.id];io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
+  sock.on('disconnect',()=>{delete players[sock.id];spectators.delete(sock.id);io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
 });
 
 function pList(){return Object.values(players).map(p=>({id:p.id,name:p.name,mass:Math.floor(p.mass)})).sort((a,b)=>b.mass-a.mass);}
@@ -380,6 +380,15 @@ function physics(now){
 
 function broadcast(now){
   const PA=Object.values(players),PL=PA.length,BL=bots.length,aoi2=AOI_RANGE*AOI_RANGE;
+  // Broadcast to spectators: full view of all bots and players
+  for(const sid of spectators){
+    const sock=io.sockets.sockets.get(sid);if(!sock)continue;
+    const vP=PA.map(q=>({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),
+      sh:now<q.shieldEnd?1:0,st:0,inv:q.inv,cQ:0,cW:0,cR:0,cB:0,sE:0,mE:0,shE:q.shieldEnd,stE:0,bE:0}));
+    const vB=bots.filter(b=>!b._deadUntil).map(b=>({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name}));
+    const vU=bullets.map(b=>({i:b.id,x:Math.round(b.x),y:Math.round(b.y),r:b.r,c:b.col,t:b.type==='bomb'?1:0,o:b.owner}));
+    sock.emit('state',{t:now,p:vP,b:vB,u:vU});
+  }
   for(let i=0;i<PL;i++){
     const p=PA[i],sock=io.sockets.sockets.get(p.id);if(!sock)continue;
     const vP=[],vB=[],vU=[];

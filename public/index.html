@@ -52,7 +52,7 @@ canvas{display:block;}
 #msgs{position:fixed;top:40px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:3px;pointer-events:none;align-items:center;z-index:50;}
 .msg{background:rgba(0,10,28,0.93);border-left:3px solid #0cf;padding:3px 12px;font-size:11px;color:#ccc;border-radius:0 4px 4px 0;transition:opacity .5s;white-space:nowrap;}
 /* Dead screen */
-#dead{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;}ems:center;justify-content:center;gap:14px;z-index:99;cursor:default;}
+#dead{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;}ems:center;justify-content:center;gap:14px;z-index:99;cursor:default;}
 #dead h2{color:#f44;font-size:28px;letter-spacing:4px;}
 #dead p{color:#aaa;font-size:13px;}
 #dead button{background:rgba(0,180,255,0.2);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:inherit;font-size:13px;padding:10px 26px;border-radius:6px;cursor:pointer;letter-spacing:2px;}
@@ -89,7 +89,7 @@ canvas{display:block;}
 
 <!-- Death screen -->
 <div id="dead">
-  <div style="background:rgba(0,5,20,0.97);border:1px solid rgba(255,50,50,0.4);border-radius:12px;padding:32px 40px;text-align:center;max-width:360px;width:90%">
+  <div style="background:rgba(0,5,20,0.88);border:1px solid rgba(255,50,50,0.5);border-radius:12px;padding:24px 32px;text-align:center;max-width:340px;width:90%;backdrop-filter:blur(2px)">
     <h2 style="color:#f44;font-size:26px;letter-spacing:4px;margin:0 0 8px">ELIMINATED</h2>
     <p id="dm" style="color:#aaa;font-size:13px;margin:0 0 20px">Bạn đã bị hấp thụ!</p>
     <!-- Quảng cáo 300x250 -->
@@ -337,8 +337,9 @@ function connect(){
     if(dm)dm.textContent='Bị hấp thụ bởi '+by+'!';
     const dead=document.getElementById('dead');
     if(dead)dead.style.display='flex';
-    // Hard reset prediction on death so it snaps to new spawn, not old position
-    predX=null;predY=null;
+    // Keep last camera position so player can watch game while dead
+    // predX=null will be set when respawning (in init handler)
+    // Don't reset predX here - keep showing current area
   });
   socket.on('explode',({x,y,nx,ny,r,col,big})=>{
     if(big){
