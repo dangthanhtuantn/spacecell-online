@@ -9,7 +9,7 @@
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none;cursor:none;}
 canvas{display:block;}
 /* Lobby */
-#lobby{position:fixed;inset:0;background:radial-gradient(ellipse at center,#001428,#000208);display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
+#lobby{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
 .lbox{background:rgba(0,18,45,0.97);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:28px 36px;width:520px;max-height:90vh;overflow-y:auto;}
 .lbox h1{color:#0cf;font-size:24px;letter-spacing:5px;text-align:center;margin-bottom:4px;}
 .lbox .sub{color:rgba(0,180,255,0.4);font-size:10px;letter-spacing:3px;text-align:center;margin-bottom:20px;}
@@ -96,6 +96,17 @@ canvas{display:block;}
     <div style="width:300px;height:250px;margin:0 auto 20px;background:rgba(0,10,28,0.9);border:1px solid rgba(255,80,80,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,80,80,0.3);font-size:11px;letter-spacing:1px;">
       ADVERTISEMENT
     </div>
+    <div style="margin-top:14px;font-size:11px;color:rgba(0,180,255,0.7);line-height:1.8;letter-spacing:0.5px">
+      <div style="color:#0cf;font-size:12px;margin-bottom:6px;letter-spacing:2px">📦 HƯỚNG DẪN ITEM</div>
+      <div>⚡ <span style="color:#0ff">SPEED</span> &nbsp;[S] — Tốc độ ×2 trong 3 giây</div>
+      <div>🛡 <span style="color:#88f">SHIELD</span> [E] — Bảo vệ 5 giây</div>
+      <div>👻 <span style="color:#ccc">STEALTH</span> [T] — Tàng hình 5 giây, không ăn được</div>
+      <div>🌱 <span style="color:#4f4">GROW</span> &nbsp;&nbsp;&nbsp;— Tăng 10% kích thước</div>
+      <div>🧲 <span style="color:#f0f">MAGNET</span> — Hút thức ăn tự động 5 giây</div>
+      <div>☠️ <span style="color:#8f0">TOXIC</span> &nbsp;&nbsp;— Vùng độc, giảm mass liên tục</div>
+      <div>💣 <span style="color:#f80">BOMB</span> &nbsp;&nbsp;[B] — Bắn bom, giảm 50% mass mục tiêu</div>
+      <div>🔫 <span style="color:#ff4">BULLET</span> — Bắn 3 luồng đạn (tự kích hoạt)</div>
+    </div>
     <button id="respawnBtn" style="background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;padding:10px 32px;border-radius:6px;cursor:pointer;width:100%">
       ▶ CHƠI LẠI
     </button>
@@ -103,6 +114,8 @@ canvas{display:block;}
 </div>
 
 <!-- Lobby -->
+<!-- Space background for lobby -->
+<canvas id="spaceBg" style="position:fixed;inset:0;z-index:199;pointer-events:none;display:none"></canvas>
 <!-- Chat box -->
 <div id="chatBox" style="display:none;position:fixed;bottom:10px;left:10px;width:280px;z-index:100;font-size:13px">
   <div id="chatMsgs" style="background:rgba(0,0,0,0.55);border:1px solid rgba(0,180,255,0.25);border-radius:6px 6px 0 0;padding:6px 8px;height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
@@ -133,6 +146,17 @@ canvas{display:block;}
     <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.8);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(0,180,255,0.3);font-size:11px;letter-spacing:1px;">
       ADVERTISEMENT
     </div>
+    <div style="margin-top:14px;font-size:11px;color:rgba(0,180,255,0.7);line-height:1.8;letter-spacing:0.5px">
+      <div style="color:#0cf;font-size:12px;margin-bottom:6px;letter-spacing:2px">📦 HƯỚNG DẪN ITEM</div>
+      <div>⚡ <span style="color:#0ff">SPEED</span> &nbsp;[S] — Tốc độ ×2 trong 3 giây</div>
+      <div>🛡 <span style="color:#88f">SHIELD</span> [E] — Bảo vệ 5 giây</div>
+      <div>👻 <span style="color:#ccc">STEALTH</span> [T] — Tàng hình 5 giây, không ăn được</div>
+      <div>🌱 <span style="color:#4f4">GROW</span> &nbsp;&nbsp;&nbsp;— Tăng 10% kích thước</div>
+      <div>🧲 <span style="color:#f0f">MAGNET</span> — Hút thức ăn tự động 5 giây</div>
+      <div>☠️ <span style="color:#8f0">TOXIC</span> &nbsp;&nbsp;— Vùng độc, giảm mass liên tục</div>
+      <div>💣 <span style="color:#f80">BOMB</span> &nbsp;&nbsp;[B] — Bắn bom, giảm 50% mass mục tiêu</div>
+      <div>🔫 <span style="color:#ff4">BULLET</span> — Bắn 3 luồng đạn (tự kích hoạt)</div>
+    </div>
   </div>
 </div>
 
@@ -144,7 +168,7 @@ const TICK_MS=33;
 const INTERP_DELAY=150;
 
 // ── Color picker init ─────────────────────────────────────────
-const COLORS=['#00cfff','#ff4466','#44ff88','#ffaa00','#aa44ff','#ff44aa','#00ffcc','#ff8800','#4488ff','#ffff44','#ff6644','#88ff44'];
+const COLORS=['#00cfff','#ff4466','#44ff88','#ffaa00','#aa44ff','#ff44aa','#ffffff'];
 let selectedColor=COLORS[0];
 (function initColorGrid(){
   const grid=document.getElementById('colorGrid');
@@ -308,6 +332,7 @@ function connect(){
     document.getElementById('lobby').style.display='none';
     document.getElementById('dead').style.display='none';
     document.getElementById('chatBox').style.display='block';
+    const sbg=document.getElementById('spaceBg');if(sbg)sbg.style.display='none';
   });
 
   socket.on('state',s=>{
@@ -811,6 +836,69 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
   });
   socket.emit('spectate',{name:'Viewer',col:selectedColor||'#aaa'});
 });
+// ── Space Background ──────────────────────────────────────────
+(function drawSpaceBg(){
+  const c=document.getElementById('spaceBg');
+  if(!c)return;
+  c.width=window.innerWidth;c.height=window.innerHeight;
+  c.style.display='block';
+  const cx=c.getContext('2d');
+  const W=c.width,H=c.height;
+
+  // Deep space gradient
+  const bg=cx.createRadialGradient(W*0.5,H*0.5,0,W*0.5,H*0.5,Math.max(W,H)*0.7);
+  bg.addColorStop(0,'#000d1a');bg.addColorStop(0.5,'#000510');bg.addColorStop(1,'#000000');
+  cx.fillStyle=bg;cx.fillRect(0,0,W,H);
+
+  // Galaxy / Milky Way band
+  const gx=cx.createLinearGradient(0,H*0.3,W,H*0.7);
+  gx.addColorStop(0,'rgba(100,60,200,0)');gx.addColorStop(0.3,'rgba(120,80,255,0.07)');
+  gx.addColorStop(0.5,'rgba(180,140,255,0.12)');gx.addColorStop(0.7,'rgba(120,80,255,0.07)');gx.addColorStop(1,'rgba(80,40,180,0)');
+  cx.save();cx.translate(W/2,H/2);cx.rotate(-0.35);cx.fillStyle=gx;cx.fillRect(-W,-(H*0.25),W*2,H*0.5);cx.restore();
+
+  // Nebula clouds
+  [[0.15,0.2,200,0.06,'rgba(0,100,255'],[0.8,0.15,160,0.05,'rgba(180,0,255'],[0.6,0.75,220,0.05,'rgba(0,180,150'],[0.25,0.8,180,0.04,'rgba(255,80,0']].forEach(([rx,ry,r,a,col])=>{
+    const ng=cx.createRadialGradient(rx*W,ry*H,0,rx*W,ry*H,r);
+    ng.addColorStop(0,col+','+a+')');ng.addColorStop(1,col+',0)');
+    cx.fillStyle=ng;cx.fillRect(rx*W-r,ry*H-r,r*2,r*2);
+  });
+
+  // Stars (many small)
+  for(let i=0;i<800;i++){
+    const x=Math.random()*W,y=Math.random()*H;
+    const r=Math.random();
+    const size=r<0.7?0.5:r<0.92?1:r<0.98?1.5:2.5;
+    const alpha=0.4+Math.random()*0.6;
+    cx.fillStyle='rgba(255,255,255,'+alpha+')';
+    cx.beginPath();cx.arc(x,y,size,0,Math.PI*2);cx.fill();
+  }
+
+  // Bright stars with glow
+  for(let i=0;i<30;i++){
+    const x=Math.random()*W,y=Math.random()*H;
+    const r=1+Math.random()*2;
+    const cols=['255,255,200','200,220,255','255,200,200'];
+    const col=cols[Math.floor(Math.random()*3)];
+    const sg=cx.createRadialGradient(x,y,0,x,y,r*6);
+    sg.addColorStop(0,'rgba('+col+',0.9)');sg.addColorStop(0.3,'rgba('+col+',0.3)');sg.addColorStop(1,'rgba('+col+',0)');
+    cx.fillStyle=sg;cx.beginPath();cx.arc(x,y,r*6,0,Math.PI*2);cx.fill();
+    cx.fillStyle='rgba('+col+',1)';cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.fill();
+  }
+
+  // Solar system: Sun + 4 planets
+  const sx=W*0.82,sy=H*0.22;
+  // Sun glow
+  const sung=cx.createRadialGradient(sx,sy,0,sx,sy,70);
+  sung.addColorStop(0,'rgba(255,240,100,1)');sung.addColorStop(0.2,'rgba(255,180,0,0.8)');sung.addColorStop(0.5,'rgba(255,100,0,0.3)');sung.addColorStop(1,'rgba(255,80,0,0)');
+  cx.fillStyle=sung;cx.beginPath();cx.arc(sx,sy,70,0,Math.PI*2);cx.fill();
+  cx.fillStyle='#fff8c0';cx.beginPath();cx.arc(sx,sy,12,0,Math.PI*2);cx.fill();
+  // Planets
+  [[38,0,6,'#a0c8ff'],[60,0.8,5,'#ffaa44'],[85,1.8,8,'#66aaff'],[110,2.5,4,'#ff7744']].forEach(([orb,ang,pr,col])=>{
+    const px=sx+Math.cos(ang)*orb,py=sy+Math.sin(ang)*orb*0.35;
+    cx.fillStyle=col;cx.beginPath();cx.arc(px,py,pr,0,Math.PI*2);cx.fill();
+  });
+})();
+
 loop();
 
 </script>
