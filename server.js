@@ -72,7 +72,7 @@ function mkBot(i,mass=500){
 // ── Players ───────────────────────────────────────────────────
 function mkPlayer(id,name,color,flag){
   return{id,name:name||'Player',color:color||'#00cfff',flag:flag||null,
-    x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass:100,vx:0,vy:0,
+    x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass:300,vx:0,vy:0,
     shieldEnd:Date.now()+5000,stealthEnd:0,_dashing:0,
     inv:{speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0},
     speedEnd:0,magnetEnd:0,bulletEnd:0,
