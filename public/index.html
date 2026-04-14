@@ -38,6 +38,7 @@ canvas{display:block;}
 .le{font-size:11px;color:#bbb;padding:1px 0;}.le.me{color:#0ff;font-weight:bold;}
 /* Skill bar */
 #inv{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:6px;pointer-events:none;z-index:10;}
+@media (hover:none) and (pointer:coarse){#inv{pointer-events:auto;bottom:100px;}}
 .sk{background:rgba(0,10,28,0.93);border:1px solid rgba(0,180,255,0.32);border-radius:8px;padding:5px 9px;text-align:center;min-width:52px;}
 .sk .si{font-size:18px;line-height:1;}.sk .n{color:#888;font-size:8px;letter-spacing:0px;margin-top:2px;}
 .sk .cnt{color:#ff0;font-size:11px;font-weight:bold;min-height:14px;}.sk .cd{color:#f80;font-size:9px;min-height:11px;}
@@ -65,12 +66,9 @@ canvas{display:block;}
 }
 #joystickZone{display:none;position:fixed;left:20px;bottom:20px;width:120px;height:120px;z-index:50;}
 #joystickBase{position:absolute;inset:0;border-radius:50%;background:rgba(0,180,255,0.12);border:2px solid rgba(0,180,255,0.35);}
-#joystickKnob{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(0,180,255,0.5);border:2px solid rgba(0,180,255,0.8);top:50%;left:50%;transform:translate(-50%,-50%);transition:none;}
+#joystickKnob{position:fixed;width:48px;height:48px;border-radius:50%;background:rgba(0,180,255,0.5);border:2px solid rgba(0,180,255,0.8);top:50%;left:50%;transform:translate(-50%,-50%);transition:none;pointer-events:none;z-index:51;}
 #fireBtn{display:none;position:fixed;right:28px;bottom:40px;width:72px;height:72px;border-radius:50%;background:rgba(255,80,80,0.25);border:2px solid rgba(255,80,80,0.6);z-index:50;font-size:28px;line-height:72px;text-align:center;color:#f88;user-select:none;-webkit-user-select:none;}
-#mobileItems{display:none;position:fixed;right:20px;top:50%;transform:translateY(-50%);flex-direction:column;gap:8px;z-index:50;}
-.mib{width:52px;height:52px;border-radius:10px;background:rgba(0,10,28,0.85);border:1px solid rgba(0,180,255,0.4);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;color:#0cf;cursor:pointer;user-select:none;-webkit-user-select:none;}
-.mib span{font-size:8px;margin-top:1px;color:#aaa;}
-.mib.active{border-color:#0ff;background:rgba(0,180,255,0.2);}
+
 </style>
 </head>
 <body>
@@ -91,10 +89,10 @@ canvas{display:block;}
 
 <!-- Skill bar -->
 <div id="inv">
-  <div class="sk" id="skQ"><div class="si">⚡</div><div class="n">[F]lash</div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
-  <div class="sk" id="skW"><div class="si">🛡️</div><div class="n">[S]hield</div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
-  <div class="sk" id="skR"><div class="si">👻</div><div class="n">[G]host</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
-  <div class="sk" id="skB"><div class="si">💣</div><div class="n">[B]omb</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
+  <div class="sk" id="skQ" ontouchstart="if(isMobile)mobileItem('speed')" style="cursor:pointer"><div class="si">⚡</div><div class="n">[F]lash</div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
+  <div class="sk" id="skW" ontouchstart="if(isMobile)mobileItem('shield')" style="cursor:pointer"><div class="si">🛡️</div><div class="n">[S]hield</div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
+  <div class="sk" id="skR" ontouchstart="if(isMobile)mobileItem('stealth')" style="cursor:pointer"><div class="si">👻</div><div class="n">[G]host</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
+  <div class="sk" id="skB" ontouchstart="if(isMobile)mobileBomb()" style="cursor:pointer"><div class="si">💣</div><div class="n">[B]omb</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
   <div class="sk" id="skG"><div class="si">🔫</div><div class="n">[🖱]Bullet</div><div class="cnt" id="cntG">0</div><div class="cd" id="cdG"></div></div>
   <div class="sk" id="skF"><div class="si">🧲</div><div class="n">Magnet</div><div class="cnt" id="cntF">-</div><div class="cd" id="cdF"></div></div>
 </div>
@@ -132,12 +130,7 @@ canvas{display:block;}
 <!-- Mobile Controls -->
 <div id="joystickZone"><div id="joystickBase"></div><div id="joystickKnob"></div></div>
 <div id="fireBtn">🔴</div>
-<div id="mobileItems">
-  <div class="mib" id="mibF" onclick="mobileItem('speed')">⚡<span>[F]</span></div>
-  <div class="mib" id="mibS" onclick="mobileItem('shield')">🛡️<span>[S]</span></div>
-  <div class="mib" id="mibG" onclick="mobileItem('stealth')">👻<span>[G]</span></div>
-  <div class="mib" id="mibB" onclick="mobileBomb()">💣<span>[B]</span></div>
-</div>
+
 <!-- Spectate overlay label -->
 <div id="spectateLabel" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#ff0;padding:6px 16px;border-radius:20px;font-size:13px;z-index:50;pointer-events:none">👁 <span id="viewerCount">0</span> người đang xem</div>
 <div id="lobby">
@@ -347,7 +340,6 @@ function connect(){
     if(isMobile){
       document.getElementById('joystickZone').style.display='block';
       document.getElementById('fireBtn').style.display='block';
-      document.getElementById('mobileItems').style.display='flex';
     }
   });
 
@@ -902,70 +894,63 @@ function initMobile(){
   if(!isMobile)return;
   document.getElementById('joystickZone').style.display='block';
   document.getElementById('fireBtn').style.display='block';
-  document.getElementById('mobileItems').style.display='flex';
-  document.getElementById('inv').style.bottom='130px';
-  document.getElementById('mmw').style.bottom='130px';
 
-  // Joystick
+  // Joystick visual
   const jz=document.getElementById('joystickZone');
   const jk=document.getElementById('joystickKnob');
   const maxR=36;
 
-  jz.addEventListener('touchstart',e=>{
-    e.preventDefault();
-    const t=e.changedTouches[0];
-    const rect=jz.getBoundingClientRect();
-    joyBx=rect.left+rect.width/2;joyBy=rect.top+rect.height/2;
-    joyId=t.identifier;joyActive=true;
-  },{passive:false});
+  // LEFT half screen = joystick, RIGHT half = fire/aim
+  document.addEventListener('touchstart',e=>{
+    if(!gameActive)return;
+    for(const t of e.changedTouches){
+      const isInv=t.target.closest('#inv');
+      if(isInv)continue; // let skill bar handle its own touches
+      if(t.clientX<window.innerWidth*0.55&&joyId===null){
+        // Left side: joystick
+        joyBx=t.clientX;joyBy=t.clientY;
+        joyId=t.identifier;joyActive=true;
+        jk.style.left=t.clientX+'px';jk.style.top=t.clientY+'px';
+        jk.style.transform='translate(-50%,-50%)';
+        // Show joystick at touch point
+        jz.style.left=(t.clientX-60)+'px';
+        jz.style.top=(t.clientY-60)+'px';
+      } else if(t.clientX>=window.innerWidth*0.45&&touchShootId===null){
+        // Right side: shoot
+        touchShoot=true;touchShootId=t.identifier;
+        document.getElementById('fireBtn').style.background='rgba(255,80,80,0.5)';
+      }
+    }
+  },{passive:true});
 
-  window.addEventListener('touchmove',e=>{
+  document.addEventListener('touchmove',e=>{
+    if(!gameActive)return;
     for(const t of e.changedTouches){
       if(t.identifier===joyId){
-        e.preventDefault();
         const dx=t.clientX-joyBx,dy=t.clientY-joyBy;
         const dist=Math.hypot(dx,dy)||1;
         const clamped=Math.min(dist,maxR);
         const nx=dx/dist,ny=dy/dist;
-        jk.style.transform='translate(calc(-50% + '+nx*clamped+'px),calc(-50% + '+ny*clamped+'px))';
-        touchVx=dist>8?nx:0;touchVy=dist>8?ny:0;
-      }
-      if(t.identifier===touchShootId){
-        // Update shoot direction from fire button drag
-        const cx=window.innerWidth/2,cy=window.innerHeight/2;
-        touchAimX=t.clientX-cx;touchAimY=t.clientY-cy;
+        jk.style.left=(joyBx+nx*clamped)+'px';
+        jk.style.top=(joyBy+ny*clamped)+'px';
+        touchVx=dist>10?nx:0;touchVy=dist>10?ny:0;
       }
     }
-  },{passive:false});
+  },{passive:true});
 
-  window.addEventListener('touchend',e=>{
+  document.addEventListener('touchend',e=>{
     for(const t of e.changedTouches){
       if(t.identifier===joyId){
         joyActive=false;joyId=null;touchVx=0;touchVy=0;
-        document.getElementById('joystickKnob').style.transform='translate(-50%,-50%)';
+        jk.style.left='50%';jk.style.top='50%';
+        jz.style.left='20px';jz.style.top='auto';jz.style.bottom='20px';
       }
-      if(t.identifier===touchShootId){touchShoot=false;touchShootId=null;}
+      if(t.identifier===touchShootId){
+        touchShoot=false;touchShootId=null;
+        document.getElementById('fireBtn').style.background='rgba(255,80,80,0.25)';
+      }
     }
-  });
-
-  // Fire button
-  const fb=document.getElementById('fireBtn');
-  let touchAimX=0,touchAimY=100;
-  fb.addEventListener('touchstart',e=>{
-    e.preventDefault();
-    touchShoot=true;
-    touchShootId=e.changedTouches[0].identifier;
-    fb.style.background='rgba(255,80,80,0.5)';
-  },{passive:false});
-  fb.addEventListener('touchend',e=>{
-    e.preventDefault();
-    touchShoot=false;touchShootId=null;
-    fb.style.background='rgba(255,80,80,0.25)';
-  },{passive:false});
-
-  // Override input/shoot loop for mobile
-  // Patch Mouse to use joystick direction
-  const _origLoop=window._mobileLoopPatch=true;
+  },{passive:true});
 }
 
 function mobileItem(type){
