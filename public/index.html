@@ -76,13 +76,12 @@ canvas{display:block;}
 
 <!-- Skill bar -->
 <div id="inv">
-  <div class="sk" id="skQ"><div class="si">⚡</div><div class="n">Flash <strong>[F]</strong></div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
-  <div class="sk" id="skW"><div class="si">🛡️</div><div class="n">Shield <strong>[S]</strong></div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
-  <div class="sk" id="skR"><div class="si">👻</div><div class="n">Ghost <strong>[G]</strong></div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
-  <div class="sk" id="skB"><div class="si">💣</div><div class="n">Bomb <strong>[B]</strong></div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
-  <div class="sk" id="skG"><div class="si">🔫</div><div class="n">Bullet <strong>[🖱]</strong></div><div class="cnt" id="cntG">0</div><div class="cd" id="cdG"></div></div>
-  <div class="sk" id="skF"><div class="si">🧲</div><div class="n">Magnet <strong>[auto]</strong></div><div class="cnt" id="cntF">-</div><div class="cd" id="cdF"></div></div>
-  <div class="sk" id="skE"><div class="si">🖱</div><div class="n">Shoot <strong>[hold]</strong></div><div class="cnt" id="cntE">∞</div><div class="cd" id="cdE"></div></div>
+  <div class="sk" id="skQ"><div class="si">⚡</div><div class="n">[F]lash</div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
+  <div class="sk" id="skW"><div class="si">🛡️</div><div class="n">[S]hield</div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
+  <div class="sk" id="skR"><div class="si">👻</div><div class="n">[G]host</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
+  <div class="sk" id="skB"><div class="si">💣</div><div class="n">[B]omb</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
+  <div class="sk" id="skG"><div class="si">🔫</div><div class="n">[🖱]Bullet</div><div class="cnt" id="cntG">0</div><div class="cd" id="cdG"></div></div>
+  <div class="sk" id="skF"><div class="si">🧲</div><div class="n">Magnet</div><div class="cnt" id="cntF">-</div><div class="cd" id="cdF"></div></div>
 </div>
 
 <div id="msgs"></div>
@@ -399,7 +398,6 @@ function updateHUD(me){
     updSk('G',bulRem>0?1:(me.inv&&me.inv.bullet||0),bulRem,false,false); // Bullet
     const magRem=me.magnetEnd?Math.max(0,me.magnetEnd-nh):0;
     updSk('F',magRem>0?'●':' ',magRem,false,false); // Magnet auto
-    updSk('E',1,0,true,false); // Shoot hold
   }
   // Rank
   const interp=getInterp();

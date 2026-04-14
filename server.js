@@ -104,7 +104,7 @@ io.on('connection',sock=>{
     io.emit('playerList',pList());
   });
   sock.on('input',({vx,vy})=>{const p=players[sock.id];if(!p)return;p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);});
-  sock.on('speed',()=>{const p=players[sock.id];if(!p||p.inv.speed<=0)return;p.inv.speed--;p.speedEnd=Date.now()+3000;});
+  sock.on('speed',()=>{const p=players[sock.id];if(!p||p.inv.speed<=0)return;p.inv.speed--;p.speedEnd=Date.now()+2000;});
   sock.on('shield',()=>{const p=players[sock.id];if(!p||p.inv.shield<=0)return;p.inv.shield--;p.shieldEnd=Date.now()+5000;});
   sock.on('stealth',()=>{const p=players[sock.id];if(!p||p.inv.stealth<=0)return;p.inv.stealth--;p.stealthEnd=Date.now()+5000;});
   sock.on('bomb',({nx,ny})=>{
