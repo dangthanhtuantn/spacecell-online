@@ -39,7 +39,7 @@ canvas{display:block;}
 /* Skill bar */
 #inv{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:6px;pointer-events:none;z-index:10;}
 .sk{background:rgba(0,10,28,0.93);border:1px solid rgba(0,180,255,0.32);border-radius:8px;padding:5px 9px;text-align:center;min-width:52px;}
-.sk .k{font-size:12px;font-weight:bold;color:#0ff;}.sk .n{color:#444;font-size:8px;letter-spacing:1px;margin-top:1px;}
+.sk .si{font-size:18px;line-height:1;}.sk .n{color:#888;font-size:8px;letter-spacing:0px;margin-top:2px;}
 .sk .cnt{color:#ff0;font-size:11px;font-weight:bold;min-height:14px;}.sk .cd{color:#f80;font-size:9px;min-height:11px;}
 .sk.act{border-color:#0ff;background:rgba(0,40,65,0.9);}.sk.emp .k{color:rgba(0,180,255,0.2);}.sk.fire{border-color:#f80;}
 /* Minimap */
@@ -76,13 +76,13 @@ canvas{display:block;}
 
 <!-- Skill bar -->
 <div id="inv">
-  <div class="sk" id="skQ"><div class="k">S</div><div class="n">SPEED</div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
-  <div class="sk" id="skW"><div class="k">E</div><div class="n">SHIELD</div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
-  <div class="sk" id="skE"><div class="k">🖱</div><div class="n">SHOOT</div><div class="cnt" id="cntE">∞</div><div class="cd" id="cdE"></div></div>
-  <div class="sk" id="skR"><div class="k">T</div><div class="n">STEALTH</div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
-  <div class="sk" id="skB"><div class="k">B</div><div class="n">BOMB</div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
-  <div class="sk" id="skF"><div class="k">F</div><div class="n">MAGNET</div><div class="cnt" id="cntF">-</div><div class="cd" id="cdF"></div></div>
-  <div class="sk" id="skG"><div class="k">🖱</div><div class="n">BULLET</div><div class="cnt" id="cntG">0</div><div class="cd" id="cdG"></div></div>
+  <div class="sk" id="skQ"><div class="si">⚡</div><div class="n">Flash <strong>[F]</strong></div><div class="cnt" id="cntQ">0</div><div class="cd" id="cdQ"></div></div>
+  <div class="sk" id="skW"><div class="si">🛡️</div><div class="n">Shield <strong>[S]</strong></div><div class="cnt" id="cntW">0</div><div class="cd" id="cdW"></div></div>
+  <div class="sk" id="skR"><div class="si">👻</div><div class="n">Ghost <strong>[G]</strong></div><div class="cnt" id="cntR">0</div><div class="cd" id="cdR"></div></div>
+  <div class="sk" id="skB"><div class="si">💣</div><div class="n">Bomb <strong>[B]</strong></div><div class="cnt" id="cntB">0</div><div class="cd" id="cdB"></div></div>
+  <div class="sk" id="skG"><div class="si">🔫</div><div class="n">Bullet <strong>[🖱]</strong></div><div class="cnt" id="cntG">0</div><div class="cd" id="cdG"></div></div>
+  <div class="sk" id="skF"><div class="si">🧲</div><div class="n">Magnet <strong>[auto]</strong></div><div class="cnt" id="cntF">-</div><div class="cd" id="cdF"></div></div>
+  <div class="sk" id="skE"><div class="si">🖱</div><div class="n">Shoot <strong>[hold]</strong></div><div class="cnt" id="cntE">∞</div><div class="cd" id="cdE"></div></div>
 </div>
 
 <div id="msgs"></div>
@@ -389,17 +389,17 @@ function updateHUD(me){
   if(me.inv){
     const nh=Date.now();
     const speedRem=me.speedEnd?Math.max(0,me.speedEnd-nh):0;
-    updSk('Q',speedRem>0?1:(me.inv.speed||0),speedRem,false,false); // S=SPEED
+    updSk('Q',speedRem>0?1:(me.inv.speed||0),speedRem,false,false); // F=Flash
     const shRem=me.shieldEnd?Math.max(0,me.shieldEnd-nh):0;
-    updSk('W',shRem>0?1:(me.inv.shield||0),shRem,false,false);     // E=SHIELD
-    updSk('E',1,0,true,false);                                       // mouse=SHOOT
+    updSk('W',shRem>0?1:(me.inv.shield||0),shRem,false,false);     // S=Shield
     const stRem=me.stealthEnd?Math.max(0,me.stealthEnd-nh):0;
-    updSk('R',stRem>0?1:(me.inv.stealth||0),stRem,false,false);    // T=STEALTH
-    updSk('B',me.inv.bomb||0,me.cdB,false,false);                   // B=BOMB
-    const magRem=me.magnetEnd?Math.max(0,me.magnetEnd-nh):0;
-    updSk('F',magRem>0?'M':' ',magRem,false,false); // MAGNET auto, timer only
+    updSk('R',stRem>0?1:(me.inv.stealth||0),stRem,false,false);    // G=Ghost
+    updSk('B',me.inv.bomb||0,me.cdB,false,false);                   // B=Bomb
     const bulRem=me.bulletEnd?Math.max(0,me.bulletEnd-nh):0;
-    updSk('G',bulRem>0?1:(me.inv&&me.inv.bullet||0),bulRem,false,false); // BULLET
+    updSk('G',bulRem>0?1:(me.inv&&me.inv.bullet||0),bulRem,false,false); // Bullet
+    const magRem=me.magnetEnd?Math.max(0,me.magnetEnd-nh):0;
+    updSk('F',magRem>0?'●':' ',magRem,false,false); // Magnet auto
+    updSk('E',1,0,true,false); // Shoot hold
   }
   // Rank
   const interp=getInterp();
@@ -431,14 +431,9 @@ function handleKey(code){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  if(code==='KeyS'){
-    const cme=currentMe;
-    if(!cme||!cme.inv||!(cme.inv.speed>0))return;
-    socket.emit('speed');
-    // Let server confirm speedEnd (no client-side prediction to avoid bullet offset)
-  }
-  if(code==='KeyE'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
-  if(code==='KeyT'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
+  if(code==='KeyF'){const cme=currentMe;if(!cme||!cme.inv||!(cme.inv.speed>0))return;socket.emit('speed');}
+  if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
+  if(code==='KeyG'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
   if(code==='KeyB'){const wx=Mouse.x+camX,wy=Mouse.y+camY;const dx=wx-(me?me.x:camX+SW/2),dy=wy-(me?me.y:camY+SH/2);const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
   // F (magnet auto-activates on pickup)
 }
