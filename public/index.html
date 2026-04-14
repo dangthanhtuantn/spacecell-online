@@ -9,10 +9,10 @@
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none;cursor:none;}
 canvas{display:block;}
 /* Lobby */
-#lobby{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
-.lbox{background:rgba(0,18,45,0.97);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:28px 36px;width:520px;max-height:90vh;overflow-y:auto;}
+#lobby{position:fixed;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
+.lbox{background:rgba(0,10,30,0.95);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:18px 28px;width:480px;max-height:96vh;overflow-y:auto;}
 .lbox h1{color:#0cf;font-size:24px;letter-spacing:5px;text-align:center;margin-bottom:4px;}
-.lbox .sub{color:rgba(0,180,255,0.4);font-size:10px;letter-spacing:3px;text-align:center;margin-bottom:20px;}
+
 .lbox label{display:block;color:#7dd8f0;font-size:11px;letter-spacing:2px;margin-bottom:6px;font-weight:bold;}
 .lbox input[type=text]{width:100%;background:rgba(0,25,60,0.8);border:1px solid rgba(0,180,255,0.3);border-radius:6px;color:#fff;font-family:inherit;font-size:14px;padding:8px 12px;margin-bottom:18px;outline:none;}
 .lbox input:focus{border-color:#0cf;}
@@ -89,7 +89,7 @@ canvas{display:block;}
 
 <!-- Death screen -->
 <div id="dead">
-  <div style="background:rgba(0,5,20,0.88);border:1px solid rgba(255,50,50,0.5);border-radius:12px;padding:24px 32px;text-align:center;max-width:340px;width:90%;backdrop-filter:blur(2px)">
+  <div style="background:rgba(0,5,20,0.88);border:1px solid rgba(255,50,50,0.5);border-radius:12px;padding:20px 28px;text-align:center;max-width:680px;width:95%;backdrop-filter:blur(2px)">
     <h2 style="color:#f44;font-size:26px;letter-spacing:4px;margin:0 0 8px">ELIMINATED</h2>
     <p id="dm" style="color:#aaa;font-size:13px;margin:0 0 20px">Bạn đã bị hấp thụ!</p>
     <!-- Quảng cáo 300x250 -->
@@ -107,15 +107,30 @@ canvas{display:block;}
       <div>💣 <span style="color:#f80">BOMB</span> &nbsp;&nbsp;[B] — Bắn bom, giảm 50% mass mục tiêu</div>
       <div>🔫 <span style="color:#ff4">BULLET</span> — Bắn 3 luồng đạn (tự kích hoạt)</div>
     </div>
+    <div style="margin:12px 0;font-size:11px;color:rgba(0,180,255,0.65);text-align:left;line-height:2">
+      <div style="color:#0cf;font-size:11px;margin-bottom:4px;letter-spacing:2px;text-align:center">📦 ITEM</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px 16px;justify-content:center">
+        <span>⚡<span style="color:#0ff">SPEED</span>[S]×2 tốc độ/3s</span>
+        <span>🛡<span style="color:#88f">SHIELD</span>[E] bảo vệ/5s</span>
+        <span>👻<span style="color:#ccc">STEALTH</span>[T] tàng hình/5s</span>
+        <span>🌱<span style="color:#4f4">GROW</span> +10% mass</span>
+        <span>🧲<span style="color:#f0f">MAGNET</span> hút food/5s</span>
+        <span>☠️<span style="color:#8f0">TOXIC</span> vùng độc</span>
+        <span>💣<span style="color:#f80">BOMB</span>[B] -50% mass</span>
+        <span>🔫<span style="color:#ff4">BULLET</span> 3 luồng đạn</span>
+      </div>
+    </div>
     <button id="respawnBtn" style="background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;padding:10px 32px;border-radius:6px;cursor:pointer;width:100%">
       ▶ CHƠI LẠI
     </button>
+    <div style="text-align:center;color:rgba(255,50,50,0.3);font-size:10px;margin-top:10px;letter-spacing:1px">© Đặng Thanh Tuấn</div>
+  <div style="text-align:center;color:rgba(0,180,255,0.35);font-size:10px;margin-top:12px;letter-spacing:1px">© Đặng Thanh Tuấn</div>
   </div>
 </div>
 
 <!-- Lobby -->
 <!-- Space background for lobby -->
-<canvas id="spaceBg" style="position:fixed;inset:0;z-index:199;pointer-events:none;display:none"></canvas>
+<canvas id="spaceBg" style="position:fixed;inset:0;z-index:199;pointer-events:none"></canvas>
 <!-- Chat box -->
 <div id="chatBox" style="display:none;position:fixed;bottom:10px;left:10px;width:280px;z-index:100;font-size:13px">
   <div id="chatMsgs" style="background:rgba(0,0,0,0.55);border:1px solid rgba(0,180,255,0.25);border-radius:6px 6px 0 0;padding:6px 8px;height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
@@ -128,8 +143,7 @@ canvas{display:block;}
 <div id="spectateLabel" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#ff0;padding:6px 16px;border-radius:20px;font-size:13px;z-index:50;pointer-events:none">👁 CHẾ ĐỘ XEM</div>
 <div id="lobby">
   <div class="lbox">
-    <h1>SPACECELL</h1>
-    <div class="sub">ONLINE MULTIPLAYER</div>
+    <h1 style="margin-bottom:18px">SPACECELL <span style="font-size:13px;color:rgba(0,180,255,0.6);letter-spacing:2px;font-weight:normal">— Online Multiplayer</span></h1>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <label style="margin:0;white-space:nowrap;min-width:120px">TÊN NGƯỜI CHƠI</label>
       <input type="text" id="ni" maxlength="16" placeholder="Nhập tên..." value="Player" style="flex:1;margin:0">
