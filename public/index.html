@@ -8,7 +8,6 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none;cursor:none;}
 canvas{display:block;}
-#gc{position:relative;z-index:1;}
 /* Lobby */
 #lobby{position:fixed;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
 .lbox{background:rgba(0,10,30,0.95);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:18px 28px;width:480px;max-height:96vh;overflow-y:auto;}
@@ -30,25 +29,25 @@ canvas{display:block;}
 .playbtn{width:100%;background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:inherit;font-size:13px;letter-spacing:3px;padding:11px;border-radius:8px;cursor:pointer;margin-top:6px;}
 .playbtn:hover{background:rgba(0,180,255,0.3);}
 /* HUD */
-#hud{position:fixed;top:10px;left:10px;pointer-events:none;display:flex;flex-direction:column;gap:5px;}
+#hud{position:fixed;top:10px;left:10px;pointer-events:none;display:flex;flex-direction:column;gap:5px;z-index:10;}
 .hb{background:rgba(0,10,28,0.9);border:1px solid rgba(0,180,255,0.25);border-radius:8px;padding:6px 12px;min-width:145px;}
 .hl{color:rgba(0,180,255,0.55);font-size:9px;letter-spacing:2px;margin-bottom:1px;}
 .hv{font-size:15px;font-weight:bold;color:#fff;}
-#lb{position:fixed;top:10px;right:10px;background:rgba(0,10,28,0.9);border:1px solid rgba(0,180,255,0.25);border-radius:8px;padding:7px 12px;pointer-events:none;min-width:140px;}
+#lb{position:fixed;top:10px;right:10px;z-index:10;background:rgba(0,10,28,0.9);border:1px solid rgba(0,180,255,0.25);border-radius:8px;padding:7px 12px;pointer-events:none;min-width:140px;}
 #lb h4{color:rgba(0,180,255,0.55);font-size:9px;letter-spacing:2px;margin-bottom:4px;}
 .le{font-size:11px;color:#bbb;padding:1px 0;}.le.me{color:#0ff;font-weight:bold;}
 /* Skill bar */
-#inv{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:6px;pointer-events:none;}
+#inv{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:6px;pointer-events:none;z-index:10;}
 .sk{background:rgba(0,10,28,0.93);border:1px solid rgba(0,180,255,0.32);border-radius:8px;padding:5px 9px;text-align:center;min-width:52px;}
 .sk .k{font-size:12px;font-weight:bold;color:#0ff;}.sk .n{color:#444;font-size:8px;letter-spacing:1px;margin-top:1px;}
 .sk .cnt{color:#ff0;font-size:11px;font-weight:bold;min-height:14px;}.sk .cd{color:#f80;font-size:9px;min-height:11px;}
 .sk.act{border-color:#0ff;background:rgba(0,40,65,0.9);}.sk.emp .k{color:rgba(0,180,255,0.2);}.sk.fire{border-color:#f80;}
 /* Minimap */
-#mmw{position:fixed;bottom:14px;right:14px;pointer-events:none;}
+#mmw{position:fixed;bottom:14px;right:14px;pointer-events:none;z-index:10;}
 #mmw .mml{color:rgba(0,180,255,0.45);font-size:9px;letter-spacing:1px;text-align:center;margin-bottom:3px;}
 #mm{border:1px solid rgba(0,180,255,0.35);border-radius:6px;display:block;}
 /* Ping */
-#pingbar{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,10,28,0.85);border:1px solid rgba(0,180,255,0.2);border-radius:20px;padding:4px 14px;font-size:10px;color:rgba(0,180,255,0.6);pointer-events:none;}
+#pingbar{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:10;background:rgba(0,10,28,0.85);border:1px solid rgba(0,180,255,0.2);border-radius:20px;padding:4px 14px;font-size:10px;color:rgba(0,180,255,0.6);pointer-events:none;}
 /* Messages */
 #msgs{position:fixed;top:40px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:3px;pointer-events:none;align-items:center;z-index:50;}
 .msg{background:rgba(0,10,28,0.93);border-left:3px solid #0cf;padding:3px 12px;font-size:11px;color:#ccc;border-radius:0 4px 4px 0;transition:opacity .5s;white-space:nowrap;}
@@ -108,7 +107,7 @@ canvas{display:block;}
 
 <!-- Lobby -->
 <!-- Space background for lobby -->
-<canvas id="spaceBg" style="position:fixed;inset:0;z-index:199;pointer-events:none"></canvas>
+<canvas id="spaceBg" style="position:fixed;inset:0;z-index:-1;pointer-events:none"></canvas>
 <!-- Chat box -->
 <div id="chatBox" style="display:none;position:fixed;bottom:10px;left:10px;width:280px;z-index:100;font-size:13px">
   <div id="chatMsgs" style="background:rgba(0,0,0,0.55);border:1px solid rgba(0,180,255,0.25);border-radius:6px 6px 0 0;padding:6px 8px;height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
