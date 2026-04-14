@@ -56,6 +56,21 @@ canvas{display:block;}
 #dead h2{color:#f44;font-size:28px;letter-spacing:4px;}
 #dead p{color:#aaa;font-size:13px;}
 #dead button{background:rgba(0,180,255,0.2);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:inherit;font-size:13px;padding:10px 26px;border-radius:6px;cursor:pointer;letter-spacing:2px;}
+
+/* ── Mobile Controls ──────────────────────────────────────── */
+@media (hover:none) and (pointer:coarse){
+  #inv{bottom:130px;}
+  #mmw{bottom:130px;}
+  #chatBox{display:none!important;}
+}
+#joystickZone{display:none;position:fixed;left:20px;bottom:20px;width:120px;height:120px;z-index:50;}
+#joystickBase{position:absolute;inset:0;border-radius:50%;background:rgba(0,180,255,0.12);border:2px solid rgba(0,180,255,0.35);}
+#joystickKnob{position:absolute;width:48px;height:48px;border-radius:50%;background:rgba(0,180,255,0.5);border:2px solid rgba(0,180,255,0.8);top:50%;left:50%;transform:translate(-50%,-50%);transition:none;}
+#fireBtn{display:none;position:fixed;right:28px;bottom:40px;width:72px;height:72px;border-radius:50%;background:rgba(255,80,80,0.25);border:2px solid rgba(255,80,80,0.6);z-index:50;font-size:28px;line-height:72px;text-align:center;color:#f88;user-select:none;-webkit-user-select:none;}
+#mobileItems{display:none;position:fixed;right:20px;top:50%;transform:translateY(-50%);flex-direction:column;gap:8px;z-index:50;}
+.mib{width:52px;height:52px;border-radius:10px;background:rgba(0,10,28,0.85);border:1px solid rgba(0,180,255,0.4);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;color:#0cf;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.mib span{font-size:8px;margin-top:1px;color:#aaa;}
+.mib.active{border-color:#0ff;background:rgba(0,180,255,0.2);}
 </style>
 </head>
 <body>
@@ -114,6 +129,15 @@ canvas{display:block;}
     <button id="chatSend" style="background:rgba(0,180,255,0.2);border:1px solid rgba(0,180,255,0.3);border-top:none;border-radius:0 0 6px 0;color:#4cf;padding:5px 10px;cursor:pointer;font-size:12px">GỬI</button>
   </div>
 </div>
+<!-- Mobile Controls -->
+<div id="joystickZone"><div id="joystickBase"></div><div id="joystickKnob"></div></div>
+<div id="fireBtn">🔴</div>
+<div id="mobileItems">
+  <div class="mib" id="mibF" onclick="mobileItem('speed')">⚡<span>[F]</span></div>
+  <div class="mib" id="mibS" onclick="mobileItem('shield')">🛡️<span>[S]</span></div>
+  <div class="mib" id="mibG" onclick="mobileItem('stealth')">👻<span>[G]</span></div>
+  <div class="mib" id="mibB" onclick="mobileBomb()">💣<span>[B]</span></div>
+</div>
 <!-- Spectate overlay label -->
 <div id="spectateLabel" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#ff0;padding:6px 16px;border-radius:20px;font-size:13px;z-index:50;pointer-events:none">👁 <span id="viewerCount">0</span> người đang xem</div>
 <div id="lobby">
@@ -154,7 +178,7 @@ const TICK_MS=33;
 const INTERP_DELAY=150;
 
 // ── Color picker init ─────────────────────────────────────────
-const COLORS=['#00cfff','#ff4466','#44ff88','#ffaa00','#aa44ff','#ff44aa','#ffffff'];
+const COLORS=['#00cfff','#ff4466','#44ff88','#ffaa00','#aa44ff','#ff44aa'];
 let selectedColor=COLORS[0];
 (function initColorGrid(){
   const grid=document.getElementById('colorGrid');
@@ -319,6 +343,12 @@ function connect(){
     document.getElementById('lobby').style.display='none';
     document.getElementById('dead').style.display='none';
     document.getElementById('chatBox').style.display='block';
+    // Show/hide mobile controls based on device
+    if(isMobile){
+      document.getElementById('joystickZone').style.display='block';
+      document.getElementById('fireBtn').style.display='block';
+      document.getElementById('mobileItems').style.display='flex';
+    }
   });
 
   socket.on('state',s=>{
@@ -423,6 +453,10 @@ window.addEventListener('keyup',e=>{Keys[e.code]=false;});
 window.addEventListener('mousemove',e=>{Mouse.x=e.clientX;Mouse.y=e.clientY;});
 let mouseDown=false;
 window.addEventListener('mousedown',e=>{if(e.button===0&&gameActive)mouseDown=true;});
+window.addEventListener('touchstart',e=>{
+  // Prevent zoom on double-tap
+  if(e.touches.length>1)e.preventDefault();
+},{passive:false});
 window.addEventListener('mouseup',e=>{if(e.button===0)mouseDown=false;});
 
 function handleKey(code){
@@ -442,10 +476,13 @@ function handleKey(code){
 let _lastShot=0;
 setInterval(()=>{
   if(!socket||!myId||!gameActive)return;
-  const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  socket.emit('input',{vx:ml>15?mdx/ml:0,vy:ml>15?mdy/ml:0});
-  // Shoot on mouse left button hold
-  if(mouseDown){
+  // Input: use joystick on mobile, mouse on PC
+  let _ivx,_ivy;
+  if(isMobile&&joyActive){_ivx=touchVx;_ivy=touchVy;}
+  else{const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;_ivx=ml>15?mdx/ml:0;_ivy=ml>15?mdy/ml:0;}
+  socket.emit('input',{vx:_ivx,vy:_ivy});
+  // Shoot on mouse click (PC) or fire button (mobile)
+  if(mouseDown||touchShoot){
     const now=Date.now();
     const bulletOn=currentMe&&currentMe.bulletEnd&&now<currentMe.bulletEnd;
     const cd=bulletOn?125:250; // 8/s bullet mode, 4/s normal
@@ -453,12 +490,16 @@ setInterval(()=>{
       _lastShot=now;
       const me2=currentMe;
       if(me2&&me2.mass>100){
-        // Use pure cursor direction from screen center
-        const dx=Mouse.x-SW/2, dy=Mouse.y-SH/2, l=Math.hypot(dx,dy)||1;
-        if(l<5)return; // don't shoot if cursor at center
-        const nx=dx/l, ny=dy/l;
-        // Direction = cursor relative to screen center
-        socket.emit('shoot',{nx,ny});
+        // Direction: joystick on mobile, cursor on PC
+        let _snx,_sny;
+        if(isMobile&&(Math.abs(touchVx)>0.1||Math.abs(touchVy)>0.1)){
+          _snx=touchVx;_sny=touchVy;
+        } else {
+          const dx=Mouse.x-SW/2,dy=Mouse.y-SH/2,l=Math.hypot(dx,dy)||1;
+          if(l<5)return;
+          _snx=dx/l;_sny=dy/l;
+        }
+        socket.emit('shoot',{nx:_snx,ny:_sny});
 
       }
     }
@@ -849,6 +890,98 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
   });
   socket.emit('spectate',{name:'Viewer',col:selectedColor||'#aaa'});
 });
+
+// ── Mobile Controls ───────────────────────────────────────────
+const isMobile=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+let joyActive=false,joyId=null,joyBx=0,joyBy=0;
+let touchShoot=false,touchShootId=null;
+// Touch direction vector (overrides mouse when active)
+let touchVx=0,touchVy=0,touchAiming=false;
+
+function initMobile(){
+  if(!isMobile)return;
+  document.getElementById('joystickZone').style.display='block';
+  document.getElementById('fireBtn').style.display='block';
+  document.getElementById('mobileItems').style.display='flex';
+  document.getElementById('inv').style.bottom='130px';
+  document.getElementById('mmw').style.bottom='130px';
+
+  // Joystick
+  const jz=document.getElementById('joystickZone');
+  const jk=document.getElementById('joystickKnob');
+  const maxR=36;
+
+  jz.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    const t=e.changedTouches[0];
+    const rect=jz.getBoundingClientRect();
+    joyBx=rect.left+rect.width/2;joyBy=rect.top+rect.height/2;
+    joyId=t.identifier;joyActive=true;
+  },{passive:false});
+
+  window.addEventListener('touchmove',e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier===joyId){
+        e.preventDefault();
+        const dx=t.clientX-joyBx,dy=t.clientY-joyBy;
+        const dist=Math.hypot(dx,dy)||1;
+        const clamped=Math.min(dist,maxR);
+        const nx=dx/dist,ny=dy/dist;
+        jk.style.transform='translate(calc(-50% + '+nx*clamped+'px),calc(-50% + '+ny*clamped+'px))';
+        touchVx=dist>8?nx:0;touchVy=dist>8?ny:0;
+      }
+      if(t.identifier===touchShootId){
+        // Update shoot direction from fire button drag
+        const cx=window.innerWidth/2,cy=window.innerHeight/2;
+        touchAimX=t.clientX-cx;touchAimY=t.clientY-cy;
+      }
+    }
+  },{passive:false});
+
+  window.addEventListener('touchend',e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier===joyId){
+        joyActive=false;joyId=null;touchVx=0;touchVy=0;
+        document.getElementById('joystickKnob').style.transform='translate(-50%,-50%)';
+      }
+      if(t.identifier===touchShootId){touchShoot=false;touchShootId=null;}
+    }
+  });
+
+  // Fire button
+  const fb=document.getElementById('fireBtn');
+  let touchAimX=0,touchAimY=100;
+  fb.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    touchShoot=true;
+    touchShootId=e.changedTouches[0].identifier;
+    fb.style.background='rgba(255,80,80,0.5)';
+  },{passive:false});
+  fb.addEventListener('touchend',e=>{
+    e.preventDefault();
+    touchShoot=false;touchShootId=null;
+    fb.style.background='rgba(255,80,80,0.25)';
+  },{passive:false});
+
+  // Override input/shoot loop for mobile
+  // Patch Mouse to use joystick direction
+  const _origLoop=window._mobileLoopPatch=true;
+}
+
+function mobileItem(type){
+  if(!socket||!gameActive)return;
+  socket.emit(type);
+}
+function mobileBomb(){
+  if(!socket||!gameActive||!currentMe)return;
+  const nx=0,ny=1;
+  socket.emit('bomb',{nx,ny});
+}
+
+// Patch input emit to use touch joystick on mobile
+const _origSetInterval=setInterval;
+initMobile();
+
 loop();
 
 
