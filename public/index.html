@@ -806,7 +806,7 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
     const lb=document.getElementById('lbr');if(!lb)return;
     lb.innerHTML=list.slice(0,8).map((e,i)=>'<div class="le">'+(i+1)+'. '+e.name+' '+e.mass+'</div>').join('');
   });
-  socket.emit('spectate');
+  socket.emit('spectate',{name:'Viewer',col:selectedColor||'#aaa'});
 });
 loop();
 

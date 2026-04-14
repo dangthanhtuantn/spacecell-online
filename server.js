@@ -128,14 +128,19 @@ io.on('connection',sock=>{
     }
   });
   let _chatCd=0;
+  let _spectatorName=null,_spectatorCol='#aaa';
   sock.on('chat',({text})=>{
-    const p=players[sock.id];if(!p||!text)return;
+    if(!text)return;
     const now=Date.now();if(now-_chatCd<2000)return;
     _chatCd=now;
     const clean=String(text).substring(0,60).replace(/[<>]/g,'');
-    io.emit('chat',{name:p.name,text:clean,col:p.color});
+    const p=players[sock.id];
+    const name=p?p.name:(_spectatorName||'Viewer');
+    const col=p?p.color:(_spectatorCol||'#aaa');
+    io.emit('chat',{name,text:clean,col});
   });
-  sock.on('spectate',()=>{
+  sock.on('spectate',({name,col}={})=>{
+    _spectatorName=name||'Viewer';_spectatorCol=col||'#aaa';
     // Send world data to spectator without creating a player
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
   });
