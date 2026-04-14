@@ -107,7 +107,6 @@ canvas{display:block;}
 
 <!-- Lobby -->
 <!-- Space background for lobby -->
-<canvas id="spaceBg" style="position:fixed;inset:0;z-index:-1;pointer-events:none"></canvas>
 <!-- Chat box -->
 <div id="chatBox" style="display:none;position:fixed;bottom:10px;left:10px;width:280px;z-index:100;font-size:13px">
   <div id="chatMsgs" style="background:rgba(0,0,0,0.55);border:1px solid rgba(0,180,255,0.25);border-radius:6px 6px 0 0;padding:6px 8px;height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
@@ -323,7 +322,6 @@ function connect(){
     document.getElementById('lobby').style.display='none';
     document.getElementById('dead').style.display='none';
     document.getElementById('chatBox').style.display='block';
-    const sbg=document.getElementById('spaceBg');if(sbg)sbg.style.display='none';
   });
 
   socket.on('state',s=>{
@@ -535,7 +533,33 @@ function drawBot(b){
 
 // ── Render ────────────────────────────────────────────────────
 function render(){
-  if(!gameActive){CTX.fillStyle='#0a0a1a';CTX.fillRect(0,0,SW,SH);return;}
+  if(!gameActive){
+    // Draw space background on canvas when lobby is showing
+    const bgG=CTX.createRadialGradient(SW/2,SH/2,0,SW/2,SH/2,Math.max(SW,SH)*0.7);
+    bgG.addColorStop(0,'#000d1a');bgG.addColorStop(0.5,'#000510');bgG.addColorStop(1,'#000000');
+    CTX.fillStyle=bgG;CTX.fillRect(0,0,SW,SH);
+    // Galaxy band
+    CTX.save();CTX.translate(SW/2,SH/2);CTX.rotate(-0.35);
+    const gG=CTX.createLinearGradient(-SW,-(SH*0.2),SW,SH*0.2);
+    gG.addColorStop(0,'rgba(100,60,200,0)');gG.addColorStop(0.5,'rgba(180,140,255,0.1)');gG.addColorStop(1,'rgba(80,40,180,0)');
+    CTX.fillStyle=gG;CTX.fillRect(-SW,-(SH*0.2),SW*2,SH*0.4);CTX.restore();
+    // Nebula blobs
+    [[0.15,0.2,150,0.05,'0,100,255'],[0.8,0.15,120,0.04,'180,0,255'],[0.6,0.75,170,0.04,'0,180,150'],[0.25,0.8,140,0.03,'255,80,0']].forEach(([rx,ry,r,a,col])=>{
+      const ng=CTX.createRadialGradient(rx*SW,ry*SH,0,rx*SW,ry*SH,r);ng.addColorStop(0,'rgba('+col+','+a+')');ng.addColorStop(1,'rgba('+col+',0)');CTX.fillStyle=ng;CTX.beginPath();CTX.arc(rx*SW,ry*SH,r,0,Math.PI*2);CTX.fill();
+    });
+    // Stars
+    if(!CTX._spaceStars){CTX._spaceStars=Array.from({length:700},()=>({x:Math.random()*9999,y:Math.random()*9999,r:Math.random()<0.9?0.5:Math.random()<0.7?1:2,a:0.4+Math.random()*0.6}));}
+    CTX._spaceStars.forEach(st=>{CTX.fillStyle='rgba(255,255,255,'+st.a+')';CTX.beginPath();CTX.arc(st.x%SW,st.y%SH,st.r,0,Math.PI*2);CTX.fill();});
+    // Solar system (top-right)
+    const sx=SW*0.82,sy=SH*0.2;
+    const sg=CTX.createRadialGradient(sx,sy,0,sx,sy,60);sg.addColorStop(0,'rgba(255,240,100,1)');sg.addColorStop(0.3,'rgba(255,180,0,0.6)');sg.addColorStop(1,'rgba(255,80,0,0)');
+    CTX.fillStyle=sg;CTX.beginPath();CTX.arc(sx,sy,60,0,Math.PI*2);CTX.fill();
+    CTX.fillStyle='#fff8c0';CTX.beginPath();CTX.arc(sx,sy,10,0,Math.PI*2);CTX.fill();
+    [[35,0,5,'#a0c8ff'],[55,0.8,4,'#ffaa44'],[78,1.8,7,'#66aaff'],[100,2.5,3,'#ff7744']].forEach(([orb,ang,pr,col])=>{
+      const px=sx+Math.cos(ang)*orb,py=sy+Math.sin(ang)*orb*0.35;CTX.fillStyle=col;CTX.beginPath();CTX.arc(px,py,pr,0,Math.PI*2);CTX.fill();
+    });
+    return;
+  }
   const interp=getInterp();
   const me=currentMe; // predicted position from loop()
   if(me){
@@ -807,7 +831,6 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
     document.getElementById('lobby').style.display='none';
     document.getElementById('chatBox').style.display='block';
     document.getElementById('spectateLabel').style.display='block';
-    const _sbg=document.getElementById('spaceBg');if(_sbg)_sbg.style.display='none';
   });
   socket.on('state',d=>{
     const players=(d.p||[]).map(p=>({
@@ -831,70 +854,8 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
   });
   socket.emit('spectate',{name:'Viewer',col:selectedColor||'#aaa'});
 });
-// ── Space Background ──────────────────────────────────────────
-(function drawSpaceBg(){
-  const c=document.getElementById('spaceBg');
-  if(!c)return;
-  c.width=window.innerWidth;c.height=window.innerHeight;
-  c.style.display='block';
-  const cx=c.getContext('2d');
-  const W=c.width,H=c.height;
-
-  // Deep space gradient
-  const bg=cx.createRadialGradient(W*0.5,H*0.5,0,W*0.5,H*0.5,Math.max(W,H)*0.7);
-  bg.addColorStop(0,'#000d1a');bg.addColorStop(0.5,'#000510');bg.addColorStop(1,'#000000');
-  cx.fillStyle=bg;cx.fillRect(0,0,W,H);
-
-  // Galaxy / Milky Way band
-  const gx=cx.createLinearGradient(0,H*0.3,W,H*0.7);
-  gx.addColorStop(0,'rgba(100,60,200,0)');gx.addColorStop(0.3,'rgba(120,80,255,0.07)');
-  gx.addColorStop(0.5,'rgba(180,140,255,0.12)');gx.addColorStop(0.7,'rgba(120,80,255,0.07)');gx.addColorStop(1,'rgba(80,40,180,0)');
-  cx.save();cx.translate(W/2,H/2);cx.rotate(-0.35);cx.fillStyle=gx;cx.fillRect(-W,-(H*0.25),W*2,H*0.5);cx.restore();
-
-  // Nebula clouds
-  [[0.15,0.2,200,0.06,'rgba(0,100,255'],[0.8,0.15,160,0.05,'rgba(180,0,255'],[0.6,0.75,220,0.05,'rgba(0,180,150'],[0.25,0.8,180,0.04,'rgba(255,80,0']].forEach(([rx,ry,r,a,col])=>{
-    const ng=cx.createRadialGradient(rx*W,ry*H,0,rx*W,ry*H,r);
-    ng.addColorStop(0,col+','+a+')');ng.addColorStop(1,col+',0)');
-    cx.fillStyle=ng;cx.fillRect(rx*W-r,ry*H-r,r*2,r*2);
-  });
-
-  // Stars (many small)
-  for(let i=0;i<800;i++){
-    const x=Math.random()*W,y=Math.random()*H;
-    const r=Math.random();
-    const size=r<0.7?0.5:r<0.92?1:r<0.98?1.5:2.5;
-    const alpha=0.4+Math.random()*0.6;
-    cx.fillStyle='rgba(255,255,255,'+alpha+')';
-    cx.beginPath();cx.arc(x,y,size,0,Math.PI*2);cx.fill();
-  }
-
-  // Bright stars with glow
-  for(let i=0;i<30;i++){
-    const x=Math.random()*W,y=Math.random()*H;
-    const r=1+Math.random()*2;
-    const cols=['255,255,200','200,220,255','255,200,200'];
-    const col=cols[Math.floor(Math.random()*3)];
-    const sg=cx.createRadialGradient(x,y,0,x,y,r*6);
-    sg.addColorStop(0,'rgba('+col+',0.9)');sg.addColorStop(0.3,'rgba('+col+',0.3)');sg.addColorStop(1,'rgba('+col+',0)');
-    cx.fillStyle=sg;cx.beginPath();cx.arc(x,y,r*6,0,Math.PI*2);cx.fill();
-    cx.fillStyle='rgba('+col+',1)';cx.beginPath();cx.arc(x,y,r,0,Math.PI*2);cx.fill();
-  }
-
-  // Solar system: Sun + 4 planets
-  const sx=W*0.82,sy=H*0.22;
-  // Sun glow
-  const sung=cx.createRadialGradient(sx,sy,0,sx,sy,70);
-  sung.addColorStop(0,'rgba(255,240,100,1)');sung.addColorStop(0.2,'rgba(255,180,0,0.8)');sung.addColorStop(0.5,'rgba(255,100,0,0.3)');sung.addColorStop(1,'rgba(255,80,0,0)');
-  cx.fillStyle=sung;cx.beginPath();cx.arc(sx,sy,70,0,Math.PI*2);cx.fill();
-  cx.fillStyle='#fff8c0';cx.beginPath();cx.arc(sx,sy,12,0,Math.PI*2);cx.fill();
-  // Planets
-  [[38,0,6,'#a0c8ff'],[60,0.8,5,'#ffaa44'],[85,1.8,8,'#66aaff'],[110,2.5,4,'#ff7744']].forEach(([orb,ang,pr,col])=>{
-    const px=sx+Math.cos(ang)*orb,py=sy+Math.sin(ang)*orb*0.35;
-    cx.fillStyle=col;cx.beginPath();cx.arc(px,py,pr,0,Math.PI*2);cx.fill();
-  });
-})();
-
 loop();
+
 
 </script>
 </body>
