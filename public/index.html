@@ -441,7 +441,7 @@ setInterval(()=>{
         const dx=Mouse.x-SW/2, dy=Mouse.y-SH/2, l=Math.hypot(dx,dy)||1;
         if(l<5)return; // don't shoot if cursor at center
         const nx=dx/l, ny=dy/l;
-        // Send predicted position so server spawns bullet from visual location
+        // Direction = cursor relative to screen center (player always at screen center)
         socket.emit('shoot',{nx,ny});
       }
     }
