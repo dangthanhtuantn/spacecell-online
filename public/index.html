@@ -96,17 +96,7 @@ canvas{display:block;}
     <div style="width:300px;height:250px;margin:0 auto 20px;background:rgba(0,10,28,0.9);border:1px solid rgba(255,80,80,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,80,80,0.3);font-size:11px;letter-spacing:1px;">
       ADVERTISEMENT
     </div>
-    <div style="margin-top:14px;font-size:11px;color:rgba(0,180,255,0.7);line-height:1.8;letter-spacing:0.5px">
-      <div style="color:#0cf;font-size:12px;margin-bottom:6px;letter-spacing:2px">📦 HƯỚNG DẪN ITEM</div>
-      <div>⚡ <span style="color:#0ff">SPEED</span> &nbsp;[S] — Tốc độ ×2 trong 3 giây</div>
-      <div>🛡 <span style="color:#88f">SHIELD</span> [E] — Bảo vệ 5 giây</div>
-      <div>👻 <span style="color:#ccc">STEALTH</span> [T] — Tàng hình 5 giây, không ăn được</div>
-      <div>🌱 <span style="color:#4f4">GROW</span> &nbsp;&nbsp;&nbsp;— Tăng 10% kích thước</div>
-      <div>🧲 <span style="color:#f0f">MAGNET</span> — Hút thức ăn tự động 5 giây</div>
-      <div>☠️ <span style="color:#8f0">TOXIC</span> &nbsp;&nbsp;— Vùng độc, giảm mass liên tục</div>
-      <div>💣 <span style="color:#f80">BOMB</span> &nbsp;&nbsp;[B] — Bắn bom, giảm 50% mass mục tiêu</div>
-      <div>🔫 <span style="color:#ff4">BULLET</span> — Bắn 3 luồng đạn (tự kích hoạt)</div>
-    </div>
+
     <button id="respawnBtn" style="background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:'Courier New',monospace;font-size:14px;letter-spacing:2px;padding:10px 32px;border-radius:6px;cursor:pointer;width:100%">
       ▶ CHƠI LẠI
     </button>
@@ -593,9 +583,12 @@ function render(){
     const pulse=Math.sin(it._a*0.06)*0.25+0.75;
     CTX.globalAlpha=pulse*0.35;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r+8,0,Math.PI*2);CTX.fill();
     CTX.globalAlpha=1;CTX.fillStyle=it.col;CTX.beginPath();CTX.arc(it.x,it.y,it.r,0,Math.PI*2);CTX.fill();
-    const ITEM_ICONS={SPEED:'\u26A1',SHIELD:'\uD83D\uDEE1',STEALTH:'\uD83D\uDC7B',GROW:'\uD83C\uDF31',MAGNET:'\uD83E\uDDF2',TOXIC:'\u2620\uFE0F',BOMB:'\uD83D\uDCA3',BULLET:'\uD83D\uDD2B'};
+    const ITEM_ICONS={SPEED:'\u26A1',SHIELD:'\uD83D\uDEE1\uFE0F',STEALTH:'\uD83D\uDC7B',GROW:'\uD83C\uDF31',MAGNET:'\uD83E\uDDF2',TOXIC:'\u2620\uFE0F',BOMB:'\uD83D\uDCA3',BULLET:'\uD83D\uDD2B'};
     CTX.font=(it.r*1.1)+'px serif';CTX.textAlign='center';CTX.textBaseline='middle';
+    // Shield: add white shadow for visibility against dark/colored backgrounds
+    if(it.type==='SHIELD'){CTX.shadowBlur=6;CTX.shadowColor='#fff';}
     CTX.fillText(ITEM_ICONS[it.type]||it.type,it.x,it.y+1);
+    CTX.shadowBlur=0;
   });
 
   // Draw ALL bullets from server (same for player and bot)
