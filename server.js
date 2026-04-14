@@ -328,15 +328,24 @@ function physics(now){
       }
       if(flee){
         const fl=Math.hypot(fx,fy)||1;
+        bot._chaseId=null;
         bot.atx=clamp(bot.x+fx/fl*1200,BMIN+100,BMAX-100);
         bot.aty=clamp(bot.y+fy/fl*1200,BMIN+100,BMAX-100);
       } else if(attackTarget){
         bot.atx=attackTarget.x;bot.aty=attackTarget.y;
+        bot._chaseId=attackTarget.id; // remember who we're chasing
       } else {
         // Wander randomly
+        bot._chaseId=null;
         bot.atx=clamp(bot.x+rnd(-1500,1500),BMIN+100,BMAX-100);
         bot.aty=clamp(bot.y+rnd(-1500,1500),BMIN+100,BMAX-100);
       }
+    }
+    // Live track chased player position every tick
+    if(bot._chaseId){
+      const target=PA.find(p=>p.id===bot._chaseId);
+      if(target&&mtr(target.mass)<br){bot.atx=target.x;bot.aty=target.y;}
+      else bot._chaseId=null; // player got bigger or left - stop chasing
     }
     // Move toward target
     const dx=bot.atx-bot.x,dy=bot.aty-bot.y,dl=Math.hypot(dx,dy)||1;

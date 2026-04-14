@@ -8,6 +8,7 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none;cursor:none;}
 canvas{display:block;}
+#gc{position:relative;z-index:1;}
 /* Lobby */
 #lobby{position:fixed;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
 .lbox{background:rgba(0,10,30,0.95);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:18px 28px;width:480px;max-height:96vh;overflow-y:auto;}
@@ -807,6 +808,7 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
     document.getElementById('lobby').style.display='none';
     document.getElementById('chatBox').style.display='block';
     document.getElementById('spectateLabel').style.display='block';
+    const _sbg=document.getElementById('spaceBg');if(_sbg)_sbg.style.display='none';
   });
   socket.on('state',d=>{
     const players=(d.p||[]).map(p=>({
