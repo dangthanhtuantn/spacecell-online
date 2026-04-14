@@ -10,7 +10,7 @@ body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-se
 canvas{display:block;}
 /* Lobby */
 #lobby{position:fixed;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
-.lbox{background:rgba(0,10,30,0.95);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:18px 28px;width:480px;max-height:96vh;overflow-y:auto;}
+.lbox{background:rgba(0,10,30,0.95);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:14px 24px;width:460px;max-height:96vh;overflow-y:hidden;}
 .lbox h1{color:#0cf;font-size:24px;letter-spacing:5px;text-align:center;margin-bottom:4px;}
 
 .lbox label{display:block;color:#7dd8f0;font-size:11px;letter-spacing:2px;margin-bottom:6px;font-weight:bold;}
@@ -26,7 +26,7 @@ canvas{display:block;}
 .fgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;max-height:200px;overflow-y:auto;padding:2px;}
 .flag{font-size:22px;text-align:center;padding:3px 2px;border-radius:4px;cursor:pointer;border:2px solid transparent;line-height:1.2;color:#fff;}
 .flag:hover,.flag.sel{border-color:#0cf;background:rgba(0,180,255,0.12);}
-.playbtn{width:100%;background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:inherit;font-size:13px;letter-spacing:3px;padding:11px;border-radius:8px;cursor:pointer;margin-top:6px;}
+.playbtn{background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#0cf;font-family:'Courier New',monospace;font-size:13px;letter-spacing:1px;padding:7px 0;border-radius:6px;cursor:pointer;width:100%;margin-top:8px;}
 .playbtn:hover{background:rgba(0,180,255,0.3);}
 /* HUD */
 #hud{position:fixed;top:10px;left:10px;pointer-events:none;display:flex;flex-direction:column;gap:5px;z-index:10;}
@@ -113,41 +113,37 @@ canvas{display:block;}
   <div style="display:flex;gap:0">
     <input id="chatInput" maxlength="60" placeholder="Nhắn tin..." style="flex:1;background:rgba(0,0,0,0.7);border:1px solid rgba(0,180,255,0.3);border-right:none;border-top:none;border-radius:0 0 0 6px;color:#fff;padding:5px 8px;font-size:12px;outline:none">
     <button id="chatSend" style="background:rgba(0,180,255,0.2);border:1px solid rgba(0,180,255,0.3);border-top:none;border-radius:0 0 6px 0;color:#4cf;padding:5px 10px;cursor:pointer;font-size:12px">GỬI</button>
-  <div style="text-align:center;color:rgba(0,180,255,0.35);font-size:10px;margin-top:12px;letter-spacing:1px">© Đặng Thanh Tuấn</div>
   </div>
 </div>
 <!-- Spectate overlay label -->
 <div id="spectateLabel" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#ff0;padding:6px 16px;border-radius:20px;font-size:13px;z-index:50;pointer-events:none">👁 CHẾ ĐỘ XEM</div>
 <div id="lobby">
   <div class="lbox">
-    <h1 style="margin-bottom:18px">SPACECELL</h1>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <h1 style="margin-bottom:10px">SPACECELL</h1>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <label style="margin:0;white-space:nowrap;min-width:120px">TÊN NGƯỜI CHƠI</label>
       <input type="text" id="ni" maxlength="16" placeholder="Nhập tên..." value="Player" style="flex:1;margin:0">
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <label style="margin:0;white-space:nowrap;min-width:120px">MÀU SẮC</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;flex:1" id="colorGrid"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1" id="colorGrid"></div>
     </div>
     <div style="display:flex;gap:10px">
-      <button class="playbtn" id="sb" style="flex:1;margin:0">▶ PLAY NOW</button>
-      <button class="playbtn" id="spectateBtn" style="flex:1;margin:0;background:rgba(255,200,0,0.12);border-color:rgba(255,200,0,0.5)">👁 XEM</button>
+      <button class="playbtn" id="sb" style="flex:1;margin:0;padding:8px 0;font-size:13px">▶ PLAY NOW</button>
+      <button class="playbtn" id="spectateBtn" style="flex:1;margin:0;padding:8px 0;font-size:13px;background:rgba(255,200,0,0.12);border-color:rgba(255,200,0,0.5)">👁 XEM</button>
     </div>
     <!-- Quảng cáo 300x250 -->
-    <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.8);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(0,180,255,0.3);font-size:11px;letter-spacing:1px;">
+    <div style="width:300px;height:250px;margin:10px auto 0;background:rgba(0,10,28,0.8);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(0,180,255,0.3);font-size:11px;letter-spacing:1px;">
       ADVERTISEMENT
     </div>
-    <div style="margin-top:14px;font-size:11px;color:rgba(0,180,255,0.7);line-height:1.8;letter-spacing:0.5px">
-      <div style="color:#0cf;font-size:12px;margin-bottom:6px;letter-spacing:2px">📦 HƯỚNG DẪN ITEM</div>
-      <div>⚡ <span style="color:#0ff">SPEED</span> &nbsp;[S] — Tốc độ ×2 trong 3 giây</div>
-      <div>🛡 <span style="color:#88f">SHIELD</span> [E] — Bảo vệ 5 giây</div>
-      <div>👻 <span style="color:#ccc">STEALTH</span> [T] — Tàng hình 5 giây, không ăn được</div>
-      <div>🌱 <span style="color:#4f4">GROW</span> &nbsp;&nbsp;&nbsp;— Tăng 10% kích thước</div>
-      <div>🧲 <span style="color:#f0f">MAGNET</span> — Hút thức ăn tự động 5 giây</div>
-      <div>☠️ <span style="color:#8f0">TOXIC</span> &nbsp;&nbsp;— Vùng độc, giảm mass liên tục</div>
-      <div>💣 <span style="color:#f80">BOMB</span> &nbsp;&nbsp;[B] — Bắn bom, giảm 50% mass mục tiêu</div>
-      <div>🔫 <span style="color:#ff4">BULLET</span> — Bắn 3 luồng đạn (tự kích hoạt)</div>
+    <div style="margin-top:10px;font-size:10px;color:rgba(0,180,255,0.7);line-height:1.6">
+      <div style="color:#0cf;font-size:10px;margin-bottom:4px;letter-spacing:2px">📦 HƯỚNG DẪN ITEM</div>
+      <div>⚡<span style="color:#0ff">SPEED</span>[S] ×2 tốc độ/3s &nbsp;|&nbsp; 🛡<span style="color:#88f">SHIELD</span>[E] bảo vệ/5s</div>
+      <div>👻<span style="color:#ccc">STEALTH</span>[T] tàng hình/5s &nbsp;|&nbsp; 🌱<span style="color:#4f4">GROW</span> +10% mass</div>
+      <div>🧲<span style="color:#f0f">MAGNET</span> hút food/5s &nbsp;|&nbsp; ☠️<span style="color:#8f0">TOXIC</span> vùng độc</div>
+      <div>💣<span style="color:#f80">BOMB</span>[B] -50% mass &nbsp;|&nbsp; 🔫<span style="color:#ff4">BULLET</span> 3 luồng đạn</div>
     </div>
+    <div style="text-align:center;color:rgba(0,180,255,0.3);font-size:10px;margin-top:8px">© Đặng Thanh Tuấn</div>
   </div>
 </div>
 
