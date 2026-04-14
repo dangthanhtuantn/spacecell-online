@@ -577,11 +577,13 @@ function render(){
     CTX.restore();
   }
   // Show all bullets including own — identical behavior for player and bot
+  // Shift own bullets by prediction drift so they appear from visual player center
+  const _latestMe=snaps[snapHead].players.find(p=>p.id===myId);
+  const _driftX=(_latestMe&&predX!==null)?predX-_latestMe.x:0;
+  const _driftY=(_latestMe&&predY!==null)?predY-_latestMe.y:0;
   (interp.bullets||[]).forEach(b=>{
-    // Own bullets: render from predicted position to avoid offset
-    if(b.owner===myId&&predX!==null){
-      const shifted={...b,x:b.x+(predX-( currentMe?currentMe.x:b.x)),y:b.y+(predY-(currentMe?currentMe.y:b.y))};
-      drawBullet(shifted,b.type==='bomb');
+    if(b.owner===myId&&(_driftX||_driftY)){
+      drawBullet({...b,x:b.x+_driftX,y:b.y+_driftY},b.type==='bomb');
     } else {
       drawBullet(b,b.type==='bomb');
     }
