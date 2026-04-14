@@ -117,12 +117,18 @@ canvas{display:block;}
   <div class="lbox">
     <h1>SPACECELL</h1>
     <div class="sub">ONLINE MULTIPLAYER</div>
-    <label>TÊN NGƯỜI CHƠI</label>
-    <input type="text" id="ni" maxlength="16" placeholder="Nhập tên..." value="Player">
-    <label style="margin-top:12px">MÀU SẮC</label>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px" id="colorGrid"></div>
-    <button class="playbtn" id="sb">▶ &nbsp;PLAY NOW</button>
-    <button class="playbtn" id="spectateBtn" style="background:rgba(255,200,0,0.12);border-color:rgba(255,200,0,0.5);margin-top:8px">👁 &nbsp;XEM NGƯỜI CHƠI</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <label style="margin:0;white-space:nowrap;min-width:120px">TÊN NGƯỜI CHƠI</label>
+      <input type="text" id="ni" maxlength="16" placeholder="Nhập tên..." value="Player" style="flex:1;margin:0">
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <label style="margin:0;white-space:nowrap;min-width:120px">MÀU SẮC</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;flex:1" id="colorGrid"></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="playbtn" id="sb" style="flex:1;margin:0">▶ PLAY NOW</button>
+      <button class="playbtn" id="spectateBtn" style="flex:1;margin:0;background:rgba(255,200,0,0.12);border-color:rgba(255,200,0,0.5)">👁 XEM</button>
+    </div>
     <!-- Quảng cáo 300x250 -->
     <div style="width:300px;height:250px;margin:16px auto 0;background:rgba(0,10,28,0.8);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(0,180,255,0.3);font-size:11px;letter-spacing:1px;">
       ADVERTISEMENT
@@ -715,16 +721,17 @@ function loop(){
 
   // currentMe is module-level so render() can access predicted position
   currentMe=latestMe?{...latestMe,x:predX,y:predY}:null;
-  // Spectate: follow biggest player, allow mouse pan
+  // Spectate: follow biggest player smoothly
   if(spectating){
     const interp=getInterp();
     const all=[...(interp.players||[]),...(interp.bots||[])].sort((a,b)=>b.mass-a.mass);
     if(all.length>0){
       const target=all[0];
-      camX+=(target.x-window.innerWidth/2-camX)*0.05;
-      camY+=(target.y-window.innerHeight/2-camY)*0.05;
+      const SW=window.innerWidth,SH=window.innerHeight;
+      camX+=(target.x-SW/2-camX)*0.08;
+      camY+=(target.y-SH/2-camY)*0.08;
     }
-    currentMe=null;
+    currentMe=null; // no player in spectate
   }
 
 
@@ -762,29 +769,9 @@ document.getElementById('respawnBtn')?.addEventListener('click',()=>{
 document.querySelector('#lobby')?.addEventListener('keydown',e=>{if(e.key==='Enter')connect();});
 document.getElementById('spectateBtn')?.addEventListener('click',()=>{
   spectating=true;
-  const color=selectedColor||'#00cfff';
-  myName='Viewer';myColor=color;myFlag=null;
+  myName='Viewer';myColor=selectedColor||'#00cfff';myFlag=null;
   socket=io();
-  // Connect but don't emit 'join' - just receive state
-  socket.on('connect',()=>{
-    socket.on('state',s=>{
-      const players=(s.p||[]).map(p=>({
-        id:p.i,name:p.n,color:p.c,flag:p.f,
-        x:p.x,y:p.y,mass:p.m,
-        shielded:!!p.sh,stealthed:!!p.st,
-        inv:p.inv,speedEnd:p.sE,magnetEnd:p.mE,shieldEnd:p.shE,stealthEnd:p.stE,bulletEnd:p.bE
-      }));
-      const bots=(s.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
-      const bullets=(s.u||[]).map(u=>({id:u.i,x:u.x,y:u.y,r:u.r,col:u.c,isBomb:!!u.t}));
-      pushSnap({t:s.t,players,bots,bullets});
-    });
-    socket.on('foodEaten',({ni,nf})=>{food[ni]=nf;});
-    socket.on('itemAdded',it=>{items.push(it);});
-    socket.on('itemRemoved',id=>{const ix=items.findIndex(x=>x.id===id);if(ix>=0)items.splice(ix,1);});
-    socket.on('msg',({text,col})=>addMsg(text,col));
-    socket.on('chat',({name,text,col})=>addChatMsg(name,text,col));
-    socket.emit('spectate'); // request world data
-  });
+  // Spectate: receive world state without joining as player
   socket.on('init',d=>{
     GW=d.worldW;GH=d.worldH;myId=null;
     food=d.food||[];items=d.items||[];
@@ -792,12 +779,34 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
     for(let i=0;i<SNAP_N;i++)snaps[i]={...initSnap};
     snapHead=0;snapCount=1;
     predX=null;predY=null;currentMe=null;
+    // Start camera at center of map
     camX=GW/2-window.innerWidth/2;camY=GH/2-window.innerHeight/2;
     initStars();gameActive=true;
     document.getElementById('lobby').style.display='none';
     document.getElementById('chatBox').style.display='block';
     document.getElementById('spectateLabel').style.display='block';
   });
+  socket.on('state',d=>{
+    const players=(d.p||[]).map(p=>({
+      id:p.i,name:p.n,color:p.c,flag:p.f,x:p.x,y:p.y,mass:p.m,
+      shielded:!!p.sh,stealthed:!!p.st,
+      inv:p.inv,cdQ:p.cQ,cdW:p.cW,cdR:p.cR,cdB:p.cB,
+      speedEnd:p.sE,magnetEnd:p.mE,shieldEnd:p.shE,stealthEnd:p.stE,bulletEnd:p.bE
+    }));
+    const bots=(d.b||[]).map(b=>({id:b.i,x:b.x,y:b.y,mass:b.m,col:b.c,name:b.n}));
+    const bullets=(d.u||[]).map(u=>({id:u.i,x:u.x,y:u.y,r:u.r,col:u.c,type:u.t?'bomb':'shot',owner:u.o}));
+    pushSnap({t:d.t,players,bots,bullets});
+  });
+  socket.on('foodEaten',({ni,nf})=>{food[ni]=nf;});
+  socket.on('itemAdded',it=>{items.push(it);});
+  socket.on('itemRemoved',id=>{const ix=items.findIndex(x=>x.id===id);if(ix>=0)items.splice(ix,1);});
+  socket.on('msg',({text,col})=>addMsg(text,col));
+  socket.on('chat',({name,text,col})=>addChatMsg(name,text,col));
+  socket.on('playerList',list=>{
+    const lb=document.getElementById('lbr');if(!lb)return;
+    lb.innerHTML=list.slice(0,8).map((e,i)=>'<div class="le">'+(i+1)+'. '+e.name+' '+e.mass+'</div>').join('');
+  });
+  socket.emit('spectate');
 });
 loop();
 
