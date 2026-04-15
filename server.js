@@ -11,7 +11,7 @@ app.use(express.static(path.join(__dirname,'public')));
 // ── Constants ─────────────────────────────────────────────────
 const GW=7200,GH=7200,TICK_MS=33,FOOD_COUNT=1200;
 const BMIN=600,BMAX=6600; // 6000x6000 play zone
-const ITEM_MAX=6,AOI_RANGE=5000;
+const ITEM_MAX=6,AOI_RANGE=3000;
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
 const dst2=(ax,ay,bx,by)=>(ax-bx)*(ax-bx)+(ay-by)*(ay-by);
@@ -88,8 +88,8 @@ function initWorld(){
   food=Array.from({length:FOOD_COUNT},mkFood);
   items=[];ITYPES.forEach(t=>{for(let i=0;i<ITEM_MAX;i++)spawnItem(t);});
   const botConfig=[
-    ...Array(2).fill(500),...Array(4).fill(1000),
-    ...Array(8).fill(2000),...Array(4).fill(5000),...Array(2).fill(10000)
+    ...Array(1).fill(500),...Array(2).fill(1000),
+    ...Array(4).fill(2000),...Array(2).fill(5000),...Array(1).fill(10000)
   ];
   bots=botConfig.map((mass,i)=>mkBot(i,mass));
   bullets=[];gbuild();
@@ -300,7 +300,7 @@ function physics(now){
         if(mtr(p.mass)>br){ // player bigger
           if(d<1500){fx+=(bot.x-p.x)/d;fy+=(bot.y-p.y)/d;flee=true;}
         } else if(br>mtr(p.mass)){ // bot bigger
-          if(d<3000){const score=1000/d;if(score>attackScore){attackScore=score;attackTarget=p;}}
+          if(d<2000){const score=1000/d;if(score>attackScore){attackScore=score;attackTarget=p;}}
         }
       }
       if(flee){
