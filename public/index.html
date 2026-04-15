@@ -477,7 +477,7 @@ function handleKey(code){
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
   const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
-  if(code==='KeyF'){const cme=currentMe;if(!cme||!cme.inv||!(cme.inv.speed>0))return;socket.emit('speed');}
+  if(code==='KeyF'){const cme=currentMe;if(!cme||!cme.inv||!(cme.inv.speed>0))return;socket.emit('speed');localSpeedEnd=Date.now()+2000;}
   if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
   if(code==='KeyG'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
   if(code==='KeyB'){const wx=Mouse.x+camX,wy=Mouse.y+camY;const dx=wx-(me?me.x:camX+SW/2),dy=wy-(me?me.y:camY+SH/2);const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
@@ -791,6 +791,7 @@ function renderMinimap(interp,me){
 // Client: predVx = inputVx*spd; predX += predVx; (identical)
 // -> predX === server p.x -> no drift -> no reconcile -> no edge pull
 let predX=null,predY=null,lastLoopT=Date.now(),currentMe=null;
+let localSpeedEnd=0; // client-side speed prediction for accurate predX
 let dashVx=0,dashVy=0,dashEndT=0; // time-based dash, not frame-based
 
 function loop(){
@@ -807,7 +808,8 @@ function loop(){
   // Client prediction: EXACT same physics as server
   if(latestMe){
     if(predX===null){predX=latestMe.x;predY=latestMe.y;}
-    const speedMod2=(latestMe.speedEnd&&Date.now()<latestMe.speedEnd)?2:1;
+    const _sEnd=Math.max(latestMe.speedEnd||0,localSpeedEnd);
+    const speedMod2=(Date.now()<_sEnd)?2:1;
     const spd=8*speedMult(latestMe.mass)*speedMod2;
     let inputVx,inputVy;
     if(isMobile){inputVx=joyActive?touchVx:0;inputVy=joyActive?touchVy:0;}
@@ -1001,6 +1003,7 @@ function initMobile(){
 function mobileItem(type){
   if(!socket||!gameActive)return;
   socket.emit(type);
+  if(type==='speed')localSpeedEnd=Date.now()+2000;
 }
 function mobileBomb(){
   if(!socket||!gameActive||!currentMe)return;
