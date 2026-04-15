@@ -85,8 +85,8 @@ canvas{display:block;touch-action:none;}
   <div class="hb"><div class="hl">SPEED</div><div class="hv" id="hs">-</div></div>
   <div class="hb"><div class="hl">RANK</div><div class="hv" id="hr">-</div></div>
 </div>
-<div id="lb"><h4 style="text-align:center">LEADERBOARD</h4><div id="lbPlayerCount" style="text-align:center;font-size:10px;color:rgba(0,180,255,0.5);margin-bottom:4px"></div><div id="lbr"></div></div>
-<div id="pingbar">Ping: <span id="pingval">--</span> ms</div>
+<div id="lb"><h4 style="text-align:center">LEADERBOARD</h4><div id="lbr"></div></div>
+<div id="pingbar">👥 <span id="onlineCount">0</span> người đang chơi</div>
 
 <!-- Skill bar -->
 <div id="inv">
@@ -216,7 +216,7 @@ let food=[],items=[];
 let gameActive=false;
 let spectating=false; // spectate mode: watch without playing
 let camX=0,camY=0;
-let pingTime=0,latency=0;
+
 const parts=[];
 const STARS=[];
 const Keys={};
@@ -392,19 +392,13 @@ function connect(){
   socket.on('playerList',list=>{
     const lb=document.getElementById('lbr');if(!lb)return;
     lb.innerHTML=list.slice(0,8).map((e,i)=>'<div class="le'+(e.id===myId?' me':'')+'">'+(i+1)+'. '+e.name+' '+e.mass+'</div>').join('');
-    const pc=document.getElementById('lbPlayerCount');if(pc)pc.textContent=list.length+' người đang chơi';
+    const oc=document.getElementById('onlineCount');if(oc)oc.textContent=list.length;
   });
   socket.on('viewerCount',n=>{const el=document.getElementById('viewerCount');if(el)el.textContent=n;});
-  socket.on('pong',t=>{
-    latency=Date.now()-pingTime;
-    const el=document.getElementById('pingval');if(el)el.textContent=latency;
-    setTimeout(doPing,2000);
-  });
-  doPing();
+
   socket.emit('join',{name,color,flag:myFlag});
 }
 
-function doPing(){if(!socket||!socket.connected)return;pingTime=Date.now();socket.emit('ping');}
 
 // ── HUD ───────────────────────────────────────────────────────
 function updateHUD(me){
@@ -700,7 +694,7 @@ function render(){
   CTX.restore();
 
   // Draw cursor: line from player screen pos to mouse, aim dot at mouse
-  if(gameActive&&me){
+  if(gameActive&&me&&!isMobile){
     const px=me.x-camX; // me.x = predX
     const py=me.y-camY;
     const mx=Mouse.x, my=Mouse.y;      // mouse screen position
@@ -880,6 +874,7 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
     const lb=document.getElementById('lbr');if(!lb)return;
     lb.innerHTML=list.slice(0,8).map((e,i)=>'<div class="le">'+(i+1)+'. '+e.name+' '+e.mass+'</div>').join('');
     const pc=document.getElementById('lbPlayerCount');if(pc)pc.textContent=list.length+' người đang chơi';
+    const oc=document.getElementById('onlineCount');if(oc)oc.textContent=list.length;
   });
   socket.emit('spectate',{name:'Viewer',col:selectedColor||'#aaa'});
 });
@@ -911,19 +906,19 @@ function initMobile(){
   document.addEventListener('touchstart',e=>{
     if(!gameActive)return;
     for(const t of e.changedTouches){
-      const isInv=t.target.closest('#inv');
-      if(isInv)continue; // let skill bar handle its own touches
+      // Skip touches on UI elements (inv, lb, hud, chatBox)
+      const el=t.target.closest('#inv,#lb,#hud,#chatBox,#mmw');
+      if(el)continue;
       if(t.clientX<window.innerWidth*0.55&&joyId===null){
         // Left side: joystick
         joyBx=t.clientX;joyBy=t.clientY;
         joyId=t.identifier;joyActive=true;
         jk.style.left=t.clientX+'px';jk.style.top=t.clientY+'px';
-        jk.style.transform='translate(-50%,-50%)';
-        // Show joystick at touch point
+        jk.style.display='block';
         jz.style.left=(t.clientX-60)+'px';
         jz.style.top=(t.clientY-60)+'px';
-      } else if(t.clientX>=window.innerWidth*0.45&&touchShootId===null){
-        // Right side: shoot
+        jz.style.bottom='auto';
+      } else if(t.clientX>=window.innerWidth*0.55&&touchShootId===null){
         touchShoot=true;touchShootId=t.identifier;
         document.getElementById('fireBtn').style.background='rgba(255,80,80,0.5)';
       }
@@ -952,6 +947,7 @@ function initMobile(){
         joyActive=false;joyId=null;touchVx=0;touchVy=0;
         jk.style.left='50%';jk.style.top='50%';
         jz.style.left='20px';jz.style.top='auto';jz.style.bottom='20px';
+        jk.style.left='50%';jk.style.top='50%';
       }
       if(t.identifier===touchShootId){
         touchShoot=false;touchShootId=null;

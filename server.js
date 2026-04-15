@@ -144,7 +144,7 @@ io.on('connection',sock=>{
     spectators.add(sock.id);broadcastViewerCount();
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
   });
-  sock.on('ping',()=>sock.emit('pong',Date.now()));
+
   sock.on('disconnect',()=>{delete players[sock.id];spectators.delete(sock.id);broadcastViewerCount();io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
 });
 
