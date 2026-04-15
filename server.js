@@ -11,7 +11,7 @@ app.use(express.static(path.join(__dirname,'public')));
 // ── Constants ─────────────────────────────────────────────────
 const GW=7200,GH=7200,TICK_MS=33,FOOD_COUNT=1200;
 const BMIN=600,BMAX=6600; // 6000x6000 play zone
-const ITEM_MAX=6,AOI_RANGE=5000;
+const ITEM_MAX=6,AOI_RANGE=3000;
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
 const dst2=(ax,ay,bx,by)=>(ax-bx)*(ax-bx)+(ay-by)*(ay-by);
@@ -88,8 +88,8 @@ function initWorld(){
   food=Array.from({length:FOOD_COUNT},mkFood);
   items=[];ITYPES.forEach(t=>{for(let i=0;i<ITEM_MAX;i++)spawnItem(t);});
   const botConfig=[
-    ...Array(2).fill(500),...Array(4).fill(1000),
-    ...Array(8).fill(2000),...Array(4).fill(5000),...Array(2).fill(10000)
+    ...Array(1).fill(500),...Array(2).fill(1000),
+    ...Array(4).fill(2000),...Array(2).fill(5000),...Array(1).fill(10000)
   ];
   bots=botConfig.map((mass,i)=>mkBot(i,mass));
   bullets=[];gbuild();
@@ -113,7 +113,7 @@ io.on('connection',sock=>{
     bullets.push({id:uid(),x:p.x+nx*(r+14),y:p.y+ny*(r+14),vx:nx*16,vy:ny*16,type:'bomb',r:14,life:64,col:'#f80',owner:sock.id,dmg:0});
   });
   sock.on('shoot',({nx,ny})=>{
-    const p=players[sock.id];if(!p||p.mass<=100)return;
+    const p=players[sock.id];if(!p||p.mass<=300)return;
     const now=Date.now();
     const bulletActive=now<p.bulletEnd;
     if(now-p._lastShot<(bulletActive?125:250))return;
@@ -158,7 +158,7 @@ function qet(id,ev,d){pending.push({ev,d,to:id});}
 
 function respawnPlayer(p,by){
   qet(p.id,'died',{by});
-  p.mass=100;p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
+  p.mass=300;p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
   p.vx=0;p.vy=0;p.shieldEnd=Date.now()+5000;p.stealthEnd=0;p._dashing=0;
   p.inv={speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0};
   p.speedEnd=0;p.magnetEnd=0;p.bulletEnd=0;
@@ -254,7 +254,7 @@ function physics(now){
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});
         bullets.splice(i,1);hit=true;
-        if(p.mass<100){qe('explode',{x:p.x,y:p.y,col:p.color,big:1});respawnPlayer(p,'bullet');}
+        if(p.mass<300){qe('explode',{x:p.x,y:p.y,col:p.color,big:1});respawnPlayer(p,'bullet');}
       }
     }
     if(hit)continue;
@@ -300,7 +300,7 @@ function physics(now){
         if(mtr(p.mass)>br){ // player bigger
           if(d<1500){fx+=(bot.x-p.x)/d;fy+=(bot.y-p.y)/d;flee=true;}
         } else if(br>mtr(p.mass)){ // bot bigger
-          if(d<3000){const score=1000/d;if(score>attackScore){attackScore=score;attackTarget=p;}}
+          if(d<2000){const score=1000/d;if(score>attackScore){attackScore=score;attackTarget=p;}}
         }
       }
       if(flee){
