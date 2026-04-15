@@ -200,31 +200,7 @@ function physics(now){
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
       }
     }
-    // Hút thức ăn: food trong vùng pr*2.5 trượt nhẹ về phía player
-    for(const fi of gnear(p.x,p.y,pr*2.5+15)){
-      const f=food[fi];
-      const d2=dst2(p.x,p.y,f.x,f.y);
-      const pullR=pr*2.5+f.r;
-      if(d2<pullR*pullR&&d2>0){
-        const d=Math.sqrt(d2);
-        const pull=0.18*(1-d/pullR); // lực hút tăng khi gần hơn
-        f.x+=(p.x-f.x)/d*pull*(f.r+1);
-        f.y+=(p.y-f.y)/d*pull*(f.r+1);
-      }
-    }
-    // Hút item về phía player
-    for(let j=0;j<items.length;j++){
-      const it=items[j];if(!it.pickup)continue;
-      const d2=dst2(p.x,p.y,it.x,it.y);
-      const pullR=(pr+it.r)*2;
-      if(d2<pullR*pullR&&d2>0){
-        const d=Math.sqrt(d2);
-        const pull=0.12*(1-d/pullR);
-        it.x+=(p.x-it.x)/d*pull*it.r;
-        it.y+=(p.y-it.y)/d*pull*it.r;
-      }
-    }
-    // Eat items
+      // Eat items
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
       if(dst2(p.x,p.y,it.x,it.y)<(pr+it.r)*(pr+it.r)){
