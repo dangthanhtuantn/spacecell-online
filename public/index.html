@@ -61,10 +61,22 @@ canvas{display:block;touch-action:none;}
 
 /* ── Mobile Controls ──────────────────────────────────────── */
 @media (hover:none) and (pointer:coarse){
-  #inv{bottom:130px;}
-  #mmw{bottom:130px;}
+  #inv{bottom:100px;}
   #chatBox{display:none!important;}
+  #hud{display:none;}
+  #pingbar{display:none;}
+  #mmw{display:none;}
+  /* Leaderboard top-right */
+  #lb{top:8px;left:auto;right:8px;min-width:110px;padding:5px 8px;font-size:11px;}
+  #lb h4{font-size:10px;margin-bottom:2px;}
+  #mobileTopBar{display:flex!important;}
+  #mobileBottomBar{display:flex!important;}
 }
+/* Mobile top-left block: online + stats + minimap */
+#mobileTopBar{display:none;position:fixed;top:8px;left:8px;z-index:15;flex-direction:column;align-items:flex-start;gap:4px;pointer-events:none;}
+#mobileTopBar .mt1{font-size:12px;color:#0cf;letter-spacing:0.5px;}
+#mobileTopBar .mt2{font-size:10px;color:rgba(0,180,255,0.8);background:rgba(0,10,28,0.75);padding:2px 8px;border-radius:8px;}
+#mobileBottomBar{display:none;position:fixed;bottom:100px;right:8px;z-index:15;pointer-events:none;}
 #joystickZone{display:none;position:fixed;left:20px;bottom:20px;width:120px;height:120px;z-index:50;}
 #joystickBase{position:absolute;inset:0;border-radius:50%;background:rgba(0,180,255,0.12);border:2px solid rgba(0,180,255,0.35);}
 #joystickKnob{position:fixed;width:48px;height:48px;border-radius:50%;background:rgba(0,180,255,0.5);border:2px solid rgba(0,180,255,0.8);top:50%;left:50%;transform:translate(-50%,-50%);transition:none;pointer-events:none;z-index:51;}
@@ -127,6 +139,12 @@ canvas{display:block;touch-action:none;}
     <input id="chatInput" maxlength="60" placeholder="Nhắn tin..." style="flex:1;background:rgba(0,0,0,0.7);border:1px solid rgba(0,180,255,0.3);border-right:none;border-top:none;border-radius:0 0 0 6px;color:#fff;padding:5px 8px;font-size:12px;outline:none">
     <button id="chatSend" style="background:rgba(0,180,255,0.2);border:1px solid rgba(0,180,255,0.3);border-top:none;border-radius:0 0 6px 0;color:#4cf;padding:5px 10px;cursor:pointer;font-size:12px">GỬI</button>
   </div>
+</div>
+<!-- Mobile HUD -->
+<div id="mobileTopBar">
+  <div class="mt1">👥 <span id="mOnline">0</span> người đang chơi</div>
+  <div class="mt2">Mass: <span id="mMass">-</span> &nbsp;|&nbsp; Speed: <span id="mSpeed">-</span> &nbsp;|&nbsp; Rank: <span id="mRank">-</span></div>
+  <canvas id="mmMobile" width="110" height="110" style="border-radius:8px;border:1px solid rgba(0,180,255,0.3);opacity:0.85;margin-top:2px"></canvas>
 </div>
 <!-- Mobile Controls -->
 <div id="joystickZone"><div id="joystickBase"></div><div id="joystickKnob"></div></div>
@@ -393,6 +411,7 @@ function connect(){
     const lb=document.getElementById('lbr');if(!lb)return;
     lb.innerHTML=list.slice(0,8).map((e,i)=>'<div class="le'+(e.id===myId?' me':'')+'">'+(i+1)+'. '+e.name+' '+e.mass+'</div>').join('');
     const oc=document.getElementById('onlineCount');if(oc)oc.textContent=list.length;
+    const mo=document.getElementById('mOnline');if(mo)mo.textContent=list.length;
   });
   socket.on('viewerCount',n=>{const el=document.getElementById('viewerCount');if(el)el.textContent=n;});
 
@@ -404,6 +423,11 @@ function connect(){
 function updateHUD(me){
   const hm=document.getElementById('hm');if(hm)hm.textContent=Math.floor(me.mass)+' M';
   const hs=document.getElementById('hs');if(hs)hs.textContent=Math.round(speedMult(me.mass)*100)+'%';
+  // Mobile HUD
+  if(isMobile){
+    const mm=document.getElementById('mMass');if(mm)mm.textContent=Math.floor(me.mass);
+    const ms=document.getElementById('mSpeed');if(ms)ms.textContent=Math.round(speedMult(me.mass)*100)+'%';
+  }
   if(me.inv){
     const nh=Date.now();
     const speedRem=me.speedEnd?Math.max(0,me.speedEnd-nh):0;
@@ -422,6 +446,7 @@ function updateHUD(me){
   const interp=getInterp();
   const all=[...(interp.players||[]),...(interp.bots||[])].map(e=>e.mass).sort((a,b)=>b-a);
   const hr=document.getElementById('hr');if(hr)hr.textContent='#'+(all.findIndex(m=>m===me.mass)+1||'?');
+  if(isMobile){const mr=document.getElementById('mRank');if(mr)mr.textContent='#'+(all.findIndex(m=>m===me.mass)+1||'?');}
 }
 
 function updSk(k,count,cd,isFire,isToggle){
@@ -733,6 +758,18 @@ function render(){
 }
 
 function renderMinimap(interp,me){
+  // Mobile minimap
+  if(isMobile){
+    const mc2=document.getElementById('mmMobile');
+    if(mc2&&GW>0){
+      const ms2=100,sc2=ms2/Math.max(GW,GH);
+      const ctx2=mc2.getContext('2d');
+      ctx2.fillStyle='rgba(0,0,0,0.7)';ctx2.fillRect(0,0,ms2,ms2);
+      (interp.bots||[]).forEach(b=>{ctx2.fillStyle=b.col;ctx2.beginPath();ctx2.arc(b.x*sc2,b.y*sc2,1.5,0,Math.PI*2);ctx2.fill();});
+      (interp.players||[]).forEach(p=>{ctx2.fillStyle=p.id===myId?'#fff':p.color;ctx2.beginPath();ctx2.arc(p.x*sc2,p.y*sc2,p.id===myId?3:2,0,Math.PI*2);ctx2.fill();});
+      if(me){const SW2=window.innerWidth,SH2=window.innerHeight;ctx2.strokeStyle='rgba(255,255,255,0.3)';ctx2.strokeRect(camX*sc2,camY*sc2,SW2*sc2,SH2*sc2);}
+    }
+  }
   const MS=130,scale=MS/Math.max(GW,GH);
   MCX.fillStyle='rgba(0,0,0,0.7)';MCX.fillRect(0,0,MS,MS);
   MCX.strokeStyle='#333';MCX.lineWidth=1;MCX.strokeRect(0,0,MS,MS);
