@@ -7,7 +7,8 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#000;overflow:hidden;font-family:'Courier New',monospace;user-select:none;cursor:none;}
-canvas{display:block;}
+@media (hover:none) and (pointer:coarse){body{cursor:none!important;touch-action:none;}}
+canvas{display:block;touch-action:none;}
 /* Lobby */
 #lobby{position:fixed;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;z-index:200;cursor:default;}
 .lbox{background:rgba(0,10,30,0.95);border:1px solid rgba(0,180,255,0.4);border-radius:16px;padding:14px 24px;width:460px;max-height:96vh;overflow-y:hidden;}
@@ -885,6 +886,12 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
 
 // ── Mobile Controls ───────────────────────────────────────────
 const isMobile=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+if(isMobile){
+  // Block mouse events generated from touch (ghost clicks)
+  document.addEventListener('mousemove',e=>{if(e.sourceCapabilities&&!e.sourceCapabilities.firesTouchEvents)return;e.stopPropagation();},{capture:true});
+  // Prevent context menu on long press
+  window.addEventListener('contextmenu',e=>e.preventDefault());
+}
 let joyActive=false,joyId=null,joyBx=0,joyBy=0;
 let touchShoot=false,touchShootId=null;
 // Touch direction vector (overrides mouse when active)
@@ -925,6 +932,7 @@ function initMobile(){
 
   document.addEventListener('touchmove',e=>{
     if(!gameActive)return;
+    if(joyId!==null)e.preventDefault(); // prevent scroll while joysticking
     for(const t of e.changedTouches){
       if(t.identifier===joyId){
         const dx=t.clientX-joyBx,dy=t.clientY-joyBy;
@@ -936,7 +944,7 @@ function initMobile(){
         touchVx=dist>10?nx:0;touchVy=dist>10?ny:0;
       }
     }
-  },{passive:true});
+  },{passive:false});
 
   document.addEventListener('touchend',e=>{
     for(const t of e.changedTouches){
