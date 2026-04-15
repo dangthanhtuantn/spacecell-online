@@ -463,9 +463,9 @@ function handleKey(code){
 let _lastShot=0;
 setInterval(()=>{
   if(!socket||!myId||!gameActive)return;
-  // Input: use joystick on mobile, mouse on PC
+  // Input: joystick on mobile (0,0 when not touching), mouse on PC
   let _ivx,_ivy;
-  if(isMobile&&joyActive){_ivx=touchVx;_ivy=touchVy;}
+  if(isMobile){_ivx=joyActive?touchVx:0;_ivy=joyActive?touchVy:0;}
   else{const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;_ivx=ml>15?mdx/ml:0;_ivy=ml>15?mdy/ml:0;}
   socket.emit('input',{vx:_ivx,vy:_ivy});
   // Shoot on mouse click (PC) or fire button (mobile)
@@ -479,8 +479,11 @@ setInterval(()=>{
       if(me2&&me2.mass>100){
         // Direction: joystick on mobile, cursor on PC
         let _snx,_sny;
-        if(isMobile&&(Math.abs(touchVx)>0.1||Math.abs(touchVy)>0.1)){
-          _snx=touchVx;_sny=touchVy;
+        if(isMobile){
+          // On mobile: shoot in joystick direction, default down if joystick idle
+          _snx=Math.abs(touchVx)>0.05?touchVx:0;
+          _sny=Math.abs(touchVy)>0.05?touchVy:1;
+          const _sl=Math.hypot(_snx,_sny)||1;_snx/=_sl;_sny/=_sl;
         } else {
           const dx=Mouse.x-SW/2,dy=Mouse.y-SH/2,l=Math.hypot(dx,dy)||1;
           if(l<5)return;
@@ -767,10 +770,11 @@ function loop(){
   // Client prediction: EXACT same physics as server
   if(latestMe){
     if(predX===null){predX=latestMe.x;predY=latestMe.y;}
-    const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;
     const speedMod2=(latestMe.speedEnd&&Date.now()<latestMe.speedEnd)?2:1;
     const spd=8*speedMult(latestMe.mass)*speedMod2;
-    const inputVx=ml>15?mdx/ml:0, inputVy=ml>15?mdy/ml:0;
+    let inputVx,inputVy;
+    if(isMobile){inputVx=joyActive?touchVx:0;inputVy=joyActive?touchVy:0;}
+    else{const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;inputVx=ml>15?mdx/ml:0;inputVy=ml>15?mdy/ml:0;}
     const pr=mtr(latestMe.mass);
     // During dash: server handles physics, client follows server pos directly
     // (client prediction of dash velocity causes map drift due to dtFrac scaling)
