@@ -308,17 +308,28 @@ function addMsg(text,col){
 }
 
 // ── Particles ─────────────────────────────────────────────────
-function spark(x,y,col,n=20,big=false){
+function spark(x,y,col,n=20,big=false,radius=0){
   const scale=big?3:1;
-  // Core particles
-  for(let i=0;i<n;i++){
-    const a=Math.random()*Math.PI*2,spd=(2+Math.random()*6)*scale;
-    parts.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,r:(1.5+Math.random()*3)*scale,life:20+Math.random()*25,col,glow:big});
+  // Core particles - more for death
+  const count=big?Math.max(n,50):n;
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2;
+    const spd=(2+Math.random()*8)*scale;
+    const pr=(1.5+Math.random()*3)*scale;
+    // Mix of player color and white/gold for death
+    const c=big&&Math.random()<0.3?'#fff':(big&&Math.random()<0.2?'#ffcc44':col);
+    parts.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,r:pr,life:25+Math.random()*30,col:c,glow:big});
   }
-  // Ring wave (big only)
+  // Extra chunky pieces for death
   if(big){
-    parts.push({x,y,vx:0,vy:0,r:5,life:20,col,ring:true,grow:big?6:3});
-    parts.push({x,y,vx:0,vy:0,r:3,life:14,col:'#fff',ring:true,grow:big?10:5});
+    for(let i=0;i<12;i++){
+      const a=Math.random()*Math.PI*2,spd=(4+Math.random()*10)*scale;
+      parts.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,r:(4+Math.random()*5)*scale,life:30+Math.random()*20,col,glow:true,chunk:true});
+    }
+    // Multiple expanding rings
+    parts.push({x,y,vx:0,vy:0,r:radius||5,life:22,col,ring:true,grow:7});
+    parts.push({x,y,vx:0,vy:0,r:radius?radius*0.5:3,life:16,col:'#fff',ring:true,grow:12});
+    parts.push({x,y,vx:0,vy:0,r:2,life:12,col:col,ring:true,grow:18});
   }
 }
 
@@ -412,7 +423,7 @@ function connect(){
   socket.on('explode',({x,y,nx,ny,r,col,big,item})=>{if(big&&!item)sfxExplode();if(item)sfxItem();
     if(big){
       // Big explosion: eat bot or item
-      spark(x,y,col,35,true);
+      spark(x,y,col,35,true,r||20);
       spark(x,y,'#fff',15,false);
     } else {
       spark(x-(nx||0)*(r||20),y-(ny||0)*(r||20),col,18);
@@ -753,10 +764,13 @@ function render(){
       CTX.beginPath();CTX.arc(p.x,p.y,p.r,0,Math.PI*2);CTX.stroke();
       p.r+=p.grow||4;
     } else {
-      if(p.glow){CTX.shadowBlur=12;CTX.shadowColor=p.col;}
+      const blur=p.chunk?20:p.glow?12:0;
+      if(blur){CTX.shadowBlur=blur;CTX.shadowColor=p.col;}
       CTX.fillStyle=p.col;
       CTX.beginPath();CTX.arc(p.x,p.y,Math.max(0.1,p.r),0,Math.PI*2);CTX.fill();
-      if(p.glow){CTX.shadowBlur=0;}
+      // Bright core on chunks
+      if(p.chunk){CTX.fillStyle='rgba(255,255,255,0.6)';CTX.beginPath();CTX.arc(p.x,p.y,Math.max(0.1,p.r*0.4),0,Math.PI*2);CTX.fill();}
+      if(blur){CTX.shadowBlur=0;}
     }
     p.x+=p.vx;p.y+=p.vy;p.vx*=0.88;p.vy*=0.88;p.r*=p.ring?1:(0.93);p.life--;
     if(p.life<=0)parts.splice(i,1);
