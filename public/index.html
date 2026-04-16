@@ -556,8 +556,8 @@ function drawGlow(x,y,r,col){
     CTX.fill();
   }
   // Radial gradient fill
-  const g=CTX.createRadialGradient(x-r*0.3,y-r*0.35,r*0.05,x,y,r);
-  g.addColorStop(0,'rgba(255,255,255,0.55)');
+  const g=CTX.createRadialGradient(x,y,r*0.1,x,y,r);
+  g.addColorStop(0,'rgba(255,255,255,0.35)');
   g.addColorStop(0.35,col);
   g.addColorStop(1,shadeColor(col,0.35));
   CTX.beginPath();CTX.arc(x,y,r,0,Math.PI*2);
@@ -733,12 +733,12 @@ function render(){
   }
   // Show all bullets including own — identical behavior for player and bot
   // Shift own bullets by prediction drift so they appear from visual player center
-  const _me3=currentMe;
   (interp.bullets||[]).forEach(b=>{
-    if(b.owner===myId&&_me3){
-      const pr=mtr(_me3.mass);
-      const d2=(b.x-_me3.x)**2+(b.y-_me3.y)**2;
-      if(d2<pr*pr)return; // hide bullet while still inside player
+    if(b.owner===myId&&predX!==null&&currentMe){
+      const pr=mtr(currentMe.mass);
+      // Use VISUAL player position (predX,predY) to determine if bullet is inside
+      const d2=(b.x-predX)**2+(b.y-predY)**2;
+      if(d2<pr*pr)return;
     }
     drawBullet(b,b.type==='bomb');
   });
