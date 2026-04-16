@@ -168,12 +168,14 @@ function respawnPlayer(p,by){
 // Inscribed circle: R eats r when R>r AND d <= R-r
 function eats(R,r,d2){if(R<=r)return false;const t=(R+r)*0.6;return d2<t*t;} // compromise: 60% of sum
 
+let _lastTick=0;
 function tick(){
   const now=Date.now();
-  try{physics(now);}catch(e){console.error('[physics]',e.message,e.stack);}
+  // Skip if last tick was too recent (double-fire protection)
+  if(now-_lastTick<TICK_MS*0.8){return;}
+  _lastTick=now;
+  try{physics(now);}catch(e){console.error('[physics]',e.message);}
   try{broadcast(now);}catch(e){console.error('[broadcast]',e.message);}
-  const spent=Date.now()-now;
-  setTimeout(tick,Math.max(0,TICK_MS-spent));
 }
 
 function physics(now){
@@ -398,7 +400,7 @@ function broadcast(now){
   }
 }
 
-setTimeout(tick,TICK_MS);
+setInterval(tick,TICK_MS);
 setInterval(()=>io.emit('playerList',pList()),3000);
 initWorld();
 const PORT=process.env.PORT||3000;
