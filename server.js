@@ -235,7 +235,7 @@ function physics(now){
       const qr=mtr(q.mass);
       if(eats(pr,qr,dst2(p.x,p.y,q.x,q.y))){
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
-        qe('explode',{x:q.x,y:q.y,col:q.color});
+        qe('explode',{x:q.x,y:q.y,col:q.color,big:1,r:mtr(q.mass)});
         qe('msg',{text:p.name+' ate '+q.name+'!',col:'#0ff'});
         respawnPlayer(q,p.name);
       }
@@ -336,7 +336,7 @@ function physics(now){
       const pr=mtr(p.mass);
       if(eats(br,pr,dst2(bot.x,bot.y,p.x,p.y))){
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
-        qe('explode',{x:p.x,y:p.y,col:p.color});
+        qe('explode',{x:p.x,y:p.y,col:p.color,big:1,r:mtr(p.mass)});
         respawnPlayer(p,bot.name);
       } else if(eats(pr,br,dst2(p.x,p.y,bot.x,bot.y))){
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
