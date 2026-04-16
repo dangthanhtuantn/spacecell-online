@@ -733,7 +733,13 @@ function render(){
   }
   // Show all bullets including own — identical behavior for player and bot
   // Shift own bullets by prediction drift so they appear from visual player center
+  const _me3=currentMe;
   (interp.bullets||[]).forEach(b=>{
+    if(b.owner===myId&&_me3){
+      const pr=mtr(_me3.mass);
+      const d2=(b.x-_me3.x)**2+(b.y-_me3.y)**2;
+      if(d2<pr*pr)return; // hide bullet while still inside player
+    }
     drawBullet(b,b.type==='bomb');
   });
 
