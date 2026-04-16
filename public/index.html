@@ -409,7 +409,7 @@ function connect(){
     // predX=null will be set when respawning (in init handler)
     // Don't reset predX here - keep showing current area
   });
-  socket.on('explode',({x,y,nx,ny,r,col,big})=>{if(big)sfxExplode();
+  socket.on('explode',({x,y,nx,ny,r,col,big,item})=>{if(big&&!item)sfxExplode();
     if(big){
       // Big explosion: eat bot or item
       spark(x,y,col,35,true);

@@ -211,7 +211,7 @@ function physics(now){
         else if(it.type==='MAGNET'){p.inv.magnet++;p.magnetEnd=now+5000;}
         else if(it.type==='BOMB')p.inv.bomb++;
         else if(it.type==='BULLET')p.inv.bullet++;
-        io.emit('explode',{x:it.x,y:it.y,col:it.col,big:1,r:it.r});
+        io.emit('explode',{x:it.x,y:it.y,col:it.col,big:1,r:it.r,item:1});
         const{type,id}=it;items.splice(j,1);schedItem(type);
         io.emit('itemRemoved',id);
       }
