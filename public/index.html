@@ -543,7 +543,7 @@ setInterval(()=>{
         // Ghost bullet at visual position
         if(predX!==null&&currentMe){
           const _gid='g'+Date.now()+Math.random();
-          _ghostBullets.set(_gid,{x:predX,y:predY,vx:_snx*16,vy:_sny*16,r:3,col:currentMe.color,life:8});
+          _ghostBullets.set(_gid,{x:predX,y:predY,vx:_snx*16,vy:_sny*16,r:3,col:currentMe.color,life:70});
         }
 
       }
@@ -742,14 +742,9 @@ function render(){
   // Shift own bullets by prediction drift so they appear from visual player center
   // Draw ghost bullets (updated in loop)
   for(const [,gb] of _ghostBullets) drawBullet(gb,false);
-  // Draw server bullets, hide own while ghost bullets active
-  const _hasGhost=_ghostBullets.size>0;
+  // Draw server bullets - never show own bullets (use ghost instead)
   (interp.bullets||[]).forEach(b=>{
-    if(b.owner===myId&&_hasGhost&&predX!==null&&currentMe){
-      const pr=mtr(currentMe.mass);
-      const d2=(b.x-predX)**2+(b.y-predY)**2;
-      if(d2<pr*pr*4)return;
-    }
+    if(b.owner===myId)return; // own bullets: use ghost only
     drawBullet(b,b.type==='bomb');
   });
 
