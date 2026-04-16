@@ -921,7 +921,7 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
     const bullets=(d.u||[]).map(u=>({id:u.i,x:u.x,y:u.y,r:u.r,col:u.c,type:u.t?'bomb':'shot',owner:u.o}));
     pushSnap({t:d.t,players,bots,bullets});
   });
-  socket.on('foodEaten',({ni,nf})=>{food[ni]=nf;});
+  socket.on('foodEaten',({ni,nf})=>{food[ni]=nf;sfxEat();});
   socket.on('itemAdded',it=>{items.push(it);});
   socket.on('itemRemoved',id=>{const ix=items.findIndex(x=>x.id===id);if(ix>=0)items.splice(ix,1);});
   socket.on('msg',({text,col})=>addMsg(text,col));
@@ -1071,6 +1071,19 @@ function sfxItem(){
   }catch(e){}
 }
 
+function sfxEat(){
+  if(!soundEnabled)return;
+  try{
+    const AC=getAC(),o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type='sine';
+    o.frequency.setValueAtTime(600,AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(900,AC.currentTime+0.06);
+    g.gain.setValueAtTime(0.12,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.1);
+    o.start();o.stop(AC.currentTime+0.1);
+  }catch(e){}
+}
 function sfxBotShoot(){
   if(!soundEnabled)return;
   try{
