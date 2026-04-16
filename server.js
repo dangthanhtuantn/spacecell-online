@@ -166,7 +166,7 @@ function respawnPlayer(p,by){
 }
 
 // Inscribed circle: R eats r when R>r AND d <= R-r
-function eats(R,r,d2){if(R<=r)return false;const g=R-r;return d2<=g*g;}
+function eats(R,r,d2){if(R<=r)return false;return d2<R*R;} // eat when smaller center inside larger
 
 function tick(){
   const now=Date.now();
