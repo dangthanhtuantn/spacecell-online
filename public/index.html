@@ -420,7 +420,7 @@ function connect(){
     // predX=null will be set when respawning (in init handler)
     // Don't reset predX here - keep showing current area
   });
-  socket.on('explode',({x,y,nx,ny,r,col,big,item})=>{if(big&&!item)sfxExplode();if(item)sfxItem();
+  socket.on('explode',({x,y,nx,ny,r,col,big,item})=>{if(big&&!item)sfxExplode();
     if(big){
       // Big explosion: eat bot or item
       spark(x,y,col,35,true,r||20);
@@ -733,15 +733,8 @@ function render(){
   }
   // Show all bullets including own — identical behavior for player and bot
   // Shift own bullets by prediction drift so they appear from visual player center
-  const _latestMe=snaps[snapHead].players.find(p=>p.id===myId);
-  const _driftX=(_latestMe&&predX!==null)?predX-_latestMe.x:0;
-  const _driftY=(_latestMe&&predY!==null)?predY-_latestMe.y:0;
   (interp.bullets||[]).forEach(b=>{
-    if(b.owner===myId&&(_driftX||_driftY)){
-      drawBullet({...b,x:b.x+_driftX,y:b.y+_driftY},b.type==='bomb');
-    } else {
-      drawBullet(b,b.type==='bomb');
-    }
+    drawBullet(b,b.type==='bomb');
   });
 
   // Bots

@@ -213,7 +213,7 @@ function physics(now){
         else if(it.type==='MAGNET'){p.inv.magnet++;p.magnetEnd=now+5000;}
         else if(it.type==='BOMB')p.inv.bomb++;
         else if(it.type==='BULLET')p.inv.bullet++;
-        io.emit('explode',{x:it.x,y:it.y,col:it.col,big:1,r:it.r,item:1});
+        io.emit('explode',{x:it.x,y:it.y,col:it.col,item:1,r:it.r});
         const{type,id}=it;items.splice(j,1);schedItem(type);
         io.emit('itemRemoved',id);
       }
@@ -267,7 +267,7 @@ function physics(now){
         const dl=Math.hypot(b.vx,b.vy)||1;
         qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
         bullets.splice(i,1);hit=true;
-        if(bot.mass<=100){
+        if(bot.mass<300){
           qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1});
           bot._deadUntil=now+1500;bot.mass=1;bot.vx=0;bot.vy=0;
         }
