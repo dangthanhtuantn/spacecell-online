@@ -588,6 +588,17 @@ function drawMe(p){
   const r=mtr(p.mass);
   CTX.globalAlpha=p.stealthed?0.4:1;
   if(p.shielded){CTX.strokeStyle='#88f';CTX.lineWidth=4;CTX.beginPath();CTX.arc(p.x,p.y,r+4,0,Math.PI*2);CTX.stroke();}
+  // Shield orbit: 3 dots spinning when shield active
+  if(p.shieldEnd&&Date.now()<p.shieldEnd){
+    const orbitR=r+14,orbitT=Date.now()/300;
+    for(let i=0;i<3;i++){
+      const a=orbitT+i*(Math.PI*2/3);
+      const ox=p.x+Math.cos(a)*orbitR,oy=p.y+Math.sin(a)*orbitR;
+      CTX.beginPath();CTX.arc(ox,oy,4,0,Math.PI*2);
+      CTX.fillStyle='#88f';CTX.shadowBlur=10;CTX.shadowColor='#aaf';CTX.fill();
+    }
+    CTX.shadowBlur=0;
+  }
   if(myFlag){
     CTX.fillStyle=myColor+'88';CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
     CTX.save();CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.clip();
@@ -610,6 +621,17 @@ function drawOther(p){
   const r=mtr(p.mass);
   if(p.stealthed)return; // other players invisible in stealth
   if(p.shielded){CTX.strokeStyle='#88f';CTX.lineWidth=3;CTX.beginPath();CTX.arc(p.x,p.y,r+3,0,Math.PI*2);CTX.stroke();}
+  // Shield orbit: 3 dots spinning when shield active
+  if(p.shieldEnd&&Date.now()<p.shieldEnd){
+    const orbitR=r+14,orbitT=Date.now()/300;
+    for(let i=0;i<3;i++){
+      const a=orbitT+i*(Math.PI*2/3);
+      const ox=p.x+Math.cos(a)*orbitR,oy=p.y+Math.sin(a)*orbitR;
+      CTX.beginPath();CTX.arc(ox,oy,4,0,Math.PI*2);
+      CTX.fillStyle='#88f';CTX.shadowBlur=10;CTX.shadowColor='#aaf';CTX.fill();
+    }
+    CTX.shadowBlur=0;
+  }
   if(p.flag){
     CTX.fillStyle=p.color+'88';CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.fill();
     CTX.save();CTX.beginPath();CTX.arc(p.x,p.y,r,0,Math.PI*2);CTX.clip();
