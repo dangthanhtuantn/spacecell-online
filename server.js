@@ -43,7 +43,7 @@ function gnear(x,y,rad){
 }
 
 // ── Food & Items ──────────────────────────────────────────────
-const FSIZES=[{mass:1,r:3,w:30},{mass:2,r:4,w:25},{mass:3,r:5,w:20},{mass:5,r:7,w:15},{mass:10,r:10,w:10}];
+const FSIZES=[{mass:1,r:5,w:30},{mass:2,r:6,w:25},{mass:5,r:7,w:20},{mass:10,r:9,w:15},{mass:20,r:12,w:10}];
 function mkFood(){
   const roll=Math.random()*100;let acc=0;
   for(const ft of FSIZES){acc+=ft.w;if(roll<acc)return{x:rnd(BMIN+30,BMAX-30),y:rnd(BMIN+30,BMAX-30),mass:ft.mass,r:ft.r,col:`hsl(${0|rnd(0,360)},80%,65%)`};}
