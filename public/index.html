@@ -420,7 +420,7 @@ function connect(){
     // predX=null will be set when respawning (in init handler)
     // Don't reset predX here - keep showing current area
   });
-  socket.on('explode',({x,y,nx,ny,r,col,big,item})=>{if(big&&!item)sfxExplode();
+  socket.on('explode',({x,y,nx,ny,r,col,big,item})=>{if(big&&!item)sfxExplode();if(item)sfxItem();
     if(big){
       // Big explosion: eat bot or item
       spark(x,y,col,35,true,r||20);
@@ -540,10 +540,15 @@ setInterval(()=>{
           _snx=dx/l;_sny=dy/l;
         }
         socket.emit('shoot',{nx:_snx,ny:_sny});sfxShoot();
-        // Ghost bullet at visual position
+        // Ghost bullets at visual position
         if(predX!==null&&currentMe){
-          const _gid='g'+Date.now()+Math.random();
-          _ghostBullets.set(_gid,{x:predX,y:predY,vx:_snx*16,vy:_sny*16,r:3,col:currentMe.color,life:70});
+          const _t=Date.now();
+          _ghostBullets.set('g'+_t+'0',{x:predX,y:predY,vx:_snx*16,vy:_sny*16,r:3,col:currentMe.color,life:70});
+          if(bulletOn){
+            const _bpx=-_sny,_bpy=_snx;
+            _ghostBullets.set('g'+_t+'1',{x:predX,y:predY,vx:(_snx+_bpx*0.15)*16,vy:(_sny+_bpy*0.15)*16,r:3,col:'#ff4',life:70});
+            _ghostBullets.set('g'+_t+'2',{x:predX,y:predY,vx:(_snx-_bpx*0.15)*16,vy:(_sny-_bpy*0.15)*16,r:3,col:'#ff4',life:70});
+          }
         }
 
       }
