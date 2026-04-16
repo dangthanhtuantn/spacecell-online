@@ -165,7 +165,8 @@ canvas{display:block;touch-action:none;}
     </div>
     <div style="display:flex;gap:10px">
       <button class="playbtn" id="sb" style="flex:1;margin:0;padding:8px 0;font-size:13px">▶ PLAY NOW</button>
-      <button class="playbtn" id="spectateBtn" style="flex:1;margin:0;padding:8px 0;font-size:13px;background:rgba(255,200,0,0.12);border-color:rgba(255,200,0,0.5)">👁 SPECTATE</button>
+      <button class="playbtn" id="soundBtn" onclick="toggleSound()" style="margin:0;padding:8px 12px;font-size:16px;background:rgba(0,180,255,0.1);border-color:rgba(0,180,255,0.4)" title="Toggle sound">🔊</button>
+      <button class="playbtn" id="spectateBtn" style="flex:1;margin:0;padding:8px 0;font-size:13px;background:rgba(255,200,0,0.12);border-color:rgba(255,200,0,0.5)">👁</button>
     </div>
     <!-- Ad 300x250 -->
     <div style="width:300px;height:250px;margin:10px auto 0;background:rgba(0,10,28,0.8);border:1px solid rgba(0,180,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(0,180,255,0.3);font-size:11px;letter-spacing:1px;">
@@ -386,7 +387,7 @@ function connect(){
     // Update food immediately to new position
     if(food[d.ni])food[d.ni]=d.nf;
   });
-  socket.on('died',({by})=>{
+  socket.on('died',({by})=>{sfxExplode();
     const dm=document.getElementById('dm');
     if(dm)dm.textContent='Absorbed by '+by+'!';
     const dead=document.getElementById('dead');
@@ -395,7 +396,7 @@ function connect(){
     // predX=null will be set when respawning (in init handler)
     // Don't reset predX here - keep showing current area
   });
-  socket.on('explode',({x,y,nx,ny,r,col,big})=>{
+  socket.on('explode',({x,y,nx,ny,r,col,big})=>{if(big)sfxEatBot();
     if(big){
       // Big explosion: eat bot or item
       spark(x,y,col,35,true);
@@ -514,7 +515,7 @@ setInterval(()=>{
           if(l<5)return;
           _snx=dx/l;_sny=dy/l;
         }
-        socket.emit('shoot',{nx:_snx,ny:_sny});
+        socket.emit('shoot',{nx:_snx,ny:_sny});sfxShoot();
 
       }
     }
@@ -907,9 +908,9 @@ document.getElementById('spectateBtn')?.addEventListener('click',()=>{
     const bullets=(d.u||[]).map(u=>({id:u.i,x:u.x,y:u.y,r:u.r,col:u.c,type:u.t?'bomb':'shot',owner:u.o}));
     pushSnap({t:d.t,players,bots,bullets});
   });
-  socket.on('foodEaten',({ni,nf})=>{food[ni]=nf;});
+  socket.on('foodEaten',({ni,nf})=>{food[ni]=nf;sfxEat();});
   socket.on('itemAdded',it=>{items.push(it);});
-  socket.on('itemRemoved',id=>{const ix=items.findIndex(x=>x.id===id);if(ix>=0)items.splice(ix,1);});
+  socket.on('itemRemoved',id=>{const ix=items.findIndex(x=>x.id===id);if(ix>=0){items.splice(ix,1);sfxItem();}});
   socket.on('msg',({text,col})=>addMsg(text,col));
   socket.on('chat',({name,text,col})=>addChatMsg(name,text,col));
   socket.on('viewerCount',n=>{const el=document.getElementById('viewerCount');if(el)el.textContent=n;});
@@ -1014,6 +1015,109 @@ function mobileBomb(){
 // Patch input emit to use touch joystick on mobile
 const _origSetInterval=setInterval;
 initMobile();
+
+
+// ── Sound System ──────────────────────────────────────────────
+let soundEnabled=true;
+let _AC=null;
+function getAC(){if(!_AC)_AC=new(window.AudioContext||window.webkitAudioContext)();return _AC;}
+
+function toggleSound(){
+  soundEnabled=!soundEnabled;
+  const btn=document.getElementById('soundBtn');
+  if(btn)btn.textContent=soundEnabled?'🔊':'🔇';
+}
+
+function sfxEat(){
+  if(!soundEnabled)return;
+  try{
+    const AC=getAC(),o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type='sine';
+    o.frequency.setValueAtTime(600,AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(900,AC.currentTime+0.06);
+    g.gain.setValueAtTime(0.15,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.1);
+    o.start();o.stop(AC.currentTime+0.1);
+  }catch(e){}
+}
+
+function sfxItem(){
+  if(!soundEnabled)return;
+  try{
+    const AC=getAC();
+    [0,0.06,0.12].forEach((t,i)=>{
+      const o=AC.createOscillator(),g=AC.createGain();
+      o.connect(g);g.connect(AC.destination);
+      o.type='triangle';
+      o.frequency.value=[523,659,784][i];
+      g.gain.setValueAtTime(0.18,AC.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+t+0.2);
+      o.start(AC.currentTime+t);o.stop(AC.currentTime+t+0.2);
+    });
+  }catch(e){}
+}
+
+function sfxShoot(){
+  if(!soundEnabled)return;
+  try{
+    const AC=getAC(),o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type='square';
+    o.frequency.setValueAtTime(1200,AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(400,AC.currentTime+0.04);
+    g.gain.setValueAtTime(0.07,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.05);
+    o.start();o.stop(AC.currentTime+0.05);
+  }catch(e){}
+}
+
+function sfxExplode(){
+  if(!soundEnabled)return;
+  try{
+    const AC=getAC();
+    const buf=AC.createBuffer(1,AC.sampleRate*0.5,AC.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.5);
+    const src=AC.createBufferSource();src.buffer=buf;
+    const g=AC.createGain(),f=AC.createBiquadFilter();
+    f.type='lowpass';f.frequency.value=300;
+    src.connect(f);f.connect(g);g.connect(AC.destination);
+    g.gain.setValueAtTime(0.8,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.5);
+    src.start();src.stop(AC.currentTime+0.5);
+    const o=AC.createOscillator(),g2=AC.createGain();
+    o.connect(g2);g2.connect(AC.destination);
+    o.type='sine';
+    o.frequency.setValueAtTime(120,AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(30,AC.currentTime+0.3);
+    g2.gain.setValueAtTime(0.6,AC.currentTime);
+    g2.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.3);
+    o.start();o.stop(AC.currentTime+0.3);
+  }catch(e){}
+}
+
+function sfxEatBot(){
+  if(!soundEnabled)return;
+  try{
+    const AC=getAC(),o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type='sine';
+    o.frequency.setValueAtTime(200,AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(80,AC.currentTime+0.15);
+    g.gain.setValueAtTime(0.35,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.2);
+    o.start();o.stop(AC.currentTime+0.2);
+    const o2=AC.createOscillator(),g2=AC.createGain();
+    o2.connect(g2);g2.connect(AC.destination);
+    o2.type='triangle';
+    o2.frequency.setValueAtTime(300,AC.currentTime+0.12);
+    o2.frequency.exponentialRampToValueAtTime(600,AC.currentTime+0.3);
+    g2.gain.setValueAtTime(0.2,AC.currentTime+0.12);
+    g2.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.32);
+    o2.start(AC.currentTime+0.12);o2.stop(AC.currentTime+0.32);
+  }catch(e){}
+}
 
 loop();
 
