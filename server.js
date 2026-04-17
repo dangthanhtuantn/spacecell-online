@@ -110,7 +110,7 @@ io.on('connection',sock=>{
   sock.on('bomb',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.inv.bomb<=0||p.cdB>0)return;
     p.inv.bomb--;p.cdB=1500;const r=mtr(p.mass);
-    bullets.push({id:uid(),x:p.x,y:p.y,vx:nx*10,vy:ny*10,type:'bomb',r:22,life:80,col:'#f80',owner:sock.id,dmg:0});
+    bullets.push({id:uid(),x:p.x,y:p.y,vx:nx*16,vy:ny*16,type:'bomb',r:14,life:64,col:'#f80',owner:sock.id,dmg:0});
   });
   sock.on('shoot',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.mass<=300)return;
@@ -253,11 +253,9 @@ function physics(now){
     for(let j=0;j<PL&&!hit;j++){
       const p=PA[j];if(p.id===b.owner||now<p.shieldEnd||now<p.stealthEnd)continue;
       if(dst2(b.x,b.y,p.x,p.y)<(b.r+mtr(p.mass))*(b.r+mtr(p.mass))){
-        const isBomb=b.type==='bomb';
-        p.mass=isBomb?Math.max(15,p.mass*0.5):Math.max(15,p.mass-(b.dmg||5));
+        p.mass=b.type==='bomb'?Math.max(15,p.mass*0.5):Math.max(15,p.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
-        if(isBomb){qe('explode',{x:b.x,y:b.y,col:'#f80',bomb:1,r:30});}
-        else{qe('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});}
+        qe('explode',{x:p.x,y:p.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(p.mass),col:b.col});
         bullets.splice(i,1);hit=true;
         if(p.mass<300){qe('explode',{x:p.x,y:p.y,col:p.color,big:1});respawnPlayer(p,'bullet');}
       }
@@ -266,11 +264,9 @@ function physics(now){
     for(let j=0;j<BL&&!hit;j++){
       const bot=bots[j];if(bot.id===b.owner||bot._deadUntil)continue;
       if(dst2(b.x,b.y,bot.x,bot.y)<(b.r+mtr(bot.mass))*(b.r+mtr(bot.mass))){
-        const isBomb2=b.type==='bomb';
-        bot.mass=isBomb2?Math.max(1,bot.mass*0.5):Math.max(1,bot.mass-(b.dmg||5));
-        const dl2=Math.hypot(b.vx,b.vy)||1;
-        if(isBomb2){qe('explode',{x:b.x,y:b.y,col:'#f80',bomb:1,r:30});}
-        else{qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl2,ny:b.vy/dl2,r:mtr(bot.mass),col:b.col});}
+        bot.mass=b.type==='bomb'?Math.max(1,bot.mass*0.5):Math.max(1,bot.mass-(b.dmg||5));
+        const dl=Math.hypot(b.vx,b.vy)||1;
+        qe('explode',{x:bot.x,y:bot.y,nx:b.vx/dl,ny:b.vy/dl,r:mtr(bot.mass),col:b.col});
         bullets.splice(i,1);hit=true;
         if(bot.mass<300){
           qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1});

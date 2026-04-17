@@ -420,12 +420,8 @@ function connect(){
     // predX=null will be set when respawning (in init handler)
     // Don't reset predX here - keep showing current area
   });
-  socket.on('explode',({x,y,nx,ny,r,col,big,item,bomb})=>{if(big&&!item)sfxExplode();if(item)sfxItem();if(bomb){sfxExplode();}
-    if(bomb){
-      // Bomb explosion: medium orange burst
-      spark(x,y,'#f80',25,false);
-      spark(x,y,'#ff4',10,false);
-    } else if(big){
+  socket.on('explode',({x,y,nx,ny,r,col,big,item})=>{if(big&&!item)sfxExplode();if(item)sfxItem();
+    if(big){
       spark(x,y,col,35,true,r||20);
       spark(x,y,'#fff',15,false);
     } else {
@@ -508,19 +504,7 @@ function handleKey(code){
   if(code==='KeyF'){const cme=currentMe;if(!cme||!cme.inv||!(cme.inv.speed>0))return;socket.emit('speed');localSpeedEnd=Date.now()+2000;}
   if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
   if(code==='KeyG'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
-  if(code==='KeyB'){
-    const cme=currentMe;if(!cme||!cme.inv||!cme.inv.bomb)return;
-    const wx=Mouse.x+camX,wy=Mouse.y+camY;
-    const bx=predX??camX+SW/2,by=predY??camY+SH/2;
-    const dx=wx-bx,dy=wy-by;const l=Math.hypot(dx,dy)||1;
-    const bnx=dx/l,bny=dy/l;
-    socket.emit('bomb',{nx:bnx,ny:bny});
-    // Ghost bomb visible to owner
-    if(predX!==null){
-      const _gt=Date.now();
-      _ghostBullets.set('b'+_gt,{x:bx,y:by,vx:bnx*10,vy:bny*10,r:22,col:'#f80',life:80,isBomb:true});
-    }
-  }
+  if(code==='KeyB'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.bomb)return;const wx=Mouse.x+camX,wy=Mouse.y+camY;const bx=predX??camX+SW/2,by=predY??camY+SH/2;const dx=wx-bx,dy=wy-by;const l=Math.hypot(dx,dy)||1;const bnx=dx/l,bny=dy/l;socket.emit('bomb',{nx:bnx,ny:bny});}
   // F (magnet auto-activates on pickup)
 }
 
@@ -783,7 +767,7 @@ function render(){
   // Show all bullets including own — identical behavior for player and bot
   // Shift own bullets by prediction drift so they appear from visual player center
   // Draw ghost bullets (updated in loop)
-  for(const [,gb] of _ghostBullets) drawBullet(gb,!!gb.isBomb);
+  for(const [,gb] of _ghostBullets) drawBullet(gb,false);
   // Draw server bullets - never show own bullets (use ghost instead)
   (interp.bullets||[]).forEach(b=>{
     if(b.owner===myId)return; // own bullets: use ghost only
