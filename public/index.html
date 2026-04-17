@@ -505,7 +505,7 @@ function handleKey(code){
   if(code==='KeyF'){const cme=currentMe;if(!cme||!cme.inv||!(cme.inv.speed>0))return;socket.emit('speed');localSpeedEnd=Date.now()+2000;}
   if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
   if(code==='KeyG'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
-  if(code==='KeyB'){const wx=Mouse.x+camX,wy=Mouse.y+camY;const dx=wx-(me?me.x:camX+SW/2),dy=wy-(me?me.y:camY+SH/2);const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
+  if(code==='KeyB'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.bomb)return;const wx=Mouse.x+camX,wy=Mouse.y+camY;const bx=predX??camX+SW/2,by=predY??camY+SH/2;const dx=wx-bx,dy=wy-by;const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
   // F (magnet auto-activates on pickup)
 }
 

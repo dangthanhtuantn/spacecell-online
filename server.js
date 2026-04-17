@@ -250,7 +250,7 @@ function physics(now){
     if(b.life<=0||b.x<BMIN||b.x>BMAX||b.y<BMIN||b.y>BMAX){bullets.splice(i,1);continue;}
     let hit=false;
     for(let j=0;j<PL&&!hit;j++){
-      const p=PA[j];if(p.id===b.owner||now<p.shieldEnd)continue;
+      const p=PA[j];if(p.id===b.owner||now<p.shieldEnd||now<p.stealthEnd)continue;
       if(dst2(b.x,b.y,p.x,p.y)<(b.r+mtr(p.mass))*(b.r+mtr(p.mass))){
         p.mass=b.type==='bomb'?Math.max(15,p.mass*0.5):Math.max(15,p.mass-(b.dmg||5));
         const dl=Math.hypot(b.vx,b.vy)||1;
