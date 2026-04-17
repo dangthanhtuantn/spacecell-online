@@ -505,7 +505,19 @@ function handleKey(code){
   if(code==='KeyF'){const cme=currentMe;if(!cme||!cme.inv||!(cme.inv.speed>0))return;socket.emit('speed');localSpeedEnd=Date.now()+2000;}
   if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
   if(code==='KeyG'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
-  if(code==='KeyB'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.bomb)return;const wx=Mouse.x+camX,wy=Mouse.y+camY;const bx=predX??camX+SW/2,by=predY??camY+SH/2;const dx=wx-bx,dy=wy-by;const l=Math.hypot(dx,dy)||1;socket.emit('bomb',{nx:dx/l,ny:dy/l});}
+  if(code==='KeyB'){
+    const cme=currentMe;if(!cme||!cme.inv||!cme.inv.bomb)return;
+    const wx=Mouse.x+camX,wy=Mouse.y+camY;
+    const bx=predX??camX+SW/2,by=predY??camY+SH/2;
+    const dx=wx-bx,dy=wy-by;const l=Math.hypot(dx,dy)||1;
+    const bnx=dx/l,bny=dy/l;
+    socket.emit('bomb',{nx:bnx,ny:bny});
+    // Ghost bomb visible to owner
+    if(predX!==null){
+      const _gt=Date.now();
+      _ghostBullets.set('b'+_gt,{x:bx,y:by,vx:bnx*16,vy:bny*16,r:14,col:'#f80',life:70,isBomb:true});
+    }
+  }
   // F (magnet auto-activates on pickup)
 }
 
@@ -768,7 +780,7 @@ function render(){
   // Show all bullets including own — identical behavior for player and bot
   // Shift own bullets by prediction drift so they appear from visual player center
   // Draw ghost bullets (updated in loop)
-  for(const [,gb] of _ghostBullets) drawBullet(gb,false);
+  for(const [,gb] of _ghostBullets) drawBullet(gb,!!gb.isBomb);
   // Draw server bullets - never show own bullets (use ghost instead)
   (interp.bullets||[]).forEach(b=>{
     if(b.owner===myId)return; // own bullets: use ghost only
