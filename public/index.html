@@ -953,9 +953,25 @@ function loop(){
 
 
   // Update ghost bullets with dtFrac
+  const _interpNow=getInterp();
   for(const [gid,gb] of _ghostBullets){
     gb.x+=gb.vx*dtFrac;gb.y+=gb.vy*dtFrac;gb.life-=dtFrac;
-    if(gb.life<=0)_ghostBullets.delete(gid);
+    if(gb.life<=0){_ghostBullets.delete(gid);continue;}
+    // Client-side bomb stop: if ghost bomb near any target, stop it
+    if(gb.isBomb){
+      let _bombed=false;
+      const _allTargets=[...(_interpNow.bots||[]),...(_interpNow.players||[])];
+      for(const t of _allTargets){
+        if(t.id===myId)continue;
+        const _tr=mtr(t.mass||300);
+        const _d2=(gb.x-t.x)**2+(gb.y-t.y)**2;
+        if(_d2<(gb.r+_tr)*(gb.r+_tr)){
+          _ghostBullets.delete(gid);
+          _bombed=true;break;
+        }
+      }
+      if(_bombed)continue;
+    }
   }
   render();
 }
