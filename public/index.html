@@ -422,6 +422,10 @@ function connect(){
   });
   socket.on('explode',({x,y,nx,ny,r,col,big,item,bomb})=>{if(big&&!item&&!bomb)sfxExplode();if(item)sfxItem();if(bomb)sfxShoot();
     if(bomb){
+      // Remove ghost bomb immediately so it doesn't fly through
+      if(window._lastBombKey){_ghostBullets.delete(window._lastBombKey);window._lastBombKey=null;}
+      // Also clear any bomb ghost still in map
+      for(const [k,gb] of _ghostBullets){if(gb.isBomb)_ghostBullets.delete(k);}
       spark(x,y,'#f80',20,false);
       spark(x,y,'#ff4',8,false);
     } else if(big){
@@ -515,7 +519,9 @@ function handleKey(code){
     const bnx=dx/bl,bny=dy/bl;
     socket.emit('bomb',{nx:bnx,ny:bny});
     if(predX!==null){
-      _ghostBullets.set('bomb'+Date.now(),{x:bx,y:by,vx:bnx*16,vy:bny*16,r:14,col:'#f80',life:70,isBomb:true});
+      const _bk='bomb'+Date.now();
+      _ghostBullets.set(_bk,{x:bx,y:by,vx:bnx*16,vy:bny*16,r:14,col:'#f80',life:70,isBomb:true,key:_bk});
+      window._lastBombKey=_bk;
     }
   }
   // F (magnet auto-activates on pickup)
