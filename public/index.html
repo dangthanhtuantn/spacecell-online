@@ -422,12 +422,12 @@ function connect(){
   });
   socket.on('explode',({x,y,nx,ny,r,col,big,item,bomb})=>{if(big&&!item&&!bomb)sfxExplode();if(item)sfxItem();if(bomb)sfxShoot();
     if(bomb){
-      // Remove ghost bomb immediately so it doesn't fly through
+      // Remove ghost bomb if still active (may already be removed by proximity check)
       if(window._lastBombKey){_ghostBullets.delete(window._lastBombKey);window._lastBombKey=null;}
-      // Also clear any bomb ghost still in map
       for(const [k,gb] of _ghostBullets){if(gb.isBomb)_ghostBullets.delete(k);}
-      spark(x,y,'#f80',20,false);
-      spark(x,y,'#ff4',8,false);
+      // Only show spark if not already shown by client-side check (x close to cam)
+      if(!window._bombHitThisFrame){spark(x,y,'#f80',20,false);spark(x,y,'#ff4',8,false);}
+      window._bombHitThisFrame=false;
     } else if(big){
       spark(x,y,col,35,true,r||20);
       spark(x,y,'#fff',15,false);
@@ -967,6 +967,11 @@ function loop(){
         const _d2=(gb.x-t.x)**2+(gb.y-t.y)**2;
         if(_d2<(gb.r+_tr)*(gb.r+_tr)){
           _ghostBullets.delete(gid);
+          // Trigger sound+spark immediately at impact point (don't wait for server)
+          sfxShoot();
+          spark(gb.x,gb.y,'#f80',20,false);
+          spark(gb.x,gb.y,'#ff4',8,false);
+          window._bombHitThisFrame=true;
           _bombed=true;break;
         }
       }
