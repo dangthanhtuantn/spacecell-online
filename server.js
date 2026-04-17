@@ -110,7 +110,7 @@ io.on('connection',sock=>{
   sock.on('bomb',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.inv.bomb<=0||p.cdB>0)return;
     p.inv.bomb--;p.cdB=1500;const r=mtr(p.mass);
-    bullets.push({id:uid(),x:p.x,y:p.y,vx:nx*16,vy:ny*16,type:'bomb',r:14,life:64,col:'#f80',owner:sock.id,dmg:0});
+    bullets.push({id:uid(),x:p.x,y:p.y,vx:nx*10,vy:ny*10,type:'bomb',r:22,life:80,col:'#f80',owner:sock.id,dmg:0});
   });
   sock.on('shoot',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.mass<=300)return;
@@ -247,8 +247,7 @@ function physics(now){
   // ── Bullets ──────────────────────────────────────────────────
   for(let i=bullets.length-1;i>=0;i--){
     const b=bullets[i];b.x+=b.vx;b.y+=b.vy;b.life--;
-    // Slow down bomb mid-flight for better gameplay
-    if(b.type==='bomb'){b.vx*=0.98;b.vy*=0.98;}
+
     if(b.life<=0||b.x<BMIN||b.x>BMAX||b.y<BMIN||b.y>BMAX){bullets.splice(i,1);continue;}
     let hit=false;
     for(let j=0;j<PL&&!hit;j++){

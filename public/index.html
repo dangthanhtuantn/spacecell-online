@@ -518,7 +518,7 @@ function handleKey(code){
     // Ghost bomb visible to owner
     if(predX!==null){
       const _gt=Date.now();
-      _ghostBullets.set('b'+_gt,{x:bx,y:by,vx:bnx*16,vy:bny*16,r:14,col:'#f80',life:70,isBomb:true});
+      _ghostBullets.set('b'+_gt,{x:bx,y:by,vx:bnx*10,vy:bny*10,r:22,col:'#f80',life:80,isBomb:true});
     }
   }
   // F (magnet auto-activates on pickup)
