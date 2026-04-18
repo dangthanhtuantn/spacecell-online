@@ -116,6 +116,7 @@ io.on('connection',sock=>{
     p.speedEnd=0;p.magnetEnd=0;p.bulletEnd=0;
     p.cdQ=0;p.cdW=0;p.cdR=0;p.cdB=0;p._lastShot=0;
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
+    io.emit('playerList',pList()); // update leaderboard when player rejoins
   });
   sock.on('bomb',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.inv.bomb<=0||p.cdB>0)return;
@@ -153,12 +154,13 @@ io.on('connection',sock=>{
     _spectatorName=name||'Viewer';_spectatorCol=col||'#aaa';
     spectators.add(sock.id);broadcastViewerCount();
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
+    io.emit('playerList',pList()); // update leaderboard when player rejoins
   });
 
   sock.on('disconnect',()=>{delete players[sock.id];spectators.delete(sock.id);broadcastViewerCount();io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
 });
 
-function pList(){return Object.values(players).map(p=>({id:p.id,name:p.name,mass:Math.floor(p.mass)})).sort((a,b)=>b.mass-a.mass);}
+function pList(){return Object.values(players).filter(p=>!p._dead).map(p=>({id:p.id,name:p.name,mass:Math.floor(p.mass)})).sort((a,b)=>b.mass-a.mass);}
 function broadcastViewerCount(){io.emit('viewerCount',spectators.size);}
 
 // ── Physics ───────────────────────────────────────────────────
@@ -384,7 +386,7 @@ function broadcast(now){
   // Broadcast to spectators: full view of all bots and players
   for(const sid of spectators){
     const sock=io.sockets.sockets.get(sid);if(!sock)continue;
-    const vP=PA.map(q=>({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),
+    const vP=PA.filter(q=>!q._dead).map(q=>({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),
       sh:now<q.shieldEnd?1:0,st:0,inv:q.inv,cQ:0,cW:0,cR:0,cB:0,sE:0,mE:0,shE:q.shieldEnd,stE:0,bE:0}));
     const vB=bots.filter(b=>!b._deadUntil).map(b=>({i:b.id,x:Math.round(b.x),y:Math.round(b.y),m:Math.round(b.mass),c:b.col,n:b.name}));
     const vU=bullets.map(b=>({i:b.id,x:Math.round(b.x),y:Math.round(b.y),r:b.r,c:b.col,t:b.type==='bomb'?1:0,o:b.owner}));
