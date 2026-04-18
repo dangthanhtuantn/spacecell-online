@@ -388,7 +388,7 @@ function connect(){
     // Bot shoot sound: new bot bullets that didn't exist before
     if(myId){
       const prevIds=new Set((window._prevBullets||[]).map(b=>b.id));
-      bullets.forEach(b=>{if(!prevIds.has(b.id)&&b.owner&&b.owner.startsWith('b'))sfxBotShoot();});
+      bullets.forEach(b=>{if(!prevIds.has(b.id)&&b.owner&&b.owner.startsWith('b')&&isOnScreen(b.x,b.y))sfxBotShoot();});
     }
     window._prevBullets=bullets;
     pushSnap({t:Date.now(),players,bots,bullets});
@@ -420,7 +420,7 @@ function connect(){
     // predX=null will be set when respawning (in init handler)
     // Don't reset predX here - keep showing current area
   });
-  socket.on('explode',({x,y,nx,ny,r,col,big,item,bomb})=>{if(big&&!item&&!bomb)sfxExplode();if(item)sfxItem();if(bomb&&!window._bombHitThisFrame)sfxBombImpact();
+  socket.on('explode',({x,y,nx,ny,r,col,big,item,bomb})=>{const _ons=isOnScreen(x,y);if(big&&!item&&!bomb&&_ons)sfxExplode();if(item&&_ons)sfxItem();if(bomb&&!window._bombHitThisFrame)sfxBombImpact();
     if(bomb){
       // Remove ghost bomb if still active (may already be removed by proximity check)
       if(window._lastBombKey){_ghostBullets.delete(window._lastBombKey);window._lastBombKey=null;}
@@ -1005,8 +1005,8 @@ document.getElementById('chatInput')?.addEventListener('keydown',e=>{if(e.key===
 
 document.getElementById('respawnBtn')?.addEventListener('click',()=>{
   if(socket&&socket.connected){
-    socket.emit('join',{name:myName,color:myColor,flag:myFlag});
-    // dead screen hidden by init handler after server confirms new player
+    socket.emit('rejoin');
+    // dead screen hidden by init handler after server confirms
   }
 });
 document.querySelector('#lobby')?.addEventListener('keydown',e=>{if(e.key==='Enter')connect();});
@@ -1162,6 +1162,12 @@ initMobile();
 
 // ── Sound System ──────────────────────────────────────────────
 let soundEnabled=true;
+function isOnScreen(x,y){
+  if(predX===null)return false;
+  const SW2=window.innerWidth,SH2=window.innerHeight;
+  const margin=100; // small buffer
+  return x>=camX-margin&&x<=camX+SW2+margin&&y>=camY-margin&&y<=camY+SH2+margin;
+}
 let _AC=null;
 function getAC(){if(!_AC)_AC=new(window.AudioContext||window.webkitAudioContext)();return _AC;}
 

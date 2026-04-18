@@ -103,10 +103,20 @@ io.on('connection',sock=>{
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
     io.emit('playerList',pList());
   });
-  sock.on('input',({vx,vy})=>{const p=players[sock.id];if(!p)return;p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);});
+  sock.on('input',({vx,vy})=>{const p=players[sock.id];if(!p||p._dead)return;p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);});
   sock.on('speed',()=>{const p=players[sock.id];if(!p||p.inv.speed<=0)return;p.inv.speed--;p.speedEnd=Date.now()+2000;});
   sock.on('shield',()=>{const p=players[sock.id];if(!p||p.inv.shield<=0)return;p.inv.shield--;p.shieldEnd=Date.now()+5000;});
   sock.on('stealth',()=>{const p=players[sock.id];if(!p||p.inv.stealth<=0)return;p.inv.stealth--;p.stealthEnd=Date.now()+5000;});
+  sock.on('rejoin',()=>{
+    const p=players[sock.id];if(!p)return;
+    p._dead=false;
+    p.mass=300;p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
+    p.vx=0;p.vy=0;p.shieldEnd=Date.now()+5000;p.stealthEnd=0;p._dashing=0;
+    p.inv={speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0};
+    p.speedEnd=0;p.magnetEnd=0;p.bulletEnd=0;
+    p.cdQ=0;p.cdW=0;p.cdR=0;p.cdB=0;p._lastShot=0;
+    sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
+  });
   sock.on('bomb',({nx,ny})=>{
     const p=players[sock.id];if(!p||p.inv.bomb<=0||p.cdB>0)return;
     p.inv.bomb--;p.cdB=1500;const r=mtr(p.mass);
@@ -158,11 +168,9 @@ function qet(id,ev,d){pending.push({ev,d,to:id});}
 
 function respawnPlayer(p,by){
   qet(p.id,'died',{by});
-  p.mass=300;p.x=rnd(BMIN+300,BMAX-300);p.y=rnd(BMIN+300,BMAX-300);
-  p.vx=0;p.vy=0;p.shieldEnd=Date.now()+5000;p.stealthEnd=0;p._dashing=0;
-  p.inv={speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0};
-  p.speedEnd=0;p.magnetEnd=0;p.bulletEnd=0;
-  p.cdQ=0;p.cdW=0;p.cdR=0;p.cdB=0;p._lastShot=0;p.inputVx=0;p.inputVy=0;
+  p._dead=true; // freeze until player clicks Play Again
+  p.vx=0;p.vy=0;p.inputVx=0;p.inputVy=0;
+  // Don't reset position yet - wait for rejoin event
 }
 
 // Inscribed circle: R eats r when R>r AND d <= R-r
@@ -193,7 +201,7 @@ function physics(now){
     const pr=mtr(p.mass);
     p.x=clamp(p.x+p.vx,BMIN+pr,BMAX-pr);p.y=clamp(p.y+p.vy,BMIN+pr,BMAX-pr);
     p.mass=clamp(p.mass,10,10000);
-    if(now<p.stealthEnd)continue; // stealthed: skip all eating
+    if(p._dead||now<p.stealthEnd)continue; // dead or stealthed: skip all eating
     // Eat food
     for(const fi of gnear(p.x,p.y,pr+15)){
       const f=food[fi];
@@ -230,10 +238,10 @@ function physics(now){
   // ── PvP ──────────────────────────────────────────────────────
   for(let i=0;i<PL;i++){
     const p=PA[i],pr=mtr(p.mass);
-    if(now<p.stealthEnd)continue;
+    if(p._dead||now<p.stealthEnd)continue;
     for(let j=0;j<PL;j++){
       if(i===j)continue;const q=PA[j];
-      if(now<q.shieldEnd||now<q.stealthEnd)continue;
+      if(q._dead||now<q.shieldEnd||now<q.stealthEnd)continue;
       const qr=mtr(q.mass);
       if(eats(pr,qr,dst2(p.x,p.y,q.x,q.y))){
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
@@ -251,7 +259,7 @@ function physics(now){
     if(b.life<=0||b.x<BMIN||b.x>BMAX||b.y<BMIN||b.y>BMAX){bullets.splice(i,1);continue;}
     let hit=false;
     for(let j=0;j<PL&&!hit;j++){
-      const p=PA[j];if(p.id===b.owner||now<p.shieldEnd||now<p.stealthEnd)continue;
+      const p=PA[j];if(p._dead||p.id===b.owner||now<p.shieldEnd||now<p.stealthEnd)continue;
       if(dst2(b.x,b.y,p.x,p.y)<(b.r+mtr(p.mass))*(b.r+mtr(p.mass))){
         const _ib=b.type==='bomb';
         p.mass=_ib?Math.max(15,p.mass*0.5):Math.max(15,p.mass-(b.dmg||5));
@@ -339,7 +347,7 @@ function physics(now){
     bot.x=clamp(bot.x+bot.vx,BMIN+br,BMAX-br);bot.y=clamp(bot.y+bot.vy,BMIN+br,BMAX-br);
     // Bot vs player
     for(let j=0;j<PL;j++){
-      const p=PA[j];if(now<p.shieldEnd||now<p.stealthEnd)continue;
+      const p=PA[j];if(p._dead||now<p.shieldEnd||now<p.stealthEnd)continue;
       const pr=mtr(p.mass);
       if(eats(br,pr,dst2(bot.x,bot.y,p.x,p.y))){
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
