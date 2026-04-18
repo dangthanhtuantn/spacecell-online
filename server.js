@@ -396,7 +396,7 @@ function broadcast(now){
     for(let j=0;j<PL;j++){
       const q=PA[j];
       if(j!==i&&dst2(p.x,p.y,q.x,q.y)>=aoi2)continue;
-      if(j!==i&&now<q.stealthEnd)continue; // stealthed invisible to others
+      if(j!==i&&(q._dead||now<q.stealthEnd))continue; // dead/stealthed invisible to others
       vP.push({i:q.id,n:q.name,c:q.color,f:q.flag,x:Math.round(q.x),y:Math.round(q.y),m:Math.round(q.mass),
         sh:now<q.shieldEnd?1:0,st:now<q.stealthEnd?1:0,inv:q.inv,
         cQ:q.cdQ,cW:q.cdW,cR:q.cdR,cB:q.cdB,
