@@ -309,7 +309,7 @@ function physics(now){
       bot.at=rnd(800,2000);
       let fx=0,fy=0,flee=false,attackTarget=null,attackScore=-Infinity;
       for(let j=0;j<PL;j++){
-        const p=PA[j];if(now<p.stealthEnd)continue;
+        const p=PA[j];if(p._dead||now<p.stealthEnd)continue;
         const d2=dst2(bot.x,bot.y,p.x,p.y);
         const d=Math.sqrt(d2)||1;
         if(mtr(p.mass)>br){ // player bigger
@@ -336,8 +336,8 @@ function physics(now){
     // Live track chased player position every tick
     if(bot._chaseId){
       const target=PA.find(p=>p.id===bot._chaseId);
-      if(target&&mtr(target.mass)<br){bot.atx=target.x;bot.aty=target.y;}
-      else bot._chaseId=null; // player got bigger or left - stop chasing
+      if(target&&!target._dead&&mtr(target.mass)<br){bot.atx=target.x;bot.aty=target.y;}
+      else bot._chaseId=null; // player got bigger, died, or left
     }
     // Move toward target
     const dx=bot.atx-bot.x,dy=bot.aty-bot.y,dl=Math.hypot(dx,dy)||1;
@@ -363,7 +363,7 @@ function physics(now){
     if(bot.st<=0){
       bot.st=7;
       for(let j=0;j<PL;j++){
-        const p=PA[j];if(now<p.stealthEnd)continue;
+        const p=PA[j];if(p._dead||now<p.stealthEnd)continue;
         const d2=dst2(bot.x,bot.y,p.x,p.y);
         if(d2>1&&d2<200000){
           const d=Math.sqrt(d2),nx=(p.x-bot.x)/d,ny=(p.y-bot.y)/d;
