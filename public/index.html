@@ -420,7 +420,7 @@ function connect(){
     // predX=null will be set when respawning (in init handler)
     // Don't reset predX here - keep showing current area
   });
-  socket.on('explode',({x,y,nx,ny,r,col,big,item,bomb})=>{if(big&&!item&&!bomb)sfxExplode();if(item)sfxItem();if(bomb)sfxShoot();
+  socket.on('explode',({x,y,nx,ny,r,col,big,item,bomb})=>{if(big&&!item&&!bomb)sfxExplode();if(item)sfxItem();if(bomb&&!window._bombHitThisFrame)sfxBombImpact();
     if(bomb){
       // Remove ghost bomb if still active (may already be removed by proximity check)
       if(window._lastBombKey){_ghostBullets.delete(window._lastBombKey);window._lastBombKey=null;}
@@ -968,7 +968,7 @@ function loop(){
         if(_d2<(gb.r+_tr)*(gb.r+_tr)){
           _ghostBullets.delete(gid);
           // Trigger sound+spark immediately at impact point (don't wait for server)
-          sfxShoot();
+          sfxBombImpact();
           spark(gb.x,gb.y,'#f80',20,false);
           spark(gb.x,gb.y,'#ff4',8,false);
           window._bombHitThisFrame=true;
@@ -1190,6 +1190,41 @@ function sfxItem(){
 }
 
 
+function sfxBombImpact(){
+  if(!soundEnabled)return;
+  try{
+    const AC=getAC();
+    // A — Impact: heavy boom + sharp crack
+    const o1=AC.createOscillator(),g1=AC.createGain();
+    o1.connect(g1);g1.connect(AC.destination);
+    o1.type='sine';
+    o1.frequency.setValueAtTime(150,AC.currentTime);
+    o1.frequency.exponentialRampToValueAtTime(25,AC.currentTime+0.5);
+    g1.gain.setValueAtTime(1.2,AC.currentTime);
+    g1.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.5);
+    o1.start();o1.stop(AC.currentTime+0.5);
+    // Mid noise burst
+    const buf=AC.createBuffer(1,Math.ceil(AC.sampleRate*0.4),AC.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,0.8);
+    const src=AC.createBufferSource();src.buffer=buf;
+    const g2=AC.createGain(),f=AC.createBiquadFilter();
+    f.type='lowpass';f.frequency.value=800;
+    src.connect(f);f.connect(g2);g2.connect(AC.destination);
+    g2.gain.setValueAtTime(1.5,AC.currentTime);
+    g2.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.4);
+    src.start();src.stop(AC.currentTime+0.4);
+    // Sharp crack
+    const o2=AC.createOscillator(),g3=AC.createGain();
+    o2.connect(g3);g3.connect(AC.destination);
+    o2.type='sawtooth';
+    o2.frequency.setValueAtTime(2000,AC.currentTime);
+    o2.frequency.exponentialRampToValueAtTime(100,AC.currentTime+0.05);
+    g3.gain.setValueAtTime(0.8,AC.currentTime);
+    g3.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.05);
+    o2.start();o2.stop(AC.currentTime+0.05);
+  }catch(e){}
+}
 function sfxBotShoot(){
   if(!soundEnabled)return;
   try{
