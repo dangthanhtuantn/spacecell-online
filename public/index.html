@@ -1139,8 +1139,20 @@ function mobileItem(type){
 }
 function mobileBomb(){
   if(!socket||!gameActive||!currentMe)return;
-  const nx=0,ny=1;
+  const cme=currentMe;if(!cme.inv||!cme.inv.bomb)return;
+  // Direction: use joystick if active, else shoot direction, else down
+  let nx=0,ny=1;
+  if(joyActive&&(Math.abs(touchVx)>0.05||Math.abs(touchVy)>0.05)){
+    nx=touchVx;ny=touchVy;
+    const bl=Math.hypot(nx,ny)||1;nx/=bl;ny/=bl;
+  }
   socket.emit('bomb',{nx,ny});
+  // Ghost bomb (same as desktop)
+  if(predX!==null){
+    const _bk='bomb'+Date.now();
+    _ghostBullets.set(_bk,{x:predX,y:predY,vx:nx*16,vy:ny*16,r:14,col:'#f80',life:70,isBomb:true,key:_bk});
+    window._lastBombKey=_bk;
+  }
 }
 
 // Patch input emit to use touch joystick on mobile

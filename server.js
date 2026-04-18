@@ -339,7 +339,7 @@ function physics(now){
     bot.x=clamp(bot.x+bot.vx,BMIN+br,BMAX-br);bot.y=clamp(bot.y+bot.vy,BMIN+br,BMAX-br);
     // Bot vs player
     for(let j=0;j<PL;j++){
-      const p=PA[j];if(now<p.shieldEnd)continue;
+      const p=PA[j];if(now<p.shieldEnd||now<p.stealthEnd)continue;
       const pr=mtr(p.mass);
       if(eats(br,pr,dst2(bot.x,bot.y,p.x,p.y))){
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
