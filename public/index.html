@@ -395,11 +395,12 @@ function connect(){
     const meHud=players.find(p=>p.id===myId);
     if(meHud){
       updateHUD(meHud);
-      // Item pickup sound: detect inv count increase
       if(meHud.inv){
         const inv=meHud.inv;
         if(['speed','shield','stealth','bomb','bullet','magnet'].some(k=>(inv[k]||0)>(_prevInv[k]||0)))sfxItem();
         Object.assign(_prevInv,inv);
+        // Sync local bomb count from server (server is authoritative)
+        _localBombCount=inv.bomb||0;
       }
     }
   });
@@ -512,12 +513,18 @@ function handleKey(code){
   if(code==='KeyS'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.shield)return;socket.emit('shield');}
   if(code==='KeyG'){const cme=currentMe;if(!cme||!cme.inv||!cme.inv.stealth)return;socket.emit('stealth');}
   if(code==='KeyB'){
-    const cme=currentMe;if(!cme||!cme.inv||!cme.inv.bomb)return;
+    const cme=currentMe;
+    // Use min of server inv and local count (to handle rapid taps)
+    const _serverBombs=cme&&cme.inv?cme.inv.bomb:0;
+    const _avail=Math.min(_serverBombs,_localBombCount);
+    if(!cme||_avail<=0||Date.now()<_localBombCd)return;
     const wx=Mouse.x+camX,wy=Mouse.y+camY;
     const bx=predX??camX+SW/2,by=predY??camY+SH/2;
     const dx=wx-bx,dy=wy-by;const bl=Math.hypot(dx,dy)||1;
     const bnx=dx/bl,bny=dy/bl;
     socket.emit('bomb',{nx:bnx,ny:bny});
+    _localBombCd=Date.now()+1500; // match server cdB=1500ms
+    _localBombCount=Math.max(0,_localBombCount-1);
     if(predX!==null){
       const _bk='bomb'+Date.now();
       _ghostBullets.set(_bk,{x:bx,y:by,vx:bnx*16,vy:bny*16,r:14,col:'#f80',life:70,isBomb:true,key:_bk});
@@ -898,6 +905,8 @@ function renderMinimap(interp,me){
 // -> predX === server p.x -> no drift -> no reconcile -> no edge pull
 let predX=null,predY=null,lastLoopT=Date.now(),currentMe=null;
 const _ghostBullets=new Map(); // id->ghost bullet at visual spawn
+let _localBombCd=0; // client-side bomb cooldown (ms timestamp)
+let _localBombCount=0; // client-side bomb count tracking
 let localSpeedEnd=0; // client-side speed prediction for accurate predX
 let dashVx=0,dashVy=0,dashEndT=0; // time-based dash, not frame-based
 
@@ -1139,7 +1148,9 @@ function mobileItem(type){
 }
 function mobileBomb(){
   if(!socket||!gameActive||!currentMe)return;
-  const cme=currentMe;if(!cme.inv||!cme.inv.bomb)return;
+  const cme=currentMe;
+  const _avail=Math.min(cme.inv?cme.inv.bomb:0,_localBombCount);
+  if(_avail<=0||Date.now()<_localBombCd)return;
   // Direction: use joystick if active, else shoot direction, else down
   let nx=0,ny=1;
   if(joyActive&&(Math.abs(touchVx)>0.05||Math.abs(touchVy)>0.05)){
@@ -1147,6 +1158,8 @@ function mobileBomb(){
     const bl=Math.hypot(nx,ny)||1;nx/=bl;ny/=bl;
   }
   socket.emit('bomb',{nx,ny});
+  _localBombCd=Date.now()+1500;
+  _localBombCount=Math.max(0,_localBombCount-1);
   // Ghost bomb (same as desktop)
   if(predX!==null){
     const _bk='bomb'+Date.now();
