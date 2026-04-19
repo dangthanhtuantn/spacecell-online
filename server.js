@@ -249,7 +249,7 @@ function physics(now){
     if(p._dead||now<p.stealthEnd)continue;
     for(let j=0;j<PL;j++){
       if(i===j)continue;const q=PA[j];
-      if(q._dead||now<q.shieldEnd||now<q.stealthEnd)continue;
+      if(q._dead||now<q.stealthEnd)continue; // shield no longer protects from eating
       const qr=mtr(q.mass);
       if(eats(pr,qr,dst2(p.x,p.y,q.x,q.y))){
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
@@ -355,7 +355,7 @@ function physics(now){
     bot.x=clamp(bot.x+bot.vx,BMIN+br,BMAX-br);bot.y=clamp(bot.y+bot.vy,BMIN+br,BMAX-br);
     // Bot vs player
     for(let j=0;j<PL;j++){
-      const p=PA[j];if(p._dead||now<p.shieldEnd||now<p.stealthEnd)continue;
+      const p=PA[j];if(p._dead||now<p.stealthEnd)continue; // shield no longer protects from eating
       const pr=mtr(p.mass);
       if(eats(br,pr,dst2(bot.x,bot.y,p.x,p.y))){
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
