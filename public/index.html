@@ -514,7 +514,7 @@ window.addEventListener('touchstart',e=>{
 window.addEventListener('mouseup',e=>{if(e.button===0)mouseDown=false;});
 
 function handleKey(code){
-  if(!socket||!myId||!gameActive)return;
+  if(!socket||!myId||!gameActive||_isDead())return;
   // Get self from interpolated state for checks
   const interp=getInterp();
   const me=interp.players.find(p=>p.id===myId);
@@ -546,8 +546,9 @@ function handleKey(code){
 
 // Send input every tick
 let _lastShot=0;
+function _isDead(){return document.getElementById('dead')?.style.display==='flex';}
 setInterval(()=>{
-  if(!socket||!myId||!gameActive)return;
+  if(!socket||!myId||!gameActive||_isDead())return;
   // Input: joystick on mobile (0,0 when not touching), mouse on PC
   let _ivx,_ivy;
   if(isMobile){_ivx=joyActive?touchVx:0;_ivy=joyActive?touchVy:0;}
@@ -1152,12 +1153,12 @@ function initMobile(){
 }
 
 function mobileItem(type){
-  if(!socket||!gameActive)return;
+  if(!socket||!gameActive||_isDead())return;
   socket.emit(type);
   if(type==='speed')localSpeedEnd=Date.now()+2000;
 }
 function mobileBomb(){
-  if(!socket||!gameActive||!currentMe)return;
+  if(!socket||!gameActive||!currentMe||_isDead())return;
   const cme=currentMe;
   const _avail=Math.min(cme.inv?cme.inv.bomb:0,_localBombCount);
   if(_avail<=0||Date.now()<_localBombCd)return;

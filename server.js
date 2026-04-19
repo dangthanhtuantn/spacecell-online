@@ -104,9 +104,9 @@ io.on('connection',sock=>{
     io.emit('playerList',pList());
   });
   sock.on('input',({vx,vy})=>{const p=players[sock.id];if(!p||p._dead)return;p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);});
-  sock.on('speed',()=>{const p=players[sock.id];if(!p||p.inv.speed<=0)return;p.inv.speed--;p.speedEnd=Date.now()+2000;});
-  sock.on('shield',()=>{const p=players[sock.id];if(!p||p.inv.shield<=0)return;p.inv.shield--;p.shieldEnd=Date.now()+5000;});
-  sock.on('stealth',()=>{const p=players[sock.id];if(!p||p.inv.stealth<=0)return;p.inv.stealth--;p.stealthEnd=Date.now()+5000;});
+  sock.on('speed',()=>{const p=players[sock.id];if(!p||p._dead||p.inv.speed<=0)return;p.inv.speed--;p.speedEnd=Date.now()+2000;});
+  sock.on('shield',()=>{const p=players[sock.id];if(!p||p._dead||p.inv.shield<=0)return;p.inv.shield--;p.shieldEnd=Date.now()+5000;});
+  sock.on('stealth',()=>{const p=players[sock.id];if(!p||p._dead||p.inv.stealth<=0)return;p.inv.stealth--;p.stealthEnd=Date.now()+5000;});
   sock.on('rejoin',()=>{
     const p=players[sock.id];if(!p)return;
     p._dead=false;
@@ -119,12 +119,12 @@ io.on('connection',sock=>{
     io.emit('playerList',pList()); // update leaderboard when player rejoins
   });
   sock.on('bomb',({nx,ny})=>{
-    const p=players[sock.id];if(!p||p.inv.bomb<=0||p.cdB>0)return;
+    const p=players[sock.id];if(!p||p._dead||p.inv.bomb<=0||p.cdB>0)return;
     p.inv.bomb--;p.cdB=1500;const r=mtr(p.mass);
     bullets.push({id:uid(),x:p.x,y:p.y,vx:nx*16,vy:ny*16,type:'bomb',r:14,life:64,col:'#f80',owner:sock.id,dmg:0});
   });
   sock.on('shoot',({nx,ny})=>{
-    const p=players[sock.id];if(!p||p.mass<=300)return;
+    const p=players[sock.id];if(!p||p._dead||p.mass<=300)return;
     const now=Date.now();
     const bulletActive=now<p.bulletEnd;
     if(now-p._lastShot<(bulletActive?125:250))return;
@@ -172,7 +172,10 @@ function respawnPlayer(p,by){
   qet(p.id,'died',{by});
   p._dead=true; // freeze until player clicks Play Again
   p.vx=0;p.vy=0;p.inputVx=0;p.inputVy=0;
-  // Don't reset position yet - wait for rejoin event
+  // Reset all items and cooldowns on death
+  p.inv={speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0};
+  p.speedEnd=0;p.magnetEnd=0;p.bulletEnd=0;p.stealthEnd=0;
+  p.cdQ=0;p.cdW=0;p.cdR=0;p.cdB=0;p._lastShot=0;
 }
 
 // Inscribed circle: R eats r when R>r AND d <= R-r
@@ -212,10 +215,13 @@ function physics(now){
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
       }
     }
-      // Eat items
+      // Eat items — use predicted position to match client visual (compensate INTERP_DELAY drift)
+    const _predFactor=spd*(150/TICK_MS)*0.7; // ~70% of max drift
+    const _px=p.x+p.inputVx*_predFactor;
+    const _py=p.y+p.inputVy*_predFactor;
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(dst2(p.x,p.y,it.x,it.y)<(pr+it.r)*(pr+it.r)){
+      if(dst2(_px,_py,it.x,it.y)<(pr+it.r)*(pr+it.r)){
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
