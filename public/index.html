@@ -359,6 +359,16 @@ function connect(){
     dashEndT=0;dashVx=0;dashVy=0;
     mouseDown=false;
     Object.keys(Keys).forEach(k=>delete Keys[k]);
+    // Clear all transient state
+    parts.length=0; // clear explosion particles
+    _ghostBullets.clear(); // clear ghost bullets
+    window._lastBombKey=null;
+    window._bombHitThisFrame=false;
+    window._prevBullets=[];
+    _localBombCd=0; // reset bomb cooldown
+    _localBombCount=0; // will sync from server state
+    localSpeedEnd=0; // reset speed prediction
+    _prevInv={speed:0,shield:0,stealth:0,bomb:0,bullet:0,magnet:0};
     // Always reset camera to center on join/respawn - player spawns at random location
     // Camera will follow player as soon as first state arrives (~33ms)
     camX=GW/2-window.innerWidth/2;camY=GH/2-window.innerHeight/2;
