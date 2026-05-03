@@ -194,7 +194,7 @@ function respawnPlayer(p,by){
 }
 
 // Inscribed circle: R eats r when R>r AND d <= R-r
-function eats(R,r,d2){if(R<=r)return false;const t=(R+r)*0.6;return d2<t*t;} // compromise: 60% of sum
+function eats(R,r,d2){if(R<=r)return false;const t=(R-r)+10;return d2<t*t;} // inscribed + 10px lag buffer
 
 let _lastTick=0;
 function tick(){
