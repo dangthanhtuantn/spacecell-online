@@ -194,7 +194,7 @@ function respawnPlayer(p,by){
 }
 
 // Inscribed circle: R eats r when R>r AND d <= R-r
-function eats(R,r,d2,M,m){if(!M||!m||M<m*1.1)return false;return d2<(R+r)*(R+r);} // mass 10% bigger + overlap
+function eats(R,r,d2,M,m){if(!M||!m||M<m*1.1)return false;const t=(R-r)+15;return d2<t*t;} // mass 10% bigger + inscribed+15px
 
 let _lastTick=0;
 function tick(){
