@@ -799,33 +799,10 @@ function render(){
   for(const [,gb] of _ghostBullets){if(gb.isBomb)drawBullet(gb,true);}
   // Draw ALL server bullets (own shots now shown at server position for consistent collision visual)
   // Own normal bullets: hide only while still inside player radius (just spawned)
-  const _me3=currentMe;
   (interp.bullets||[]).forEach(b=>{
-    if(b.owner===myId&&b.type!=='bomb'&&_me3&&predX!==null){
-      const _pr=mtr(_me3.mass);
-      const _bspd=Math.hypot(b.vx,b.vy)||1;
-      const _bnx=b.vx/_bspd,_bny=b.vy/_bspd;
-      // Dot product: how far bullet traveled from server player in shoot direction
-      const _dot=(b.x-_me3.x)*_bnx+(b.y-_me3.y)*_bny;
-      if(_dot<_pr)return; // hide until past player edge
-      // Lock visual offset at first appearance moment
-      if(!_bulletOffsets[b.id]){
-        // Desired position: visual player edge in shoot direction
-        _bulletOffsets[b.id]={
-          ox: predX + _pr*_bnx - b.x,
-          oy: predY + _pr*_bny - b.y
-        };
-      }
-      const _off=_bulletOffsets[b.id];
-      drawBullet({...b, x:b.x+_off.ox, y:b.y+_off.oy}, false);
-      return;
-    }
-    if(b.type==='bomb'&&b.owner===myId)return;
+    if(b.type==='bomb'&&b.owner===myId)return; // own bombs shown as ghost
     drawBullet(b,b.type==='bomb');
   });
-  // Cleanup offsets for bullets no longer in flight
-  const _activeBulletIds=new Set((interp.bullets||[]).map(b=>b.id));
-  Object.keys(_bulletOffsets).forEach(id=>{if(!_activeBulletIds.has(id))delete _bulletOffsets[id];});
 
   // Bots
   (interp.bots||[]).forEach(drawBot);
