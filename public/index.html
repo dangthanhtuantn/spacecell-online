@@ -800,10 +800,11 @@ function render(){
   // Own normal bullets: hide only while still inside player radius (just spawned)
   const _me3=currentMe;
   (interp.bullets||[]).forEach(b=>{
-    if(b.owner===myId&&b.type!=='bomb'&&_me3){
+    if(b.owner===myId&&b.type!=='bomb'&&_me3&&predX!==null){
       const _pr=mtr(_me3.mass);
-      const _d2=(b.x-(_me3.x))**2+(b.y-(_me3.y))**2;
-      if(_d2<_pr*_pr)return; // hide while inside player
+      // Use predX/predY (visual player position) for hide check
+      const _d2=(b.x-predX)**2+(b.y-predY)**2;
+      if(_d2<_pr*_pr)return; // hide while inside visual player
     }
     if(b.type==='bomb'&&b.owner===myId)return; // own bombs shown as ghost
     drawBullet(b,b.type==='bomb');
