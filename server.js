@@ -207,28 +207,6 @@ function physics(now){
     p.x=clamp(p.x+p.vx,BMIN+pr,BMAX-pr);p.y=clamp(p.y+p.vy,BMIN+pr,BMAX-pr);
     p.mass=clamp(p.mass,10,10000);
     if(p._dead||now<p.stealthEnd)continue; // dead or stealthed: skip all eating
-    // Magnet pull: attract nearby food and items (15px outside eat zone)
-    for(const fi of gnear(p.x,p.y,pr+27)){
-      const f=food[fi];if(!f)continue; // FIX: continue not return
-      const _eatR=pr+f.r;
-      const _d2=dst2(p.x,p.y,f.x,f.y);
-      if(_d2>_eatR*_eatR&&_d2<(_eatR+15)*(_eatR+15)){
-        const _d=Math.sqrt(_d2)||1;
-        const _pull=2.5;
-        f.x=clamp(f.x+(p.x-f.x)/_d*_pull,BMIN,BMAX); // clamp bounds
-        f.y=clamp(f.y+(p.y-f.y)/_d*_pull,BMIN,BMAX);
-      }
-    }
-    for(let _ji=items.length-1;_ji>=0;_ji--){
-      const _it=items[_ji];if(!_it.pickup)continue;
-      const _eatR2=pr+_it.r;
-      const _d2=dst2(p.x,p.y,_it.x,_it.y);
-      if(_d2>_eatR2*_eatR2&&_d2<(_eatR2+15)*(_eatR2+15)){
-        const _d=Math.sqrt(_d2)||1;
-        _it.x=clamp(_it.x+(p.x-_it.x)/_d*2.5,BMIN+_it.r,BMAX-_it.r);
-        _it.y=clamp(_it.y+(p.y-_it.y)/_d*2.5,BMIN+_it.r,BMAX-_it.r);
-      }
-    }
     // Eat food
     for(const fi of gnear(p.x,p.y,pr+15)){
       const f=food[fi];
