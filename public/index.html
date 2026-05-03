@@ -799,16 +799,20 @@ function render(){
   // Draw ALL server bullets (own shots now shown at server position for consistent collision visual)
   // Own normal bullets: hide only while still inside player radius (just spawned)
   const _me3=currentMe;
+  // Compute drift: visual player pos - server player pos
+  const _driftX=(_me3&&predX!==null)?predX-_me3.x:0;
+  const _driftY=(_me3&&predY!==null)?predY-_me3.y:0;
   (interp.bullets||[]).forEach(b=>{
     if(b.owner===myId&&b.type!=='bomb'&&_me3){
       const _pr=mtr(_me3.mass);
       const _bspd=Math.hypot(b.vx,b.vy)||1;
-      const _bnx=b.vx/_bspd,_bny=b.vy/_bspd; // shoot direction
-      // Dot product: how far bullet has traveled in shoot direction from player
-      // Use server player pos (same reference frame as bullet)
-      const _sx=_me3.x??predX,_sy=_me3.y??predY;
-      const _dot=(b.x-_sx)*_bnx+(b.y-_sy)*_bny;
-      if(_dot<_pr)return; // hide until bullet exits player edge in shoot direction
+      const _bnx=b.vx/_bspd,_bny=b.vy/_bspd;
+      // Dot product from server player pos (same frame as bullet)
+      const _dot=(b.x-_me3.x)*_bnx+(b.y-_me3.y)*_bny;
+      if(_dot<_pr)return; // hide until bullet past player edge in shoot direction
+      // Render own bullet with drift offset → appears at visual player edge
+      drawBullet({...b,x:b.x+_driftX,y:b.y+_driftY},false);
+      return;
     }
     if(b.type==='bomb'&&b.owner===myId)return; // own bombs shown as ghost
     drawBullet(b,b.type==='bomb');
