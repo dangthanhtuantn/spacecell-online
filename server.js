@@ -145,12 +145,12 @@ io.on('connection',sock=>{
     if(now-p._lastShot<(bulletActive?125:250))return;
     p._lastShot=now;p.mass-=1;const r=mtr(p.mass);
     const dmg=bulletActive?30:10;
-    bullets.push({id:uid(),x:p.x,y:p.y,vx:nx*16,vy:ny*16,type:'shot',r:3,life:64,col:p.color,owner:sock.id,dmg});
+    bullets.push({id:uid(),x:p.x+nx*(r+3),y:p.y+ny*(r+3),vx:nx*16,vy:ny*16,type:'shot',r:3,life:64,col:p.color,owner:sock.id,dmg});
     if(p.inv.bullet>0&&now>=p.bulletEnd){p.inv.bullet--;p.bulletEnd=now+10000;}
     if(bulletActive){
       const bpx=-ny,bpy=nx;
-      bullets.push({id:uid(),x:p.x,y:p.y,vx:(nx+bpx*0.15)*16,vy:(ny+bpy*0.15)*16,type:'shot',r:3,life:64,col:'#ff4',owner:sock.id,dmg});
-      bullets.push({id:uid(),x:p.x,y:p.y,vx:(nx-bpx*0.15)*16,vy:(ny-bpy*0.15)*16,type:'shot',r:3,life:64,col:'#ff4',owner:sock.id,dmg});
+      bullets.push({id:uid(),x:p.x+nx*(r+3),y:p.y+ny*(r+3),vx:(nx+bpx*0.15)*16,vy:(ny+bpy*0.15)*16,type:'shot',r:3,life:64,col:'#ff4',owner:sock.id,dmg});
+      bullets.push({id:uid(),x:p.x+nx*(r+3),y:p.y+ny*(r+3),vx:(nx-bpx*0.15)*16,vy:(ny-bpy*0.15)*16,type:'shot',r:3,life:64,col:'#ff4',owner:sock.id,dmg});
     }
   });
   let _chatCd=0;
