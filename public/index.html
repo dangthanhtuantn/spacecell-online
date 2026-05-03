@@ -188,7 +188,7 @@ canvas{display:block;touch-action:none;}
 <script>
 // ── Config ────────────────────────────────────────────────────
 const TICK_MS=33;
-const INTERP_DELAY=150;
+const INTERP_DELAY=80;
 
 // ── Color picker init ─────────────────────────────────────────
 const COLORS=['#00cfff','#ff4466','#44ff88','#ffaa00','#aa44ff','#ff44aa'];
@@ -576,16 +576,7 @@ setInterval(()=>{
           _snx=dx/l;_sny=dy/l;
         }
         socket.emit('shoot',{nx:_snx,ny:_sny});sfxShoot();
-        // Ghost bullets at visual position
-        if(predX!==null&&currentMe){
-          const _t=Date.now();
-          _ghostBullets.set('g'+_t+'0',{x:predX,y:predY,vx:_snx*16,vy:_sny*16,r:3,col:currentMe.color,life:70});
-          if(bulletOn){
-            const _bpx=-_sny,_bpy=_snx;
-            _ghostBullets.set('g'+_t+'1',{x:predX,y:predY,vx:(_snx+_bpx*0.15)*16,vy:(_sny+_bpy*0.15)*16,r:3,col:'#ff4',life:70});
-            _ghostBullets.set('g'+_t+'2',{x:predX,y:predY,vx:(_snx-_bpx*0.15)*16,vy:(_sny-_bpy*0.15)*16,r:3,col:'#ff4',life:70});
-          }
-        }
+        // Ghost shots removed - server bullets used for consistent visual collision
 
       }
     }
@@ -803,11 +794,18 @@ function render(){
   }
   // Show all bullets including own — identical behavior for player and bot
   // Shift own bullets by prediction drift so they appear from visual player center
-  // Draw ghost bullets (updated in loop)
-  for(const [,gb] of _ghostBullets) drawBullet(gb,!!gb.isBomb);
-  // Draw server bullets - never show own bullets (use ghost instead)
+  // Draw ghost bombs only (not ghost bullets - use server bullets instead)
+  for(const [,gb] of _ghostBullets){if(gb.isBomb)drawBullet(gb,true);}
+  // Draw ALL server bullets (own shots now shown at server position for consistent collision visual)
+  // Own normal bullets: hide only while still inside player radius (just spawned)
+  const _me3=currentMe;
   (interp.bullets||[]).forEach(b=>{
-    if(b.owner===myId)return; // own bullets: use ghost only
+    if(b.owner===myId&&b.type!=='bomb'&&_me3){
+      const _pr=mtr(_me3.mass);
+      const _d2=(b.x-(_me3.x))**2+(b.y-(_me3.y))**2;
+      if(_d2<_pr*_pr)return; // hide while inside player
+    }
+    if(b.type==='bomb'&&b.owner===myId)return; // own bombs shown as ghost
     drawBullet(b,b.type==='bomb');
   });
 
@@ -972,9 +970,10 @@ function loop(){
   }
 
 
-  // Update ghost bullets with dtFrac
+  // Update ghost bullets with dtFrac (only bombs - shots use server bullets now)
   const _interpNow=getInterp();
   for(const [gid,gb] of _ghostBullets){
+    if(!gb.isBomb){_ghostBullets.delete(gid);continue;} // remove old shot ghosts
     gb.x+=gb.vx*dtFrac;gb.y+=gb.vy*dtFrac;gb.life-=dtFrac;
     if(gb.life<=0){_ghostBullets.delete(gid);continue;}
     // Client-side bomb stop: if ghost bomb near any target, stop it
