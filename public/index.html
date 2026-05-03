@@ -553,7 +553,7 @@ setInterval(()=>{
   let _ivx,_ivy;
   if(isMobile){_ivx=joyActive?touchVx:0;_ivy=joyActive?touchVy:0;}
   else{const mdx=Mouse.x-SW/2,mdy=Mouse.y-SH/2,ml=Math.hypot(mdx,mdy)||1;_ivx=ml>15?mdx/ml:0;_ivy=ml>15?mdy/ml:0;}
-  socket.emit('input',{vx:_ivx,vy:_ivy});
+  socket.emit('input',{vx:_ivx,vy:_ivy,px:predX??undefined,py:predY??undefined});
   // Shoot on mouse click (PC) or fire button (mobile)
   if(mouseDown||touchShoot){
     const now=Date.now();

@@ -77,7 +77,7 @@ function mkPlayer(id,name,color,flag){
     inv:{speed:0,shield:0,stealth:0,bomb:0,magnet:0,bullet:0},
     speedEnd:0,magnetEnd:0,bulletEnd:0,
     cdQ:0,cdW:0,cdR:0,cdB:0,_lastShot:0,
-    inputVx:0,inputVy:0};
+    inputVx:0,inputVy:0,predX:null,predY:null};
 }
 
 // ── State ─────────────────────────────────────────────────────
@@ -103,7 +103,22 @@ io.on('connection',sock=>{
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
     io.emit('playerList',pList());
   });
-  sock.on('input',({vx,vy})=>{const p=players[sock.id];if(!p||p._dead)return;p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);});
+  sock.on('input',({vx,vy,px,py})=>{
+    const p=players[sock.id];if(!p||p._dead)return;
+    p.inputVx=clamp(vx,-1,1);p.inputVy=clamp(vy,-1,1);
+    // Validate and store client predicted position for food/item collision
+    if(px!=null&&py!=null){
+      const spd=8/(1+p.mass/1000);
+      const maxDrift=spd*8; // 8 ticks tolerance
+      if(dst2(px,py,p.x,p.y)<maxDrift*maxDrift){
+        p.predX=px;p.predY=py;
+      } else {
+        p.predX=p.x;p.predY=p.y; // reject: use server pos
+      }
+    } else {
+      p.predX=p.x;p.predY=p.y;
+    }
+  });
   sock.on('speed',()=>{const p=players[sock.id];if(!p||p._dead||p.inv.speed<=0)return;p.inv.speed--;p.speedEnd=Date.now()+2000;});
   sock.on('shield',()=>{const p=players[sock.id];if(!p||p._dead||p.inv.shield<=0)return;p.inv.shield--;p.shieldEnd=Date.now()+5000;});
   sock.on('stealth',()=>{const p=players[sock.id];if(!p||p._dead||p.inv.stealth<=0)return;p.inv.stealth--;p.stealthEnd=Date.now()+5000;});
@@ -207,21 +222,19 @@ function physics(now){
     p.x=clamp(p.x+p.vx,BMIN+pr,BMAX-pr);p.y=clamp(p.y+p.vy,BMIN+pr,BMAX-pr);
     p.mass=clamp(p.mass,10,10000);
     if(p._dead||now<p.stealthEnd)continue; // dead or stealthed: skip all eating
-    // Eat food
-    for(const fi of gnear(p.x,p.y,pr+15)){
+    // Eat food — use client predicted position for accurate visual match
+    const _cx=p.predX||p.x, _cy=p.predY||p.y;
+    for(const fi of gnear(_cx,_cy,pr+15)){
       const f=food[fi];
-      if(dst2(p.x,p.y,f.x,f.y)<(pr+f.r)*(pr+f.r)){
+      if(dst2(_cx,_cy,f.x,f.y)<(pr+f.r)*(pr+f.r)){
         p.mass=Math.min(10000,p.mass+f.mass);eatFood(fi);
         io.emit('foodEaten',{ni:fi,nf:food[fi]});
       }
     }
-      // Eat items — use predicted position to match client visual (compensate INTERP_DELAY drift)
-    const _predFactor=spd*(150/TICK_MS)*0.7; // ~70% of max drift
-    const _px=p.x+p.inputVx*_predFactor;
-    const _py=p.y+p.inputVy*_predFactor;
+      // Eat items — use client predicted position for accurate visual match
     for(let j=items.length-1;j>=0;j--){
       const it=items[j];if(!it.pickup)continue;
-      if(dst2(_px,_py,it.x,it.y)<(pr+it.r)*(pr+it.r)){
+      if(dst2(_cx,_cy,it.x,it.y)<(pr+it.r)*(pr+it.r)){
         if(it.type==='SPEED')p.inv.speed++;
         else if(it.type==='SHIELD')p.inv.shield++;
         else if(it.type==='STEALTH')p.inv.stealth++;
@@ -238,8 +251,8 @@ function physics(now){
     items.forEach(it=>{if(it.type==='TOXIC'&&dst2(p.x,p.y,it.x,it.y)<15000)p.mass=Math.max(10,p.mass*0.999);});
     // Magnet
     if(now<p.magnetEnd){
-      const rad=mtr(p.mass)+133,near=gnear(p.x,p.y,rad);
-      near.forEach(fi=>{if(dst2(p.x,p.y,food[fi].x,food[fi].y)<rad*rad){p.mass=Math.min(10000,p.mass+food[fi].mass);eatFood(fi);io.emit('foodEaten',{ni:fi,nf:food[fi]});}});
+      const rad=mtr(p.mass)+133,near=gnear(_cx,_cy,rad);
+      near.forEach(fi=>{if(dst2(_cx,_cy,food[fi].x,food[fi].y)<rad*rad){p.mass=Math.min(10000,p.mass+food[fi].mass);eatFood(fi);io.emit('foodEaten',{ni:fi,nf:food[fi]});}});
     }
   }
 
