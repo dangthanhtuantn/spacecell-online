@@ -362,6 +362,7 @@ function connect(){
     // Clear all transient state
     parts.length=0; // clear explosion particles
     _ghostBullets.clear(); // clear ghost bullets
+    Object.keys(_bulletOffsets).forEach(k=>delete _bulletOffsets[k]);
     window._lastBombKey=null;
     window._bombHitThisFrame=false;
     window._prevBullets=[];
@@ -799,24 +800,32 @@ function render(){
   // Draw ALL server bullets (own shots now shown at server position for consistent collision visual)
   // Own normal bullets: hide only while still inside player radius (just spawned)
   const _me3=currentMe;
-  // Compute drift: visual player pos - server player pos
-  const _driftX=(_me3&&predX!==null)?predX-_me3.x:0;
-  const _driftY=(_me3&&predY!==null)?predY-_me3.y:0;
   (interp.bullets||[]).forEach(b=>{
-    if(b.owner===myId&&b.type!=='bomb'&&_me3){
+    if(b.owner===myId&&b.type!=='bomb'&&_me3&&predX!==null){
       const _pr=mtr(_me3.mass);
       const _bspd=Math.hypot(b.vx,b.vy)||1;
       const _bnx=b.vx/_bspd,_bny=b.vy/_bspd;
-      // Dot product from server player pos (same frame as bullet)
+      // Dot product: how far bullet traveled from server player in shoot direction
       const _dot=(b.x-_me3.x)*_bnx+(b.y-_me3.y)*_bny;
-      if(_dot<_pr)return; // hide until bullet past player edge in shoot direction
-      // Render own bullet with drift offset → appears at visual player edge
-      drawBullet({...b,x:b.x+_driftX,y:b.y+_driftY},false);
+      if(_dot<_pr)return; // hide until past player edge
+      // Lock visual offset at first appearance moment
+      if(!_bulletOffsets[b.id]){
+        // Desired position: visual player edge in shoot direction
+        _bulletOffsets[b.id]={
+          ox: predX + _pr*_bnx - b.x,
+          oy: predY + _pr*_bny - b.y
+        };
+      }
+      const _off=_bulletOffsets[b.id];
+      drawBullet({...b, x:b.x+_off.ox, y:b.y+_off.oy}, false);
       return;
     }
-    if(b.type==='bomb'&&b.owner===myId)return; // own bombs shown as ghost
+    if(b.type==='bomb'&&b.owner===myId)return;
     drawBullet(b,b.type==='bomb');
   });
+  // Cleanup offsets for bullets no longer in flight
+  const _activeBulletIds=new Set((interp.bullets||[]).map(b=>b.id));
+  Object.keys(_bulletOffsets).forEach(id=>{if(!_activeBulletIds.has(id))delete _bulletOffsets[id];});
 
   // Bots
   (interp.bots||[]).forEach(drawBot);
@@ -923,6 +932,7 @@ function renderMinimap(interp,me){
 // -> predX === server p.x -> no drift -> no reconcile -> no edge pull
 let predX=null,predY=null,lastLoopT=Date.now(),currentMe=null;
 const _ghostBullets=new Map(); // id->ghost bullet at visual spawn
+const _bulletOffsets={}; // per-bullet locked visual offset
 let _localBombCd=0; // client-side bomb cooldown (ms timestamp)
 let _localBombCount=0; // client-side bomb count tracking
 let localSpeedEnd=0; // client-side speed prediction for accurate predX
