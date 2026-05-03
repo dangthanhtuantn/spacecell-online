@@ -194,7 +194,7 @@ function respawnPlayer(p,by){
 }
 
 // Inscribed circle: R eats r when R>r AND d <= R-r
-function eats(R,r,d2){if(R<=r)return false;const t=(R-r)+10;return d2<t*t;} // inscribed + 10px lag buffer
+function eats(R,r,d2,M,m){if(!M||!m||M<m*1.1)return false;return d2<(R+r)*(R+r);} // mass 10% bigger + overlap
 
 let _lastTick=0;
 function tick(){
@@ -264,7 +264,7 @@ function physics(now){
       if(i===j)continue;const q=PA[j];
       if(q._dead||now<q.stealthEnd)continue; // shield no longer protects from eating
       const qr=mtr(q.mass);
-      if(eats(pr,qr,dst2(p.x,p.y,q.x,q.y))){
+      if(eats(pr,qr,dst2(p.x,p.y,q.x,q.y),p.mass,q.mass)){
         p.mass=Math.min(10000,p.mass+q.mass*0.7);
         qe('explode',{x:q.x,y:q.y,col:q.color,big:1,r:mtr(q.mass)});
         qe('msg',{text:p.name+' ate '+q.name+'!',col:'#0ff'});
@@ -370,11 +370,11 @@ function physics(now){
     for(let j=0;j<PL;j++){
       const p=PA[j];if(p._dead||now<p.stealthEnd)continue; // shield no longer protects from eating
       const pr=mtr(p.mass);
-      if(eats(br,pr,dst2(bot.x,bot.y,p.x,p.y))){
+      if(eats(br,pr,dst2(bot.x,bot.y,p.x,p.y),bot.mass,p.mass)){
         bot.mass=Math.min(10000,bot.mass+p.mass*0.7);
         qe('explode',{x:p.x,y:p.y,col:p.color,big:1,r:mtr(p.mass)});
         respawnPlayer(p,bot.name);
-      } else if(eats(pr,br,dst2(p.x,p.y,bot.x,bot.y))){
+      } else if(eats(pr,br,dst2(p.x,p.y,bot.x,bot.y),p.mass,bot.mass)){
         p.mass=Math.min(10000,p.mass+bot.mass*0.7);
         qe('explode',{x:bot.x,y:bot.y,col:bot.col,big:1,r:br});
         bot._deadUntil=now+1500;bot.mass=1;bot.vx=0;bot.vy=0;
