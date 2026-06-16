@@ -797,11 +797,19 @@ function render(){
   // Shift own bullets by prediction drift so they appear from visual player center
   // Draw ghost bombs only (not ghost bullets - use server bullets instead)
   for(const [,gb] of _ghostBullets){if(gb.isBomb)drawBullet(gb,true);}
-  // Draw ALL server bullets (own shots now shown at server position for consistent collision visual)
-  // Own normal bullets: hide only while still inside player radius (just spawned)
+  // Drift correction: my avatar is drawn at the predicted position (predX/predY),
+  // but my bullets arrive at the raw server position from the latest snapshot.
+  // Without this offset the bullet spawn point lags behind my visual edge.
+  let _bdx=0,_bdy=0;
+  if(me){
+    const _latestSelf=snaps[snapHead].players.find(p=>p.id===myId);
+    if(_latestSelf){_bdx=me.x-_latestSelf.x;_bdy=me.y-_latestSelf.y;}
+  }
+  // Draw ALL server bullets (own shots shifted by drift so they leave from my visual edge)
   (interp.bullets||[]).forEach(b=>{
     if(b.type==='bomb'&&b.owner===myId)return; // own bombs shown as ghost
-    drawBullet(b,b.type==='bomb');
+    const mine=b.owner===myId;
+    drawBullet(mine?{...b,x:b.x+_bdx,y:b.y+_bdy}:b,b.type==='bomb');
   });
 
   // Bots
