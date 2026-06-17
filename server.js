@@ -11,7 +11,8 @@ app.use(express.static(path.join(__dirname,'public')));
 // ── Constants ─────────────────────────────────────────────────
 const GW=7200,GH=7200,TICK_MS=33,FOOD_COUNT=1200;
 const BMIN=600,BMAX=6600; // 6000x6000 play zone
-const ITEM_MAX=6,AOI_RANGE=3000;
+const ITEM_BASE=6,ITEM_CAP=14,AOI_RANGE=3000;
+let ITEM_MAX=ITEM_BASE; // dynamic cap per item type — scales up with player count (see rebalanceWorld)
 
 const rnd=(a,b)=>Math.random()*(b-a)+a;
 const dst2=(ax,ay,bx,by)=>(ax-bx)*(ax-bx)+(ay-by)*(ay-by);
@@ -63,7 +64,9 @@ function schedItem(t){setTimeout(()=>spawnItem(t),15000);}
 // ── Bots ──────────────────────────────────────────────────────
 const BNAMES=['Orion','Lyra','Nebula','Vega','Pulsar','Quasar','Sirius','Nova','Titan','Andromeda','Zeta','Rigel','Spica','Altair','Deneb'];
 const BCOLS=['#f55','#f90','#ff4','#4f4','#4cf','#f4f','#fa4','#5fa','#f5a','#af5','#5af','#ff8','#f64','#6f4','#46f'];
-function mkBot(i,mass=500){
+let _botSeq=0;
+function mkBot(mass=500){
+  const i=_botSeq++;
   return{id:'b'+i,x:rnd(BMIN+300,BMAX-300),y:rnd(BMIN+300,BMAX-300),mass,_initMass:mass,vx:0,vy:0,
     col:BCOLS[i%15],name:BNAMES[i%15]+(i>=15?'_'+(i/15|0):''),
     atx:rnd(BMIN+100,BMAX-100),aty:rnd(BMIN+100,BMAX-100),at:rnd(0,1000),st:rnd(0,7)};
@@ -84,15 +87,46 @@ function mkPlayer(id,name,color,flag){
 let players={},bots=[],food=[],items=[],bullets=[],spectators=new Set();
 let _id=0;const uid=()=>(++_id).toString(36);
 
+const BOT_TIERS=[500,1000,1000,2000,2000,2000,2000,5000,5000,10000]; // base distribution, cycled when (re)adding bots
+const BOT_BASE=BOT_TIERS.length; // bot count when the server is empty
+const BOT_MIN=2;                 // never drop below this, even when the server is full
+const SCALE_STEP=2;              // every SCALE_STEP players: -1 bot, +1 item cap
+
 function initWorld(){
   food=Array.from({length:FOOD_COUNT},mkFood);
   items=[];ITYPES.forEach(t=>{for(let i=0;i<ITEM_MAX;i++)spawnItem(t);});
-  const botConfig=[
-    ...Array(1).fill(500),...Array(2).fill(1000),
-    ...Array(4).fill(2000),...Array(2).fill(5000),...Array(1).fill(10000)
-  ];
-  bots=botConfig.map((mass,i)=>mkBot(i,mass));
+  bots=BOT_TIERS.map(mass=>mkBot(mass));
   bullets=[];gbuild();
+}
+
+function targetBotCount(playerCount){return clamp(BOT_BASE-Math.floor(playerCount/SCALE_STEP),BOT_MIN,BOT_BASE);}
+function targetItemCap(playerCount){return clamp(ITEM_BASE+Math.floor(playerCount/SCALE_STEP),ITEM_BASE,ITEM_CAP);}
+
+function rebalanceWorld(){
+  const playerCount=Object.keys(players).length;
+
+  // Bots: shrink/grow toward target. Prefer removing bots that are already
+  // mid-respawn (invisible/inactive) so a live fight never gets cut short.
+  const targetBots=targetBotCount(playerCount);
+  if(bots.length>targetBots){
+    const removeN=bots.length-targetBots;
+    const order=[...bots].sort((a,b)=>{
+      const ad=a._deadUntil?0:1,bd=b._deadUntil?0:1;
+      return ad-bd||a.mass-b.mass;
+    });
+    const drop=new Set(order.slice(0,removeN).map(b=>b.id));
+    bots=bots.filter(b=>!drop.has(b.id));
+  } else if(bots.length<targetBots){
+    let k=bots.length;
+    while(bots.length<targetBots){bots.push(mkBot(BOT_TIERS[k%BOT_TIERS.length]));k++;}
+  }
+
+  // Items: raise the cap and top up. Never remove items already on the map.
+  ITEM_MAX=targetItemCap(playerCount);
+  ITYPES.forEach(t=>{
+    let have=items.filter(x=>x.type===t).length;
+    while(have<ITEM_MAX){spawnItem(t);have++;}
+  });
 }
 
 // ── Sockets ───────────────────────────────────────────────────
@@ -102,6 +136,7 @@ io.on('connection',sock=>{
     players[sock.id]=p;
     sock.emit('init',{id:sock.id,food,items,bots:bots.map(b=>({id:b.id,x:b.x,y:b.y,mass:b.mass,col:b.col,name:b.name})),worldW:GW,worldH:GH});
     io.emit('playerList',pList());
+    rebalanceWorld(); // re-tune bot/item counts for the new player total
   });
   sock.on('input',({vx,vy,px,py})=>{
     const p=players[sock.id];if(!p||p._dead)return;
@@ -172,7 +207,7 @@ io.on('connection',sock=>{
     io.emit('playerList',pList()); // update leaderboard when player rejoins
   });
 
-  sock.on('disconnect',()=>{delete players[sock.id];spectators.delete(sock.id);broadcastViewerCount();io.emit('playerLeft',sock.id);io.emit('playerList',pList());});
+  sock.on('disconnect',()=>{delete players[sock.id];spectators.delete(sock.id);broadcastViewerCount();io.emit('playerLeft',sock.id);io.emit('playerList',pList());rebalanceWorld();});
 });
 
 function pList(){return Object.values(players).filter(p=>!p._dead).map(p=>({id:p.id,name:p.name,mass:Math.floor(p.mass)})).sort((a,b)=>b.mass-a.mass);}
@@ -438,6 +473,7 @@ function broadcast(now){
 
 setInterval(tick,TICK_MS);
 setInterval(()=>io.emit('playerList',pList()),3000);
+setInterval(rebalanceWorld,5000); // periodic safety net in case join/disconnect events are missed
 initWorld();
 const PORT=process.env.PORT||3000;
 server.listen(PORT,()=>console.log('SpaceCell at http://localhost:'+PORT));
